@@ -25,6 +25,8 @@ async function bootstrap() {
     .setTitle('Питомник API')
     .setDescription('QR-отчёты о работах в питомнике')
     .setVersion('1.0')
+    .addBearerAuth()
+    .addSecurityRequirements('bearer')
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });

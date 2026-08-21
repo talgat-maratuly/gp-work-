@@ -1,0 +1,148 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'deploy/docker-compose.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-gp-work-api
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build and push API image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image prefix
+        id: image_vars
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          repo="${repo,,}"
+          echo "image_prefix=ghcr.io/${owner}/${repo}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image_vars.outputs.image_prefix }}/gp-work-api:prod-latest
+            ${{ steps.image_vars.outputs.image_prefix }}/gp-work-api:sha-${{ github.sha }}
+
+  deploy:
+    name: Deploy API to server
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_PATH: /opt/gp-work/api
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image prefix
+        id: image_vars
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repo="${GITHUB_REPOSITORY#*/}"
+          repo="${repo,,}"
+          echo "image_prefix=ghcr.io/${owner}/${repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare remote deploy directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: mkdir -p "${{ env.DEPLOY_PATH }}/uploads/photos"
+
+      - name: Upload docker-compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: deploy/docker-compose.yml
+          target: ${{ env.DEPLOY_PATH }}/
+          strip_components: 1
+
+      - name: Prepare remote environment
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_PREFIX: ${{ steps.image_vars.outputs.image_prefix }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_USERNAME: ${{ vars.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_ADMIN_MODEL: ${{ vars.OPENAI_ADMIN_MODEL }}
+          OPENAI_VISION_MODEL: ${{ vars.OPENAI_VISION_MODEL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL }}
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 10m
+          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+            cat > "${DEPLOY_PATH}/.env" <<EOF
+            API_IMAGE=${IMAGE_PREFIX}/gp-work-api:prod-latest
+            DB_PASSWORD=${DB_PASSWORD}
+            JWT_SECRET=${JWT_SECRET:-gp-work-prod-secret}
+            ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+            ADMIN_PASSWORD=${ADMIN_PASSWORD}
+            OPENAI_API_KEY=${OPENAI_API_KEY}
+            OPENAI_ADMIN_MODEL=${OPENAI_ADMIN_MODEL:-gpt-4o}
+            OPENAI_VISION_MODEL=${OPENAI_VISION_MODEL:-gpt-4o}
+            FRONTEND_URL=${FRONTEND_URL}
+            API_PUBLIC_URL=${API_PUBLIC_URL}
+            DB_MIGRATE=true
+            EOF
+
+      - name: Pull and restart API
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 20m
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH}"
+            docker compose --env-file .env pull
+            docker compose --env-file .env up -d --remove-orphans
+            docker compose --env-file .env ps
+            docker image prune -f

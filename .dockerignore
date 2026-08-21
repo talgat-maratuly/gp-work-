@@ -1,0 +1,16 @@
+node_modules
+**/dist
+.git
+.github
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.log
+.DS_Store
+aiya-smart
+gp-project
+apps/web
+deploy
+README.md
+scripts

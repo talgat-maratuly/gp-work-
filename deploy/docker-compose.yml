@@ -1,0 +1,61 @@
+services:
+  gp-work-api:
+    container_name: gp-work-api
+    image: ${API_IMAGE}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_HOST: gp-work-postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      DATABASE_NAME: gp-work
+      PORT: 3002
+      FRONTEND_URL: ${FRONTEND_URL}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      DB_MIGRATE: ${DB_MIGRATE:-true}
+      NODE_ENV: production
+    ports:
+      - '127.0.0.1:3002:3002'
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      gp-work-postgres:
+        condition: service_healthy
+    networks:
+      - gp-work-network
+    logging:
+      driver: json-file
+      options:
+        max-size: '2M'
+        max-file: '5'
+
+  gp-work-postgres:
+    container_name: gp-work-postgres
+    image: postgres:18-alpine
+    restart: always
+    environment:
+      TZ: UTC
+      PGTZ: UTC
+      POSTGRES_DB: gp-work
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    expose:
+      - '5432'
+    volumes:
+      - gp-work_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d gp-work']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gp-work-network
+
+volumes:
+  gp-work_postgres_data:
+    name: gp-work_postgres_data
+
+networks:
+  gp-work-network:
+    driver: bridge

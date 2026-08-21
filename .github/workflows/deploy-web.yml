@@ -1,0 +1,64 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-gp-work-web
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build frontend
+        env:
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+        run: |
+          cat > apps/web/.env.production <<EOF
+          VITE_API_URL=/api
+          VITE_APP_URL=${FRONTEND_URL}
+          VITE_NURSERY_NAME=Питомник основной
+          EOF
+          npm run build -w @gp-work/web
+          tar -czf web-dist.tar.gz -C apps/web/dist .
+
+      - name: Upload archive to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: web-dist.tar.gz
+          target: /tmp/
+
+      - name: Extract static files
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            mkdir -p /opt/gp-work/web
+            rm -rf /opt/gp-work/web/*
+            tar -xzf /tmp/web-dist.tar.gz -C /opt/gp-work/web
+            rm -f /tmp/web-dist.tar.gz
+            chmod -R a+rX /opt/gp-work/web

@@ -245,10 +245,10 @@ export class AdminAiService {
     for (const analysis of aiProblems.filter((a) => [AiPlantStatus.BAD, AiPlantStatus.CRITICAL].includes(a.status))) {
       risks.push({
         level: analysis.status === AiPlantStatus.CRITICAL ? 'URGENT' : 'HIGH',
-        title: `AI-Агроном отметил проблему: ${analysis.object?.name ?? 'объект'}`,
+        title: `AI-анализ отметил проблему: ${analysis.object?.name ?? 'объект'}`,
         description: `${analysis.section?.code ?? 'участок не указан'}: ${analysis.aiComment}`,
         recommendation: 'Проверить участок и назначить агрономическую задачу.',
-        source: 'AI-Агроном',
+        source: 'AI-анализ',
       });
     }
 

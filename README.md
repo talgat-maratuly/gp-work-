@@ -1,4 +1,4 @@
-# Питомник — QR-отчёты о работах
+# GP Work — QR-отчёты о работах
 
 Monorepo: **PostgreSQL + TypeORM + NestJS + React**.
 
@@ -64,7 +64,7 @@ VITE_API_URL=/api
 
 # App
 VITE_APP_URL=http://localhost:5173
-VITE_NURSERY_NAME=Питомник основной
+VITE_NURSERY_NAME=GP Work
 ```
 
 ### `apps/api/.env`

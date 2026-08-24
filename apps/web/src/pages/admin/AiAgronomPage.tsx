@@ -107,7 +107,7 @@ export function AiAgronomPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">🌿 AI-Агроном</h1>
+                    <h1 className="text-2xl font-bold">AI-анализ</h1>
         <p className="mt-1 text-sm text-slate-500">
           Инструмент для администратора и агронома: анализ фото растений, рекомендации и история осмотров.
         </p>

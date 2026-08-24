@@ -22,8 +22,8 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Питомник API')
-    .setDescription('QR-отчёты о работах в питомнике')
+    .setTitle('GP Work API')
+    .setDescription('QR-отчёты о работах GP Work')
     .setVersion('1.0')
     .addBearerAuth()
     .addSecurityRequirements('bearer')

@@ -6,7 +6,7 @@ export function getAppBaseUrl(): string {
 }
 
 export function getNurseryName(): string {
-  return import.meta.env.VITE_NURSERY_NAME || 'Питомник'
+  return import.meta.env.VITE_NURSERY_NAME || 'GP Work'
 }
 
 function getApiOrigin(): string {

@@ -53,7 +53,7 @@ export function LoginPage() {
         className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <h1 className="text-xl font-bold text-emerald-800">Вход в систему</h1>
-        <p className="mt-1 text-sm text-slate-500">Питомник — управление работами</p>
+        <p className="mt-1 text-sm text-slate-500">GP Work — управление работами</p>
 
         <div className="mt-5 space-y-4">
           <div>

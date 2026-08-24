@@ -12,7 +12,7 @@ export function Input({ label, error, className = '', id, ...props }: Props) {
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
       <input
         id={inputId}
-        className={`w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 ${error ? 'border-red-500' : ''} ${className}`}
+        className={`w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 ${error ? 'border-red-500' : ''} ${className}`}
         {...props}
       />
       {error && <span className="mt-1 block text-sm text-red-600">{error}</span>}

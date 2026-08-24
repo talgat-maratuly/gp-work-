@@ -1,3 +1,5 @@
+name: gp-work
+
 services:
   gp-work-api:
     container_name: gp-work-api

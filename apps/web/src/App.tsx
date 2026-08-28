@@ -1,127 +1,138 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { AdminLayout } from '@/pages/admin/AdminLayout'
-import { DashboardPage } from '@/pages/admin/DashboardPage'
-import { ExportPage } from '@/pages/admin/ExportPage'
-import { JournalPage } from '@/pages/admin/JournalPage'
-import { WorkMapPage } from '@/pages/admin/WorkMapPage'
-import { ObjectsPage } from '@/pages/admin/ObjectsPage'
-import { PhotosPage } from '@/pages/admin/PhotosPage'
-import { QrPage } from '@/pages/admin/QrPage'
-import { WorkTypesPage } from '@/pages/admin/WorkTypesPage'
-import { WorkFormPage } from '@/pages/WorkFormPage'
-import { CheckOutPage } from '@/pages/CheckOutPage'
-import { FormSettingsPage } from '@/pages/admin/FormSettingsPage'
-import { SeedPage } from '@/pages/admin/SeedPage'
-import { LoginPage } from '@/pages/LoginPage'
-import { UsersPage } from '@/pages/admin/UsersPage'
-import { BrigadesPage } from '@/pages/admin/BrigadesPage'
-import { TasksPage } from '@/pages/admin/TasksPage'
-import { MyTasksPage } from '@/pages/MyTasksPage'
-import { AttendancePage } from '@/pages/admin/AttendancePage'
-import { WarehousePage } from '@/pages/admin/WarehousePage'
-import { ProductImportPage } from '@/pages/admin/ProductImportPage'
-import { AdminAiAssistantPage } from '@/pages/admin/AdminAiAssistantPage'
-import { WorkerLayout } from '@/pages/worker/WorkerLayout'
-import { WorkerTasksPage } from '@/pages/worker/WorkerTasksPage'
 import { HomeRedirect } from '@/components/HomeRedirect'
+
+// Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
+// особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
+// подтягиваются только на своих экранах.
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })))
+const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const ExportPage = lazy(() => import('@/pages/admin/ExportPage').then((m) => ({ default: m.ExportPage })))
+const JournalPage = lazy(() => import('@/pages/admin/JournalPage').then((m) => ({ default: m.JournalPage })))
+const WorkMapPage = lazy(() => import('@/pages/admin/WorkMapPage').then((m) => ({ default: m.WorkMapPage })))
+const ObjectsPage = lazy(() => import('@/pages/admin/ObjectsPage').then((m) => ({ default: m.ObjectsPage })))
+const PhotosPage = lazy(() => import('@/pages/admin/PhotosPage').then((m) => ({ default: m.PhotosPage })))
+const QrPage = lazy(() => import('@/pages/admin/QrPage').then((m) => ({ default: m.QrPage })))
+const WorkTypesPage = lazy(() => import('@/pages/admin/WorkTypesPage').then((m) => ({ default: m.WorkTypesPage })))
+const WorkFormPage = lazy(() => import('@/pages/WorkFormPage').then((m) => ({ default: m.WorkFormPage })))
+const CheckOutPage = lazy(() => import('@/pages/CheckOutPage').then((m) => ({ default: m.CheckOutPage })))
+const FormSettingsPage = lazy(() => import('@/pages/admin/FormSettingsPage').then((m) => ({ default: m.FormSettingsPage })))
+const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
+const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })))
+const BrigadesPage = lazy(() => import('@/pages/admin/BrigadesPage').then((m) => ({ default: m.BrigadesPage })))
+const TasksPage = lazy(() => import('@/pages/admin/TasksPage').then((m) => ({ default: m.TasksPage })))
+const MyTasksPage = lazy(() => import('@/pages/MyTasksPage').then((m) => ({ default: m.MyTasksPage })))
+const AttendancePage = lazy(() => import('@/pages/admin/AttendancePage').then((m) => ({ default: m.AttendancePage })))
+const WarehousePage = lazy(() => import('@/pages/admin/WarehousePage').then((m) => ({ default: m.WarehousePage })))
+const ProductImportPage = lazy(() => import('@/pages/admin/ProductImportPage').then((m) => ({ default: m.ProductImportPage })))
+const AdminAiAssistantPage = lazy(() => import('@/pages/admin/AdminAiAssistantPage').then((m) => ({ default: m.AdminAiAssistantPage })))
+const WorkerLayout = lazy(() => import('@/pages/worker/WorkerLayout').then((m) => ({ default: m.WorkerLayout })))
+const WorkerTasksPage = lazy(() => import('@/pages/worker/WorkerTasksPage').then((m) => ({ default: m.WorkerTasksPage })))
+
+function PageFallback() {
+  return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<HomeRedirect />} />
-          <Route path="/work-form/:sectionCode" element={<WorkFormPage />} />
-          <Route path="/work-form" element={<WorkFormPage />} />
-          <Route path="/attendance/check-out" element={<CheckOutPage />} />
-          <Route
-            path="/worker"
-            element={
-              <ProtectedRoute roles={['WORKER']}>
-                <WorkerLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/worker/tasks" replace />} />
-            <Route path="tasks" element={<WorkerTasksPage />} />
-          </Route>
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute roles={['ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="work-logs" element={<JournalPage />} />
-            <Route path="map" element={<WorkMapPage />} />
-            <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />
-            <Route path="work-map" element={<Navigate to="/admin/map" replace />} />
-            <Route path="objects" element={<ObjectsPage />} />
-            <Route path="work-types" element={<WorkTypesPage />} />
-            <Route path="qr" element={<QrPage />} />
-            <Route path="form-settings" element={<FormSettingsPage />} />
-            <Route path="export" element={<ExportPage />} />
-            <Route path="photos" element={<PhotosPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="brigades" element={<BrigadesPage />} />
-            <Route path="tasks" element={<TasksPage />} />
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<HomeRedirect />} />
+            <Route path="/work-form/:sectionCode" element={<WorkFormPage />} />
+            <Route path="/work-form" element={<WorkFormPage />} />
+            <Route path="/attendance/check-out" element={<CheckOutPage />} />
             <Route
-              path="my-tasks"
+              path="/worker"
               element={
-                <ProtectedRoute roles={['BRIGADIER', 'AGRONOMIST']}>
-                  <MyTasksPage />
+                <ProtectedRoute roles={['WORKER']}>
+                  <WorkerLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route path="attendance" element={<AttendancePage />} />
+            >
+              <Route index element={<Navigate to="/worker/tasks" replace />} />
+              <Route path="tasks" element={<WorkerTasksPage />} />
+            </Route>
             <Route
-              path="warehouse"
+              path="/admin"
               element={
-                <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
-                  <WarehousePage />
+                <ProtectedRoute roles={['ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="warehouse/issue"
-              element={
-                <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
-                  <WarehousePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="warehouse/export"
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <WarehousePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="products/import"
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <ProductImportPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="ai-assistant"
-              element={
-                <ProtectedRoute roles={['ADMIN']}>
-                  <AdminAiAssistantPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="seed" element={<SeedPage />} />
-          </Route>
-        </Routes>
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="work-logs" element={<JournalPage />} />
+              <Route path="map" element={<WorkMapPage />} />
+              <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />
+              <Route path="work-map" element={<Navigate to="/admin/map" replace />} />
+              <Route path="objects" element={<ObjectsPage />} />
+              <Route path="work-types" element={<WorkTypesPage />} />
+              <Route path="qr" element={<QrPage />} />
+              <Route path="form-settings" element={<FormSettingsPage />} />
+              <Route path="export" element={<ExportPage />} />
+              <Route path="photos" element={<PhotosPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="brigades" element={<BrigadesPage />} />
+              <Route path="tasks" element={<TasksPage />} />
+              <Route
+                path="my-tasks"
+                element={
+                  <ProtectedRoute roles={['BRIGADIER', 'AGRONOMIST']}>
+                    <MyTasksPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="attendance" element={<AttendancePage />} />
+              <Route
+                path="warehouse"
+                element={
+                  <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
+                    <WarehousePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="warehouse/issue"
+                element={
+                  <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
+                    <WarehousePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="warehouse/export"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <WarehousePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="products/import"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <ProductImportPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="ai-assistant"
+                element={
+                  <ProtectedRoute roles={['ADMIN']}>
+                    <AdminAiAssistantPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="seed" element={<SeedPage />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   )

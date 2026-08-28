@@ -246,14 +246,14 @@ export function UsersPage() {
           />
           Активен
         </label>
-        <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-2 text-white sm:col-span-2">
+        <button type="submit" className="rounded-lg bg-blue-700 px-4 py-2 text-white sm:col-span-2">
           Создать пользователя
         </button>
       </form>
 
       {editingId != null && (
-        <form onSubmit={handleUpdate} autoComplete="off" className="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:grid-cols-2">
-          <p className="text-sm font-medium text-emerald-900 sm:col-span-2">Редактирование пользователя</p>
+        <form onSubmit={handleUpdate} autoComplete="off" className="grid gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
+          <p className="text-sm font-medium text-blue-900 sm:col-span-2">Редактирование пользователя</p>
           <input
             className="rounded-lg border px-3 py-2"
             placeholder="ФИО *"
@@ -301,7 +301,7 @@ export function UsersPage() {
             Активен
           </label>
           <div className="flex gap-2 sm:col-span-2">
-            <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-2 text-white">
+            <button type="submit" className="rounded-lg bg-blue-700 px-4 py-2 text-white">
               Сохранить
             </button>
             <button
@@ -332,7 +332,7 @@ export function UsersPage() {
           </thead>
           <tbody className="divide-y">
             {users.map((u) => (
-              <tr key={u.id} className={editingId === u.id ? 'bg-emerald-50/50' : undefined}>
+              <tr key={u.id} className={editingId === u.id ? 'bg-blue-50/50' : undefined}>
                 <td className="px-3 py-2">{u.fullName}</td>
                 <td className="px-3 py-2 font-mono text-xs">{u.username}</td>
                 <td className="px-3 py-2">{ROLE_LABELS[u.role]}</td>
@@ -350,7 +350,7 @@ export function UsersPage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="text-xs text-emerald-700 underline"
+                      className="text-xs text-blue-700 underline"
                       onClick={() => startEdit(u)}
                     >
                       Изменить

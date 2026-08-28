@@ -257,8 +257,8 @@ export function FormSettingsPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 p-4">
-          <h2 className="text-lg font-semibold text-emerald-900">Добавить дополнительное поле</h2>
+        <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50/50 p-4">
+          <h2 className="text-lg font-semibold text-blue-900">Добавить дополнительное поле</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-[1fr_180px_auto] md:items-end">
             <Input
               label="Название"

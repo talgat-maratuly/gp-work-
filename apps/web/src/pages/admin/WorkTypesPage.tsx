@@ -133,7 +133,7 @@ export function WorkTypesPage() {
             <label className="mb-1 block text-sm font-medium text-slate-700">Название</label>
             <input
               type="text"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-emerald-600 focus:outline-none"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base focus:border-blue-600 focus:outline-none"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Например: Полив"
@@ -143,7 +143,7 @@ export function WorkTypesPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+            className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
           >
             {saving ? 'Сохранение…' : 'Добавить'}
           </button>
@@ -217,7 +217,7 @@ export function WorkTypesPage() {
                               type="submit"
                               form={`wt-form-${t.id}`}
                               disabled={editSaving}
-                              className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                              className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
                             >
                               {editSaving ? '…' : 'Сохранить'}
                             </button>

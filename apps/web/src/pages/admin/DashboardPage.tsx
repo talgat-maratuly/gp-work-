@@ -72,7 +72,7 @@ export function DashboardPage() {
 
       <Link
         to="/admin/work-logs"
-        className="inline-block text-emerald-700 underline text-sm"
+        className="inline-block text-blue-700 underline text-sm"
       >
         Открыть полный журнал →
       </Link>

@@ -260,7 +260,7 @@ export function ObjectsPage() {
           <button
             type="submit"
             disabled={objSaving}
-            className="rounded-lg bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+            className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
           >
             {objSaving ? 'Сохранение…' : 'Сохранить объект'}
           </button>
@@ -315,7 +315,7 @@ export function ObjectsPage() {
                     </td>
                     <td className="px-4 py-3">
                       {editingObjId === o.id ? (
-                        <button type="submit" form={`obj-${o.id}`} disabled={editObjSaving} className="text-xs text-emerald-700">
+                        <button type="submit" form={`obj-${o.id}`} disabled={editObjSaving} className="text-xs text-blue-700">
                           Сохранить
                         </button>
                       ) : (
@@ -387,7 +387,7 @@ export function ObjectsPage() {
             <button
               type="submit"
               disabled={secSaving}
-              className="rounded-lg bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               {secSaving ? 'Сохранение…' : 'Сохранить участок'}
             </button>
@@ -428,7 +428,7 @@ export function ObjectsPage() {
                         href={buildWorkFormUrlBySectionCode(s.code)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-700 underline"
+                        className="text-blue-700 underline"
                       >
                         открыть
                       </a>
@@ -438,7 +438,7 @@ export function ObjectsPage() {
                         <button
                           type="button"
                           onClick={() => openPrint(s)}
-                          className="text-xs text-emerald-700 underline"
+                          className="text-xs text-blue-700 underline"
                         >
                           Печать
                         </button>
@@ -504,7 +504,7 @@ export function ObjectsPage() {
               className="rounded-lg border px-3 py-2 sm:col-span-2"
             />
             <div className="flex gap-2 sm:col-span-2">
-              <button type="submit" disabled={editSecSaving} className="rounded-lg bg-emerald-700 px-4 py-2 text-white text-sm">
+              <button type="submit" disabled={editSecSaving} className="rounded-lg bg-blue-700 px-4 py-2 text-white text-sm">
                 Сохранить
               </button>
               <button type="button" onClick={() => setEditingSecId(null)} className="rounded-lg border px-4 py-2 text-sm">

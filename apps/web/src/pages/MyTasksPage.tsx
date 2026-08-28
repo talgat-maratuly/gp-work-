@@ -125,7 +125,7 @@ export function MyTasksPage() {
         <button
           type="button"
           onClick={() => setSelectedId(null)}
-          className="text-sm text-emerald-700 underline"
+          className="text-sm text-blue-700 underline"
         >
           ← К списку задач
         </button>
@@ -197,7 +197,7 @@ export function MyTasksPage() {
                 type="button"
                 disabled={actionLoading}
                 onClick={() => void runAction(() => acceptMyTask(detail.id))}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 Принять задачу
               </button>
@@ -207,7 +207,7 @@ export function MyTasksPage() {
                 type="button"
                 disabled={actionLoading}
                 onClick={() => void runAction(() => startMyTask(detail.id))}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 Начать работу
               </button>
@@ -248,7 +248,7 @@ export function MyTasksPage() {
               <button
                 type="submit"
                 disabled={actionLoading || completePhotos.length === 0}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 {actionLoading ? 'Отправка…' : 'Завершить задачу'}
               </button>
@@ -280,7 +280,7 @@ export function MyTasksPage() {
               <button
                 type="button"
                 onClick={() => setSelectedId(t.id)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-emerald-300"
+                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-blue-300"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>

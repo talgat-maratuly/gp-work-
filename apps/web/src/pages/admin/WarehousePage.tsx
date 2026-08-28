@@ -222,7 +222,7 @@ export function WarehousePage() {
           <button
             type="button"
             onClick={() => startMovement()}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white"
           >
             Выдать / списать товар
           </button>
@@ -359,7 +359,7 @@ export function WarehousePage() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-white disabled:opacity-50 sm:col-span-2"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50 sm:col-span-2"
           >
             {submitting ? 'Сохранение…' : 'Сохранить движение'}
           </button>
@@ -401,7 +401,7 @@ export function WarehousePage() {
               </tr>
             ) : (
               products.map((p) => (
-                <tr key={p.id} className={selectedProductId === p.id ? 'bg-emerald-50/50' : undefined}>
+                <tr key={p.id} className={selectedProductId === p.id ? 'bg-blue-50/50' : undefined}>
                   <td className="px-3 py-2 font-mono text-xs">{p.code ?? '—'}</td>
                   <td className="px-3 py-2">{p.article ?? '—'}</td>
                   <td className="px-3 py-2 min-w-[16rem] font-medium">{p.name}</td>
@@ -421,7 +421,7 @@ export function WarehousePage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="text-xs text-emerald-700 underline"
+                        className="text-xs text-blue-700 underline"
                         onClick={() => void handleSelectProduct(p)}
                       >
                         История

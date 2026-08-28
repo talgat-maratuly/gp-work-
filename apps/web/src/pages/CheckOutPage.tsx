@@ -103,8 +103,8 @@ export function CheckOutPage() {
                       <label
                         className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-3 ${
                           selectedId === w.id
-                            ? 'border-emerald-500 bg-emerald-50'
-                            : 'border-slate-200 hover:border-emerald-300'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-slate-200 hover:border-blue-300'
                         }`}
                       >
                         <input
@@ -112,7 +112,7 @@ export function CheckOutPage() {
                           name="worker"
                           checked={selectedId === w.id}
                           onChange={() => setSelectedId(w.id)}
-                          className="text-emerald-700"
+                          className="text-blue-700"
                         />
                         <span>
                           <span className="block font-medium">{w.workerFullName}</span>
@@ -131,7 +131,7 @@ export function CheckOutPage() {
                   setManualMode(true)
                   setSelectedId(null)
                 }}
-                className="text-sm text-emerald-700 underline"
+                className="text-sm text-blue-700 underline"
               >
                 Меня нет в списке
               </button>
@@ -154,7 +154,7 @@ export function CheckOutPage() {
                   setManualMode(false)
                   setManualName('')
                 }}
-                className="text-sm text-emerald-700 underline"
+                className="text-sm text-blue-700 underline"
               >
                 ← Вернуться к списку
               </button>

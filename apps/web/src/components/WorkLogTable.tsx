@@ -71,7 +71,7 @@ export function WorkLogTable({ logs, loading, canReview, onReview }: Props) {
                         href={url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-emerald-700 underline"
+                        className="text-blue-700 underline"
                       >
                         фото {i + 1}
                       </a>
@@ -85,7 +85,7 @@ export function WorkLogTable({ logs, loading, canReview, onReview }: Props) {
                         href={mapHref}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-block rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800"
+                        className="inline-block rounded-lg bg-blue-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-800"
                       >
                         Открыть на карте
                       </a>
@@ -121,7 +121,7 @@ export function WorkLogTable({ logs, loading, canReview, onReview }: Props) {
                       <div className="flex flex-col gap-1">
                         <button
                           type="button"
-                          className="text-xs text-emerald-700 underline"
+                          className="text-xs text-blue-700 underline"
                           onClick={() => onReview(log, 'APPROVED')}
                         >
                           Подтвердить
@@ -145,7 +145,7 @@ export function WorkLogTable({ logs, loading, canReview, onReview }: Props) {
                       href={buildWorkFormUrlBySectionCode(sectionCode)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-emerald-700 underline break-all"
+                      className="text-blue-700 underline break-all"
                     >
                       открыть форму
                     </a>

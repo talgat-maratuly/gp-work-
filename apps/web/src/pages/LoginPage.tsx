@@ -52,8 +52,12 @@ export function LoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
-        <h1 className="text-xl font-bold text-emerald-800">Вход в систему</h1>
-        <p className="mt-1 text-sm text-slate-500">GP Work — управление работами</p>
+        <div className="mb-4 h-1.5 w-16 rounded-full bg-gradient-to-r from-emerald-600 to-blue-700" />
+        <h1 className="text-xl font-bold text-blue-800">Вход в систему</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          <span className="font-semibold text-emerald-700">G</span>
+          <span className="font-semibold text-blue-700">P</span> Work — управление работами
+        </p>
 
         <div className="mt-5 space-y-4">
           <div>
@@ -93,7 +97,7 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-5 w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="mt-5 w-full rounded-lg bg-blue-700 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
         >
           {submitting ? 'Вход…' : 'Войти'}
         </button>

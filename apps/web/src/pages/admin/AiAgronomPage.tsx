@@ -197,7 +197,7 @@ export function AiAgronomPage() {
         <button
           type="submit"
           disabled={submitting || !objectId || !photo}
-          className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white disabled:opacity-50 md:col-span-2"
+          className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50 md:col-span-2"
         >
           {submitting ? 'Анализ…' : '🔍 Проанализировать'}
         </button>
@@ -271,7 +271,7 @@ export function AiAgronomPage() {
                     <td className="px-3 py-2">{row.object?.name ?? '—'}</td>
                     <td className="px-3 py-2">{row.section?.name ?? '—'}</td>
                     <td className="px-3 py-2">
-                      <a href={row.photoUrl} target="_blank" rel="noreferrer" className="text-emerald-700 underline">
+                      <a href={row.photoUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
                         Фото
                       </a>
                     </td>

@@ -116,8 +116,8 @@ export function QrPage() {
     <div className="no-print space-y-6">
       <h1 className="text-2xl font-bold">QR-коды</h1>
 
-      <section className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-        <h2 className="text-lg font-semibold text-emerald-900">QR «Уход» (общий)</h2>
+      <section className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+        <h2 className="text-lg font-semibold text-blue-900">QR «Уход» (общий)</h2>
         <p className="mt-1 text-sm text-slate-600">
           Один QR для отметки ухода в конце смены. Приход фиксируется автоматически первым отчётом с участка.
         </p>
@@ -126,7 +126,7 @@ export function QrPage() {
             <QrCanvas value={checkOutUrl} className="h-[120px] w-[120px]" size={120} />
           </div>
           <div className="space-y-2 text-sm">
-            <a href={checkOutUrl} target="_blank" rel="noreferrer" className="block break-all text-emerald-700 underline">
+            <a href={checkOutUrl} target="_blank" rel="noreferrer" className="block break-all text-blue-700 underline">
               {checkOutUrl}
             </a>
             <div className="flex flex-wrap gap-2">
@@ -175,7 +175,7 @@ export function QrPage() {
                     <td className="px-3 py-3">{s.name}</td>
                     <td className="px-3 py-3 font-mono text-xs">{s.code}</td>
                     <td className="px-3 py-3">
-                      <a href={formUrl} target="_blank" rel="noreferrer" className="text-emerald-700 underline break-all">
+                      <a href={formUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline break-all">
                         {formUrl}
                       </a>
                     </td>

@@ -71,6 +71,7 @@ export function AdminLayout() {
     <div className="no-print flex min-h-screen flex-col md:flex-row">
       <aside className="no-print border-b border-slate-200 bg-white md:w-56 md:border-b-0 md:border-r">
         <div className="border-b border-slate-100 px-4 py-4">
+          <div className="mb-2 h-1 w-10 rounded-full bg-gradient-to-r from-emerald-600 to-blue-700" />
           <p className="text-xs uppercase tracking-wide text-slate-500">Админ-панель</p>
           <p className="font-bold text-emerald-800">{getNurseryName()}</p>
           {user && (
@@ -94,10 +95,10 @@ export function AdminLayout() {
                     to={item.to}
                     end={item.end}
                     className={({ isActive }) =>
-                      `whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${
+                      `whitespace-nowrap rounded-lg border-l-4 px-3 py-2 text-sm font-medium ${
                         isActive
-                          ? 'bg-emerald-100 text-emerald-900'
-                          : 'text-slate-600 hover:bg-slate-100'
+                          ? 'border-blue-600 bg-blue-100 text-blue-900'
+                          : 'border-transparent text-slate-600 hover:bg-slate-100'
                       }`
                     }
                   >

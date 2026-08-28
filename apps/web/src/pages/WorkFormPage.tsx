@@ -401,8 +401,8 @@ export function WorkFormPage() {
             }}
             className={`rounded-lg border px-3 py-2.5 text-sm font-semibold ${
               completionPercent === option
-                ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-400'
+                ? 'border-blue-600 bg-blue-50 text-blue-800'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
             }`}
           >
             {option}
@@ -413,8 +413,8 @@ export function WorkFormPage() {
           onClick={() => setCompletionPercent(OTHER_COMPLETION)}
           className={`rounded-lg border px-3 py-2.5 text-sm font-semibold ${
             completionPercent === OTHER_COMPLETION
-              ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-              : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-400'
+              ? 'border-blue-600 bg-blue-50 text-blue-800'
+              : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
           }`}
         >
           Другое
@@ -454,7 +454,7 @@ export function WorkFormPage() {
       {geo.mapUrl && (
         <>
           <span className="mx-2">·</span>
-          <a href={geo.mapUrl} target="_blank" rel="noreferrer" className="text-emerald-700 underline">
+          <a href={geo.mapUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
             на карте
           </a>
         </>
@@ -658,7 +658,7 @@ export function WorkFormPage() {
           <button
             type="button"
             onClick={createNewReport}
-            className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
           >
             Отправить еще один отчет
           </button>

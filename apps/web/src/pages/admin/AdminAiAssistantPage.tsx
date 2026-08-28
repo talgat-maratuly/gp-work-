@@ -144,13 +144,13 @@ export function AdminAiAssistantPage() {
               <button
                 type="submit"
                 disabled={asking || !question.trim()}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-white disabled:opacity-50"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50"
               >
                 {asking ? 'Думаю…' : 'Спросить'}
               </button>
             </form>
             {answer && (
-              <div className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+              <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
                 {answer}
               </div>
             )}

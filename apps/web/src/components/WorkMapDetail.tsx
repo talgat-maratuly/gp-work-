@@ -76,7 +76,7 @@ export function WorkMapDetail({ log }: Props) {
             href={mapHref}
             target="_blank"
             rel="noreferrer"
-            className="inline-block rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800"
+            className="inline-block rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-800"
           >
             Открыть в Google Maps
           </a>

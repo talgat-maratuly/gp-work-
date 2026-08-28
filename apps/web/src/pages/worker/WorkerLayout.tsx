@@ -14,6 +14,7 @@ export function WorkerLayout() {
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-slate-50">
       <header className="border-b border-slate-200 bg-white px-4 py-4">
+        <div className="mb-2 h-1 w-10 rounded-full bg-gradient-to-r from-emerald-600 to-blue-700" />
         <p className="text-xs uppercase tracking-wide text-slate-500">Мои задачи</p>
         {user && (
           <p className="mt-1 font-semibold text-emerald-800">

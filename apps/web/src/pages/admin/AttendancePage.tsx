@@ -16,7 +16,7 @@ function GeoLink({ lat, lng, label }: { lat: number | null; lng: number | null; 
       href={buildMapLink(lat, lng)}
       target="_blank"
       rel="noreferrer"
-      className="text-emerald-700 underline"
+      className="text-blue-700 underline"
     >
       {label}
     </a>
@@ -95,7 +95,7 @@ export function AttendancePage() {
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white"
           >
             Обновить
           </button>

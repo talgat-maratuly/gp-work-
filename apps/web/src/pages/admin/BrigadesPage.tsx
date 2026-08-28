@@ -52,7 +52,7 @@ export function BrigadesPage() {
           ))}
         </select>
         <textarea className="rounded-lg border px-3 py-2 sm:col-span-2" placeholder="Описание" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <button type="submit" className="rounded-lg bg-emerald-700 px-4 py-2 text-white sm:col-span-2">Создать бригаду</button>
+        <button type="submit" className="rounded-lg bg-blue-700 px-4 py-2 text-white sm:col-span-2">Создать бригаду</button>
       </form>
 
       {error && <p className="text-red-600">{error}</p>}

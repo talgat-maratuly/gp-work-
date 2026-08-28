@@ -69,7 +69,7 @@ export function ProductImportPage() {
           <button
             type="submit"
             disabled={!file || submitting}
-            className="rounded-lg bg-emerald-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? 'Импорт…' : 'Загрузить и импортировать'}
           </button>
@@ -77,7 +77,7 @@ export function ProductImportPage() {
             type="button"
             disabled={!file || submitting}
             onClick={() => void runImport(true)}
-            className="rounded-lg border border-emerald-700 px-4 py-2 text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg border border-blue-700 px-4 py-2 text-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Полностью обновить склад из Excel
           </button>

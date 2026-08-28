@@ -258,7 +258,7 @@ export function TasksPage() {
       </div>
 
       {isBrigadier && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
           Чтобы принять, начать и завершить задачу, перейдите в раздел{' '}
           <a href="/admin/my-tasks" className="font-medium underline">
             Мои задачи
@@ -406,7 +406,7 @@ export function TasksPage() {
         <button
           type="submit"
           disabled={!canCreateTask || saving}
-          className="rounded-lg bg-emerald-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
+          className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
         >
           {saving ? 'Сохранение…' : 'Создать задачу'}
         </button>
@@ -490,7 +490,7 @@ export function TasksPage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="text-xs text-emerald-700"
+                        className="text-xs text-blue-700"
                         onClick={() => setSelectedTaskId(t.id)}
                       >
                         Подробнее
@@ -615,7 +615,7 @@ export function TasksPage() {
                   type="button"
                   disabled={reviewLoading}
                   onClick={() => void handleReview('VERIFIED')}
-                  className="rounded-lg bg-emerald-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+                  className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white disabled:opacity-50"
                 >
                   Подтвердить
                 </button>

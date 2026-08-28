@@ -66,7 +66,7 @@ export function QrPrintModal({
           <button
             type="button"
             onClick={() => window.print()}
-            className="qr-print-actions no-print mt-4 w-full rounded-lg bg-emerald-700 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="qr-print-actions no-print mt-4 w-full rounded-lg bg-blue-700 py-2 text-sm font-semibold text-white hover:bg-blue-800"
           >
             Печать
           </button>

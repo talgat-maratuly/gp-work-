@@ -32,15 +32,16 @@ const navGroups: NavGroup[] = [
       { to: '/admin/export', label: 'Экспорт работ (Excel)', roles: ['ADMIN'] },
     ],
   },
-  {
-    title: 'Склад',
-    items: [
-      { to: '/admin/products/import', label: 'Импорт товаров (Excel)', roles: ['ADMIN'] },
-      { to: '/admin/warehouse', label: 'Учет товаров и остатков', roles: ['ADMIN', 'BRIGADIER'] },
-      { to: '/admin/warehouse/issue', label: 'Выдача / Списание товаров', roles: ['ADMIN', 'BRIGADIER'] },
-      { to: '/admin/warehouse/export', label: 'Экспорт остатков (Excel)', roles: ['ADMIN'] },
-    ],
-  },
+  // Раздел «Склад» временно скрыт. Чтобы вернуть — раскомментируйте блок ниже.
+  // {
+  //   title: 'Склад',
+  //   items: [
+  //     { to: '/admin/products/import', label: 'Импорт товаров (Excel)', roles: ['ADMIN'] },
+  //     { to: '/admin/warehouse', label: 'Учет товаров и остатков', roles: ['ADMIN', 'BRIGADIER'] },
+  //     { to: '/admin/warehouse/issue', label: 'Выдача / Списание товаров', roles: ['ADMIN', 'BRIGADIER'] },
+  //     { to: '/admin/warehouse/export', label: 'Экспорт остатков (Excel)', roles: ['ADMIN'] },
+  //   ],
+  // },
   {
     title: 'Персонал',
     items: [

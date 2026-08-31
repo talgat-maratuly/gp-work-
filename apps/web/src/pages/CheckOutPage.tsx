@@ -80,7 +80,7 @@ export function CheckOutPage() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-slate-50 p-4">
-      <header className="mb-4 rounded-xl bg-emerald-800 px-4 py-4 text-white">
+      <header className="mb-4 rounded-xl bg-linear-to-r from-emerald-700 to-blue-800 px-4 py-4 text-white">
         <h1 className="text-lg font-bold">Отметка ухода</h1>
         <p className="mt-1 text-sm opacity-90">Выберите себя из списка сотрудников на смене</p>
       </header>

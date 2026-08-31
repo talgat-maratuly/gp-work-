@@ -33,7 +33,7 @@ function fieldById(settings: FormSettings, id: string): FormFieldSetting | undef
 function SectionInfoHeader({ section }: { section: Section }) {
   const objectName = section.objects?.name ?? '—'
   return (
-    <header className="mb-4 rounded-xl bg-emerald-800 px-4 py-4 text-white">
+    <header className="mb-4 rounded-xl bg-linear-to-r from-emerald-700 to-blue-800 px-4 py-4 text-white">
       <dl className="space-y-1.5 text-sm">
         <div className="flex gap-2">
           <dt className="opacity-80">Объект:</dt>
@@ -223,7 +223,7 @@ export function WorkFormPage() {
     setError(null)
 
     if (!section) return
-    if (workerNameField?.visible !== false && workerNameField?.required && !sessionWorkerName && !workerName.trim()) {
+    if (workerNameField?.visible !== false && workerNameField?.required && !workerName.trim()) {
       setError(`Заполните поле: ${workerNameField.label}`)
       return
     }
@@ -549,13 +549,12 @@ export function WorkFormPage() {
             label={`${field.label}${field.required ? ' *' : ''}`}
             value={workerName}
             onChange={(e) => setWorkerName(e.target.value)}
-            readOnly={!!sessionWorkerName}
-            className={sessionWorkerName ? 'bg-slate-50 text-slate-600' : ''}
+            placeholder="Введите ваше ФИО"
             required={field.required}
           />
           {sessionWorkerName && (
             <p className="mt-1 text-xs text-slate-500">
-              Используется текущая сессия: {sessionWorkerName}
+              Подставлено имя из сессии — при необходимости измените.
             </p>
           )}
           {renderFieldHint(field)}

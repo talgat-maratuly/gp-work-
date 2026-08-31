@@ -50,7 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         apiLogout()
         setUser(null)
       },
-      hasRole: (...roles) => !!user && roles.includes(user.role),
+      // Директор — полный доступ наравне с администратором: где разрешён ADMIN,
+      // там разрешён и DIRECTOR (иначе кнопки создания/действий были бы скрыты).
+      hasRole: (...roles) =>
+        !!user &&
+        (roles.includes(user.role) ||
+          (user.role === 'DIRECTOR' && roles.includes('ADMIN'))),
       refresh,
     }),
     [user, loading, refresh],

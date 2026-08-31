@@ -14,7 +14,6 @@ import { defaultFormSettings, fetchFormSettings } from '@/lib/formSettings'
 import { uploadWorkPhotos } from '@/lib/photos'
 import { fetchActiveWorkTypes } from '@/lib/workTypesApi'
 import { fetchOpenTasksForSection, type ApiTask } from '@/api/tasksApi'
-import { useAuth } from '@/context/AuthContext'
 import type { FormFieldSetting, Section, WorkType } from '@/lib/types'
 
 type FormSettings = typeof defaultFormSettings
@@ -81,7 +80,6 @@ function clearFormFields(setters: {
 }
 
 export function WorkFormPage() {
-  const { user } = useAuth()
   const [params] = useSearchParams()
   const { sectionCode } = useParams<{ sectionCode: string }>()
 
@@ -113,7 +111,6 @@ export function WorkFormPage() {
   const { geo, requestGeolocation } = useGeolocation()
   const selectedType = workTypes.find((w) => String(w.id) === workTypeId)
   const isOther = selectedType?.is_other ?? selectedType?.name === OTHER_WORK_TYPE
-  const sessionWorkerName = user?.fullName ?? ''
   const selectedCompletionValue =
     completionPercent === OTHER_COMPLETION
       ? customCompletionPercent.trim()
@@ -157,9 +154,7 @@ export function WorkFormPage() {
       setComment,
       setPhotos,
     })
-    if (sessionWorkerName) {
-      setWorkerName(sessionWorkerName)
-    }
+    setWorkerName('')
     void loadWorkTypes()
   }
 
@@ -168,12 +163,6 @@ export function WorkFormPage() {
     window.close()
     window.setTimeout(() => setCloseHint(true), 300)
   }
-
-  useEffect(() => {
-    if (sessionWorkerName && !workerName.trim()) {
-      setWorkerName(sessionWorkerName)
-    }
-  }, [sessionWorkerName, workerName])
 
   useEffect(() => {
     async function load() {
@@ -552,11 +541,6 @@ export function WorkFormPage() {
             placeholder="Введите ваше ФИО"
             required={field.required}
           />
-          {sessionWorkerName && (
-            <p className="mt-1 text-xs text-slate-500">
-              Подставлено имя из сессии — при необходимости измените.
-            </p>
-          )}
           {renderFieldHint(field)}
         </div>
       )

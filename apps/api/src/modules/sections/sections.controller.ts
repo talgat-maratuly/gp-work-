@@ -19,7 +19,13 @@ import { UpdateSectionDto } from './dto/update-section.dto';
 
 @ApiTags('sections')
 @Controller('sections')
-@Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.BRIGADIER,
+  UserRole.AGRONOMIST,
+  UserRole.AKIMAT,
+  UserRole.ANTICOR,
+)
 export class SectionsController {
   constructor(private readonly sectionsService: SectionsService) {}
 

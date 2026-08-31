@@ -2,6 +2,9 @@ import { loadEnvFiles } from './load-env';
 import { DataSource } from 'typeorm';
 import { getTypeOrmPostgresOptions } from './database.config';
 import {
+  AdminDailyReport,
+  ScheduleEntry,
+  ManagementDecision,
   Brigade,
   BrigadeMember,
   FormSetting,
@@ -10,6 +13,7 @@ import {
   SectionCodeCounter,
   Task,
   User,
+  WateringRecord,
   WorkLog,
   WorkType,
 } from '../entities';
@@ -29,6 +33,10 @@ export default new DataSource({
     BrigadeMember,
     Task,
     FormSetting,
+    WateringRecord,
+    AdminDailyReport,
+    ScheduleEntry,
+    ManagementDecision,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
 });

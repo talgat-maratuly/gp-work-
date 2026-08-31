@@ -18,7 +18,13 @@ import { UpdateWorkTypeDto } from './dto/update-work-type.dto';
 
 @ApiTags('work-types')
 @Controller('work-types')
-@Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.BRIGADIER,
+  UserRole.AGRONOMIST,
+  UserRole.AKIMAT,
+  UserRole.ANTICOR,
+)
 export class WorkTypesController {
   constructor(private readonly workTypesService: WorkTypesService) {}
 

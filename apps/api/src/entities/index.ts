@@ -12,3 +12,7 @@ export { Task } from './task.entity';
 export { Product } from './product.entity';
 export { StockMovement } from './stock-movement.entity';
 export { FormSetting } from './form-setting.entity';
+export { WateringRecord } from './watering-record.entity';
+export { AdminDailyReport } from './admin-daily-report.entity';
+export { ScheduleEntry } from './schedule-entry.entity';
+export { ManagementDecision } from './management-decision.entity';

@@ -22,8 +22,16 @@ import { ProductsModule } from './modules/products/products.module';
 import { AiAgronomModule } from './modules/ai-agronom/ai-agronom.module';
 import { AdminAiModule } from './modules/admin-ai/admin-ai.module';
 import { FormSettingsModule } from './modules/form-settings/form-settings.module';
+import { WateringModule } from './modules/watering/watering.module';
+import { AdminReportsModule } from './modules/admin-reports/admin-reports.module';
+import { ScheduleModule } from './modules/schedule/schedule.module';
+import { ManagementModule } from './modules/management/management.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
+  AdminDailyReport,
+  ScheduleEntry,
+  ManagementDecision,
   AiAgronomAnalysis,
   AttendanceRecord,
   Brigade,
@@ -36,6 +44,7 @@ import {
   Task,
   User,
   FormSetting,
+  WateringRecord,
   WorkLog,
   WorkType,
 } from './entities';
@@ -71,6 +80,10 @@ import {
           StockMovement,
           AiAgronomAnalysis,
           FormSetting,
+          WateringRecord,
+          AdminDailyReport,
+          ScheduleEntry,
+          ManagementDecision,
         ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: config.get('DB_MIGRATE') !== 'false',
@@ -85,6 +98,11 @@ import {
     AiAgronomModule,
     AdminAiModule,
     FormSettingsModule,
+    WateringModule,
+    AdminReportsModule,
+    ScheduleModule,
+    ManagementModule,
+    DashboardModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,

@@ -3,7 +3,15 @@ const USER_KEY = 'gp-work_user'
 
 const AUTH_STORAGE_KEYS = [TOKEN_KEY, USER_KEY, 'gp-work_role', 'role'] as const
 
-export type UserRole = 'ADMIN' | 'BRIGADIER' | 'AGRONOMIST' | 'WORKER'
+export type UserRole =
+  | 'DIRECTOR'
+  | 'ADMIN'
+  | 'BRIGADIER'
+  | 'AGRONOMIST'
+  | 'WORKER'
+  | 'WATER_CARRIER'
+  | 'AKIMAT'
+  | 'ANTICOR'
 
 export interface AuthUser {
   id: number
@@ -50,8 +58,12 @@ export function clearAuth() {
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
+  DIRECTOR: 'Директор',
   ADMIN: 'Администратор',
   BRIGADIER: 'Бригадир',
   AGRONOMIST: 'Агроном',
   WORKER: 'Рабочий',
+  WATER_CARRIER: 'Водовоз',
+  AKIMAT: 'Акимат',
+  ANTICOR: 'Антикор',
 }

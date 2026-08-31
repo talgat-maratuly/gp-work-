@@ -26,13 +26,25 @@ export class WorkLogsController {
   constructor(private readonly workLogsService: WorkLogsService) {}
 
   @Get('stats')
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRIGADIER,
+    UserRole.AGRONOMIST,
+    UserRole.AKIMAT,
+    UserRole.ANTICOR,
+  )
   getStats() {
     return this.workLogsService.getStats();
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRIGADIER,
+    UserRole.AGRONOMIST,
+    UserRole.AKIMAT,
+    UserRole.ANTICOR,
+  )
   findAll(@Query() query: WorkLogQueryDto, @CurrentUser() user: User) {
     return this.workLogsService.findAll(query, user);
   }
@@ -44,7 +56,13 @@ export class WorkLogsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRIGADIER,
+    UserRole.AGRONOMIST,
+    UserRole.AKIMAT,
+    UserRole.ANTICOR,
+  )
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.workLogsService.findOne(id);
   }

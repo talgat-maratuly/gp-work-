@@ -25,7 +25,13 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: User }>();
     const user = request.user;
     if (!user) throw new ForbiddenException('Требуется авторизация');
-    if (!requiredRoles.includes(user.role)) {
+
+    // Директор имеет полный доступ наравне с администратором:
+    // где разрешён ADMIN, там разрешён и DIRECTOR (без правки каждого контроллера).
+    const directorInheritsAdmin =
+      user.role === UserRole.DIRECTOR && requiredRoles.includes(UserRole.ADMIN);
+
+    if (!requiredRoles.includes(user.role) && !directorInheritsAdmin) {
       throw new ForbiddenException('Недостаточно прав');
     }
     return true;

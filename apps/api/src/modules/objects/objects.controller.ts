@@ -17,7 +17,13 @@ import { UpdateObjectDto } from './dto/update-object.dto';
 
 @ApiTags('objects')
 @Controller('objects')
-@Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+@Roles(
+  UserRole.ADMIN,
+  UserRole.BRIGADIER,
+  UserRole.AGRONOMIST,
+  UserRole.AKIMAT,
+  UserRole.ANTICOR,
+)
 export class ObjectsController {
   constructor(private readonly objectsService: ObjectsService) {}
 

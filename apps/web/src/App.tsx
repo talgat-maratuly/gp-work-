@@ -29,6 +29,10 @@ const AttendancePage = lazy(() => import('@/pages/admin/AttendancePage').then((m
 const WarehousePage = lazy(() => import('@/pages/admin/WarehousePage').then((m) => ({ default: m.WarehousePage })))
 const ProductImportPage = lazy(() => import('@/pages/admin/ProductImportPage').then((m) => ({ default: m.ProductImportPage })))
 const AdminAiAssistantPage = lazy(() => import('@/pages/admin/AdminAiAssistantPage').then((m) => ({ default: m.AdminAiAssistantPage })))
+const WateringPage = lazy(() => import('@/pages/admin/WateringPage').then((m) => ({ default: m.WateringPage })))
+const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').then((m) => ({ default: m.AdminReportsPage })))
+const ProductionSchedulePage = lazy(() => import('@/pages/admin/ProductionSchedulePage').then((m) => ({ default: m.ProductionSchedulePage })))
+const ManagementPage = lazy(() => import('@/pages/admin/ManagementPage').then((m) => ({ default: m.ManagementPage })))
 const WorkerLayout = lazy(() => import('@/pages/worker/WorkerLayout').then((m) => ({ default: m.WorkerLayout })))
 const WorkerTasksPage = lazy(() => import('@/pages/worker/WorkerTasksPage').then((m) => ({ default: m.WorkerTasksPage })))
 
@@ -61,7 +65,9 @@ export default function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute roles={['ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
+                <ProtectedRoute
+                  roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR']}
+                >
                   <AdminLayout />
                 </ProtectedRoute>
               }
@@ -80,6 +86,17 @@ export default function App() {
               <Route path="users" element={<UsersPage />} />
               <Route path="brigades" element={<BrigadesPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="watering" element={<WateringPage />} />
+              <Route path="schedule" element={<ProductionSchedulePage />} />
+              <Route path="management" element={<ManagementPage />} />
+              <Route
+                path="daily-reports"
+                element={
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR']}>
+                    <AdminReportsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="my-tasks"
                 element={
@@ -92,7 +109,7 @@ export default function App() {
               <Route
                 path="warehouse"
                 element={
-                  <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
                     <WarehousePage />
                   </ProtectedRoute>
                 }
@@ -100,7 +117,7 @@ export default function App() {
               <Route
                 path="warehouse/issue"
                 element={
-                  <ProtectedRoute roles={['ADMIN', 'BRIGADIER']}>
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
                     <WarehousePage />
                   </ProtectedRoute>
                 }
@@ -108,7 +125,7 @@ export default function App() {
               <Route
                 path="warehouse/export"
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
                     <WarehousePage />
                   </ProtectedRoute>
                 }
@@ -116,7 +133,7 @@ export default function App() {
               <Route
                 path="products/import"
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
                     <ProductImportPage />
                   </ProtectedRoute>
                 }
@@ -124,7 +141,7 @@ export default function App() {
               <Route
                 path="ai-assistant"
                 element={
-                  <ProtectedRoute roles={['ADMIN']}>
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
                     <AdminAiAssistantPage />
                   </ProtectedRoute>
                 }

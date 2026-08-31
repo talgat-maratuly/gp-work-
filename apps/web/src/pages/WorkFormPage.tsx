@@ -13,7 +13,6 @@ import { formatSubmittedDate, formatSubmittedTime } from '@/lib/dateFilters'
 import { defaultFormSettings, fetchFormSettings } from '@/lib/formSettings'
 import { uploadWorkPhotos } from '@/lib/photos'
 import { fetchActiveWorkTypes } from '@/lib/workTypesApi'
-import { fetchOpenTasksForSection, type ApiTask } from '@/api/tasksApi'
 import type { FormFieldSetting, Section, WorkType } from '@/lib/types'
 
 type FormSettings = typeof defaultFormSettings
@@ -88,7 +87,6 @@ export function WorkFormPage() {
 
   const [section, setSection] = useState<Section | null>(null)
   const [workTypes, setWorkTypes] = useState<WorkType[]>([])
-  const [openTasks, setOpenTasks] = useState<ApiTask[]>([])
   const [settings, setSettings] = useState<FormSettings>(defaultFormSettings)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -183,8 +181,6 @@ export function WorkFormPage() {
           : await fetchSectionById(legacySectionId)
         setSection(sec)
         await loadWorkTypes()
-        const tasks = await fetchOpenTasksForSection(sec.id).catch(() => [])
-        setOpenTasks(tasks)
       } catch (err) {
         console.error('[work-form] load:', err)
         setError(toUserMessage(err, 'Участок не найден'))
@@ -353,20 +349,6 @@ export function WorkFormPage() {
         />
       )}
 
-      {openTasks.length > 0 && (
-        <Select
-          label="Выберите задачу"
-          value={taskId}
-          onChange={(e) => setTaskId(e.target.value)}
-          options={[
-            { value: '', label: '— без задачи —' },
-            ...openTasks.map((t) => ({
-              value: String(t.id),
-              label: `${t.workType?.name ?? 'Задача'} · ${t.description || 'без описания'}`,
-            })),
-          ]}
-        />
-      )}
     </>
   )
 

@@ -26,6 +26,7 @@ type IconName =
   | 'camera'
   | 'database'
   | 'layers'
+  | 'box'
 
 type NavItem = {
   to: string
@@ -67,6 +68,7 @@ const ICON_PATHS: Record<IconName, string> = {
   camera: 'M4 8h3l2-2h6l2 2h3v11H4zM12 16a3 3 0 100-6 3 3 0 000 6z',
   database: 'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6',
   layers: 'M12 3l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5',
+  box: 'M12 3l8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10',
 }
 
 function Icon({ name, className = 'h-5 w-5' }: { name: IconName; className?: string }) {
@@ -142,12 +144,6 @@ const navGroups: NavGroup[] = [
         icon: 'schedule',
         roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'],
       },
-      {
-        to: '/admin/daily-reports',
-        label: 'Ежедневный отчёт',
-        icon: 'doc',
-        roles: ['ADMIN', 'AKIMAT', 'ANTICOR'],
-      },
     ],
   },
   {
@@ -170,11 +166,28 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    key: 'warehouse',
+    label: 'Склад',
+    icon: 'box',
+    items: [
+      { to: '/admin/warehouse', label: 'Учёт товаров и остатков', icon: 'box', roles: ['ADMIN', 'BRIGADIER'] },
+      { to: '/admin/warehouse/issue', label: 'Выдача / Списание товаров', icon: 'list', roles: ['ADMIN', 'BRIGADIER'] },
+      { to: '/admin/products/import', label: 'Импорт товаров (Excel)', icon: 'database', roles: ['ADMIN'] },
+      { to: '/admin/warehouse/export', label: 'Экспорт остатков (Excel)', icon: 'chart', roles: ['ADMIN'] },
+    ],
+  },
+  {
     key: 'settings',
     label: 'Отчёты и настройки',
     icon: 'settings',
     items: [
-      { to: '/admin/export', label: 'Отчёты (Excel)', icon: 'chart', roles: ['ADMIN'] },
+      {
+        to: '/admin/daily-reports',
+        label: 'Ежедневный отчёт',
+        icon: 'doc',
+        roles: ['ADMIN', 'AKIMAT', 'ANTICOR'],
+      },
+      { to: '/admin/export', label: 'Экспорт в Excel', icon: 'chart', roles: ['ADMIN'] },
       { to: '/admin/ai-assistant', label: 'AI-помощник', icon: 'chat', roles: ['ADMIN'] },
       { to: '/admin/form-settings', label: 'Настройки формы', icon: 'settings', roles: ['ADMIN'] },
       { to: '/admin/seed', label: 'Seed', icon: 'database', roles: ['ADMIN'] },

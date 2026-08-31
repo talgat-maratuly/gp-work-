@@ -115,6 +115,7 @@ export function AdminReportsPage() {
   const [viewing, setViewing] = useState<AdminReport | null>(null)
   const [aggregate, setAggregate] = useState<AdminReportAggregate | null>(null)
   const [saving, setSaving] = useState(false)
+  const [detailed, setDetailed] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -324,44 +325,68 @@ export function AdminReportsPage() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TEXT_FIELDS.map((f) => (
-            <label key={f.key} className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">{f.label}</span>
-              <textarea
-                rows={2}
-                value={(form[f.key] as string) ?? ''}
-                onChange={(e) => patchForm({ [f.key]: e.target.value } as Partial<AdminReportPayload>)}
+        {/* Основной вариант — весь отчёт одним текстом */}
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">
+            Текст отчёта <span className="font-normal text-slate-400">(можно записать всё одним текстом)</span>
+          </span>
+          <textarea
+            rows={7}
+            value={form.comment ?? ''}
+            onChange={(e) => patchForm({ comment: e.target.value })}
+            placeholder="Опишите день свободным текстом: выполненные и невыполненные работы, полив, проблемы, объекты, решения…"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+          />
+        </label>
+
+        <button
+          type="button"
+          onClick={() => setDetailed((v) => !v)}
+          className="text-sm text-blue-700 underline"
+        >
+          {detailed ? 'Скрыть подробные разделы' : 'Заполнить по разделам (необязательно)'}
+        </button>
+
+        {detailed && (
+          <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+            {TEXT_FIELDS.filter((f) => f.key !== 'comment').map((f) => (
+              <label key={f.key} className="block">
+                <span className="mb-1 block text-sm font-medium text-slate-700">{f.label}</span>
+                <textarea
+                  rows={2}
+                  value={(form[f.key] as string) ?? ''}
+                  onChange={(e) => patchForm({ [f.key]: e.target.value } as Partial<AdminReportPayload>)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+            ))}
+
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">Плановые литры</span>
+              <input
+                type="number"
+                min={0}
+                value={form.plannedLiters ?? ''}
+                onChange={(e) =>
+                  patchForm({ plannedLiters: e.target.value ? Number(e.target.value) : null })
+                }
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
               />
             </label>
-          ))}
-
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Плановые литры</span>
-            <input
-              type="number"
-              min={0}
-              value={form.plannedLiters ?? ''}
-              onChange={(e) =>
-                patchForm({ plannedLiters: e.target.value ? Number(e.target.value) : null })
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Фактические литры</span>
-            <input
-              type="number"
-              min={0}
-              value={form.actualLiters ?? ''}
-              onChange={(e) =>
-                patchForm({ actualLiters: e.target.value ? Number(e.target.value) : null })
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-        </div>
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-slate-700">Фактические литры</span>
+              <input
+                type="number"
+                min={0}
+                value={form.actualLiters ?? ''}
+                onChange={(e) =>
+                  patchForm({ actualLiters: e.target.value ? Number(e.target.value) : null })
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button type="submit" disabled={saving}>

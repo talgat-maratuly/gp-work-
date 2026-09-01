@@ -74,7 +74,7 @@ export class AdminReportsController {
   }
 
   @Patch(':id/review')
-  @Roles(UserRole.DIRECTOR, UserRole.ADMIN)
+  @Roles(UserRole.DIRECTOR)
   review(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ReviewAdminReportDto,

@@ -100,7 +100,8 @@ function printReport(rep: AdminReport) {
 export function AdminReportsPage() {
   const { hasRole } = useAuth()
   const canEdit = hasRole('DIRECTOR', 'ADMIN')
-  const canReview = hasRole('DIRECTOR', 'ADMIN')
+  // Подтверждает/возвращает отчёт только Директор (админ создаёт и отправляет).
+  const canReview = hasRole('DIRECTOR')
 
   const [reports, setReports] = useState<AdminReport[]>([])
   const [authors, setAuthors] = useState<ApiUser[]>([])

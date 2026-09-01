@@ -94,6 +94,9 @@ export async function apiRequest<T>(
     res = await fetch(url, {
       ...options,
       headers,
+      // Никогда не берём ответы API из HTTP-кэша: иначе после перезагрузки
+      // мог показаться профиль другого пользователя (кэш /auth/me по URL).
+      cache: 'no-store',
     })
   } catch (err) {
     console.error('[api]', path, err)
@@ -123,7 +126,7 @@ export async function apiDownload(path: string): Promise<Blob> {
   if (token) headers.set('Authorization', `Bearer ${token}`)
   let res: Response
   try {
-    res = await fetch(url, { headers })
+    res = await fetch(url, { headers, cache: 'no-store' })
   } catch (err) {
     console.error('[api]', path, err)
     throw new ApiError('Проверьте подключение к серверу', 0, err)

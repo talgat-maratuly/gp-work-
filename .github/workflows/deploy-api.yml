@@ -243,7 +243,7 @@ jobs:
 
             DB_BYTES="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atqc "SELECT pg_database_size('gp-work')")"
             WEB_BYTES="$(du -sb "$WEB_PATH" | awk '{print $1}')"
-            FREE_KB="$(df -Pk --output=avail /opt | tail -1 | tr -d ' ')"
+            FREE_KB="$(df -Pk /opt | awk 'NR == 2 {print $4}')"
             REQUIRED_KB="$((DB_BYTES / 1024 * 3 + WEB_BYTES / 1024 * 2 + 524288))"
             if [ "$FREE_KB" -lt "$REQUIRED_KB" ]; then
               echo "Insufficient disk space for verified backup and rollback"

@@ -37,6 +37,7 @@ export class WorkDaysService {
   }
 
   async start(dto: StartWorkDayDto, user: User) {
+    if (new Set(dto.livenessEvidenceUrls).size < 3) throw new BadRequestException('Liveness требует три разных кадра');
     const duplicate = await this.sessions.findOne({ where: { clientSessionId: dto.clientSessionId } });
     if (duplicate) { if (duplicate.userId !== user.id) throw new BadRequestException('Идентификатор смены уже использован'); return duplicate; }
     if (await this.sessions.exist({ where: { userId: user.id, status: WorkDayStatus.OPEN } })) throw new BadRequestException('У работника уже есть открытая смена');
@@ -46,6 +47,7 @@ export class WorkDaysService {
   }
 
   async close(dto: CloseWorkDayDto, user: User) {
+    if (new Set(dto.livenessEvidenceUrls).size < 3) throw new BadRequestException('Liveness требует три разных кадра');
     const session = await this.sessions.findOne({ where: { id: dto.sessionId }, relations: { section: true } });
     if (!session) throw new NotFoundException('Смена не найдена');
     if (session.userId !== user.id) throw new ForbiddenException('Нельзя закрыть чужую смену');

@@ -8,7 +8,7 @@ export class StartWorkDayDto {
   @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude!: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) accuracy?: number;
   @IsString() selfieUrl!: string;
-  @IsArray() @ArrayMinSize(2) @IsString({ each: true }) livenessEvidenceUrls!: string[];
+  @IsArray() @ArrayMinSize(3) @IsString({ each: true }) livenessEvidenceUrls!: string[];
   @IsString() startPhotoUrl!: string;
 }
 

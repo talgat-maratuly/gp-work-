@@ -66,13 +66,14 @@ function notifyQueueChanged() {
 }
 
 export async function queueRequest(path: string, method: string, body: Record<string, unknown>) {
-  const item: QueueItem = { id: newClientId(), kind: 'REQUEST', path, method, body, createdAt: new Date().toISOString(), attempts: 0 }
+  const operationId = typeof body.clientOperationId === 'string' ? body.clientOperationId : newClientId()
+  const item: QueueItem = { id: `request:${operationId}`, kind: 'REQUEST', path, method, body, createdAt: new Date().toISOString(), attempts: 0 }
   await transact('readwrite', (store) => store.put(item))
   notifyQueueChanged()
 }
 
 export async function queuePhoto(input: Omit<Extract<QueueItem, { kind: 'PHOTO' }>, 'id' | 'kind' | 'createdAt' | 'attempts'>) {
-  const item: QueueItem = { ...input, id: newClientId(), kind: 'PHOTO', createdAt: new Date().toISOString(), attempts: 0 }
+  const item: QueueItem = { ...input, id: `photo:${input.clientPhotoId}`, kind: 'PHOTO', createdAt: new Date().toISOString(), attempts: 0 }
   await transact('readwrite', (store) => store.put(item))
   notifyQueueChanged()
 }

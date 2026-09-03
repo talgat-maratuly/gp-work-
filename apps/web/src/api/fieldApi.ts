@@ -75,7 +75,7 @@ export type FieldExecution = {
   availableChecklist: ChecklistItem[]
   checklist: ChecklistAnswer[]
   faceVerifications: FaceVerification[]
-  materials: {
+  materials?: {
     id: number
     productId: number
     type: string
@@ -96,8 +96,10 @@ export function fetchMyRoute() {
   return apiRequest<FieldRoute | null>('/routes/my/today')
 }
 
-export function startRoute(id: number) {
-  return apiRequest<FieldRoute>(`/routes/${id}/start`, { method: 'POST' })
+export async function startRoute(id: number) {
+  const route = await apiRequest<FieldRoute>(`/routes/${id}/start`, { method: 'POST' })
+  window.dispatchEvent(new Event('gp-work-route-changed'))
+  return route
 }
 
 export function fetchRoutes(date?: string) {
@@ -143,7 +145,7 @@ export function fetchReviewQueue() {
 export function reviewFace(verificationId: number, status: 'VERIFIED' | 'REJECTED', reviewComment?: string) {
   return apiRequest<FieldExecution>(`/field/face/${verificationId}/review`, {
     method: 'POST',
-    body: JSON.stringify({ status, reviewComment }),
+    body: JSON.stringify({ clientOperationId: newClientId(), status, reviewComment }),
   })
 }
 
@@ -151,5 +153,21 @@ export function reviewExecution(executionId: number, accepted: boolean, comment?
   return apiRequest<FieldExecution>(`/field/executions/${executionId}/review`, {
     method: 'POST',
     body: JSON.stringify({ clientOperationId: newClientId(), accepted, comment }),
+  })
+}
+
+export function sendLocationBatch(body: {
+  points: {
+    clientOperationId: string
+    routeId?: number
+    latitude: number
+    longitude: number
+    accuracy?: number
+    occurredAt: string
+  }[]
+}) {
+  return apiRequest<{ received: number; created: number; duplicates: number }>('/field/locations/batch', {
+    method: 'POST',
+    body: JSON.stringify(body),
   })
 }

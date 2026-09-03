@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
 import {
   ExecutionStatus,
@@ -47,6 +48,10 @@ function businessDate(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
 
 @Injectable()
@@ -151,10 +156,26 @@ export class FieldExecutionsService {
       .getMany();
   }
 
-  private async eventAlreadyProcessed(clientOperationId: string): Promise<WorkExecution | null> {
-    const event = await this.eventRepo.findOne({ where: { clientOperationId } });
+  private async duplicateEvent(
+    clientOperationId: string,
+    user: User,
+    expectedType: string,
+    expected: { executionId?: number; taskId?: number } = {},
+  ): Promise<WorkExecution | null> {
+    const event = await this.eventRepo.findOne({
+      where: { clientOperationId },
+      relations: { execution: true },
+    });
     if (!event) return null;
-    return this.executionRepo.findOne({ where: { id: event.executionId } });
+    const belongsToRequest =
+      event.actorUserId === user.id &&
+      event.type === expectedType &&
+      (expected.executionId == null || event.executionId === expected.executionId) &&
+      (expected.taskId == null || event.execution.taskId === expected.taskId);
+    if (!belongsToRequest) {
+      throw new BadRequestException('Идентификатор операции уже использован для другого действия');
+    }
+    return event.execution;
   }
 
   private async completeRouteIfReady(routeId: number | null | undefined) {
@@ -178,26 +199,40 @@ export class FieldExecutionsService {
     geo?: { latitude?: number; longitude?: number; accuracy?: number },
   ) {
     const existing = await this.eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
-    if (existing) return existing;
-    return this.eventRepo.save(this.eventRepo.create({
-      clientOperationId: dto.clientOperationId,
-      executionId: execution.id,
-      actorUserId: user.id,
-      type,
-      payload,
-      latitude: geo?.latitude ?? null,
-      longitude: geo?.longitude ?? null,
-      accuracy: geo?.accuracy ?? null,
-      occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
-    }));
+    if (existing) {
+      if (existing.executionId !== execution.id || existing.actorUserId !== user.id || existing.type !== type) {
+        throw new BadRequestException('Идентификатор операции уже использован для другого действия');
+      }
+      return existing;
+    }
+    try {
+      return await this.eventRepo.save(this.eventRepo.create({
+        clientOperationId: dto.clientOperationId,
+        executionId: execution.id,
+        actorUserId: user.id,
+        type,
+        payload,
+        latitude: geo?.latitude ?? null,
+        longitude: geo?.longitude ?? null,
+        accuracy: geo?.accuracy ?? null,
+        occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
+      }));
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      const duplicate = await this.eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
+      if (!duplicate || duplicate.executionId !== execution.id || duplicate.actorUserId !== user.id || duplicate.type !== type) {
+        throw new BadRequestException('Идентификатор операции уже использован для другого действия');
+      }
+      return duplicate;
+    }
   }
 
   async arrive(taskId: number, dto: ArriveExecutionDto, user: User) {
-    const duplicate = await this.eventAlreadyProcessed(dto.clientOperationId);
-    if (duplicate) return this.detailed(duplicate.id);
     const task = await this.taskRepo.findOne({ where: { id: taskId }, relations: { section: true } });
     if (!task) throw new NotFoundException('Задача не найдена');
     if (!this.canExecute(task, user)) throw new ForbiddenException('Задача назначена другому сотруднику или бригаде');
+    const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'ARRIVED', { taskId });
+    if (duplicate) return this.detailed(duplicate.id);
     if (task.section.code !== dto.sectionCode.trim()) throw new BadRequestException('QR-код не относится к объекту задачи');
 
     let measuredDistance: number | null = null;
@@ -217,23 +252,32 @@ export class FieldExecutionsService {
     }
 
     let execution = await this.executionRepo.findOne({ where: { taskId } });
+    let created = false;
     if (!execution) {
-      execution = await this.executionRepo.save(this.executionRepo.create({
-        clientExecutionId: dto.clientExecutionId,
-        taskId: task.id,
-        sectionId: task.sectionId,
-        workerUserId: user.id,
-        brigadeId: task.brigadeId ?? user.brigadeId ?? null,
-        routeStopId: stop?.id ?? null,
-        status: ExecutionStatus.ARRIVED,
-        qrVerifiedAt: new Date(),
-        arrivedAt: new Date(),
-        arrivalLatitude: dto.latitude,
-        arrivalLongitude: dto.longitude,
-        arrivalAccuracy: dto.accuracy ?? null,
-        arrivalDistanceMeters: measuredDistance,
-      }));
-    } else {
+      try {
+        execution = await this.executionRepo.save(this.executionRepo.create({
+          clientExecutionId: dto.clientExecutionId,
+          taskId: task.id,
+          sectionId: task.sectionId,
+          workerUserId: user.id,
+          brigadeId: task.brigadeId ?? user.brigadeId ?? null,
+          routeStopId: stop?.id ?? null,
+          status: ExecutionStatus.ARRIVED,
+          qrVerifiedAt: new Date(),
+          arrivedAt: new Date(),
+          arrivalLatitude: dto.latitude,
+          arrivalLongitude: dto.longitude,
+          arrivalAccuracy: dto.accuracy ?? null,
+          arrivalDistanceMeters: measuredDistance,
+        }));
+        created = true;
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        execution = await this.executionRepo.findOne({ where: { taskId } });
+        if (!execution) throw error;
+      }
+    }
+    if (!created) {
       if (execution.workerUserId !== user.id) throw new ForbiddenException('Выполнение уже начато другим сотрудником');
       if (execution.status !== ExecutionStatus.ARRIVED) assertTransition(execution.status, ExecutionStatus.ARRIVED);
       execution.status = ExecutionStatus.ARRIVED;
@@ -261,18 +305,35 @@ export class FieldExecutionsService {
 
   async captureFace(id: number, dto: CaptureFaceDto, user: User) {
     const execution = await this.owned(id, user);
+    await this.duplicateEvent(dto.clientOperationId, user, 'FACE_CAPTURED', { executionId: id });
     const existing = await this.faceRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
-    if (!existing) {
-      await this.faceRepo.save(this.faceRepo.create({
-        clientOperationId: dto.clientOperationId,
-        executionId: execution.id,
-        userId: user.id,
-        status: FaceVerificationStatus.PENDING,
-        selfieUrl: dto.selfieUrl,
-        livenessEvidenceUrls: dto.livenessEvidenceUrls,
-      }));
-      await this.recordEvent(execution, 'FACE_CAPTURED', { clientOperationId: dto.clientOperationId }, user);
+    if (existing && (
+      existing.executionId !== execution.id ||
+      existing.userId !== user.id ||
+      existing.selfieUrl !== dto.selfieUrl ||
+      JSON.stringify(existing.livenessEvidenceUrls) !== JSON.stringify(dto.livenessEvidenceUrls)
+    )) {
+      throw new BadRequestException('Идентификатор Face verification уже использован в другой работе');
     }
+    if (!existing) {
+      try {
+        await this.faceRepo.save(this.faceRepo.create({
+          clientOperationId: dto.clientOperationId,
+          executionId: execution.id,
+          userId: user.id,
+          status: FaceVerificationStatus.PENDING,
+          selfieUrl: dto.selfieUrl,
+          livenessEvidenceUrls: dto.livenessEvidenceUrls,
+        }));
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        const duplicate = await this.faceRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
+        if (!duplicate || duplicate.executionId !== execution.id || duplicate.userId !== user.id || duplicate.selfieUrl !== dto.selfieUrl) {
+          throw new BadRequestException('Идентификатор Face verification уже использован в другой работе');
+        }
+      }
+    }
+    await this.recordEvent(execution, 'FACE_CAPTURED', { clientOperationId: dto.clientOperationId }, user);
     return this.detailed(id);
   }
 
@@ -283,38 +344,76 @@ export class FieldExecutionsService {
     const face = await this.faceRepo.findOne({ where: { id: verificationId }, relations: { execution: { task: true }, user: true } });
     if (!face) throw new NotFoundException('Face verification не найдена');
     if (!this.canReview(face.execution, reviewer)) throw new ForbiddenException('Нет доступа к проверке этого сотрудника');
+    const eventType = dto.status === FaceVerificationStatus.VERIFIED ? 'FACE_VERIFIED' : 'FACE_REJECTED';
+    const clientOperationId = dto.clientOperationId ?? randomUUID();
+    const duplicate = await this.duplicateEvent(clientOperationId, reviewer, eventType, { executionId: face.executionId });
+    if (duplicate) return this.detailed(duplicate.id);
     face.status = dto.status;
     face.reviewedById = reviewer.id;
     face.reviewedAt = new Date();
     face.reviewComment = dto.reviewComment?.trim() || null;
     await this.faceRepo.save(face);
+    await this.recordEvent(
+      face.execution,
+      eventType,
+      { clientOperationId },
+      reviewer,
+      { verificationId: face.id, reviewComment: face.reviewComment },
+    );
     return this.detailed(face.executionId);
   }
 
   async addPhotos(id: number, dto: AddWorkPhotosDto, user: User) {
     const execution = await this.owned(id, user);
     for (const photo of dto.photos) {
+      await this.duplicateEvent(photo.clientPhotoId, user, `PHOTO_${photo.phase}`, { executionId: id });
       const existing = await this.photoRepo.findOne({ where: { clientPhotoId: photo.clientPhotoId } });
-      if (existing) continue;
-      await this.photoRepo.save(this.photoRepo.create({
-        clientPhotoId: photo.clientPhotoId,
-        executionId: execution.id,
-        uploadedById: user.id,
-        phase: photo.phase,
-        url: photo.url,
-        contentHash: photo.contentHash ?? null,
-        capturedAt: new Date(photo.capturedAt),
-        latitude: photo.latitude ?? null,
-        longitude: photo.longitude ?? null,
-      }));
+      if (existing) {
+        if (
+          existing.executionId !== execution.id ||
+          existing.uploadedById !== user.id ||
+          existing.phase !== photo.phase ||
+          existing.url !== photo.url
+        ) {
+          throw new BadRequestException('Идентификатор фото уже использован в другой работе');
+        }
+      } else {
+        try {
+          await this.photoRepo.save(this.photoRepo.create({
+            clientPhotoId: photo.clientPhotoId,
+            executionId: execution.id,
+            uploadedById: user.id,
+            phase: photo.phase,
+            url: photo.url,
+            contentHash: photo.contentHash ?? null,
+            capturedAt: new Date(photo.capturedAt),
+            latitude: photo.latitude ?? null,
+            longitude: photo.longitude ?? null,
+          }));
+        } catch (error) {
+          if (!isUniqueViolation(error)) throw error;
+          const duplicate = await this.photoRepo.findOne({ where: { clientPhotoId: photo.clientPhotoId } });
+          if (!duplicate || duplicate.executionId !== execution.id || duplicate.uploadedById !== user.id || duplicate.phase !== photo.phase || duplicate.url !== photo.url) {
+            throw new BadRequestException('Идентификатор фото уже использован в другой работе');
+          }
+        }
+      }
+      await this.recordEvent(
+        execution,
+        `PHOTO_${photo.phase}`,
+        { clientOperationId: photo.clientPhotoId, occurredAt: photo.capturedAt },
+        user,
+        { url: photo.url, contentHash: photo.contentHash ?? null },
+        photo,
+      );
     }
     return this.detailed(id);
   }
 
   async start(id: number, dto: ExecutionActionDto, user: User) {
-    const duplicate = await this.eventAlreadyProcessed(dto.clientOperationId);
-    if (duplicate) return this.detailed(duplicate.id);
     const execution = await this.owned(id, user);
+    const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'STARTED', { executionId: id });
+    if (duplicate) return this.detailed(duplicate.id);
     assertTransition(execution.status, ExecutionStatus.STARTED);
     const [beforeCount, faceCount] = await Promise.all([
       this.photoRepo.count({ where: { executionId: id, phase: WorkPhotoPhase.BEFORE } }),
@@ -342,9 +441,9 @@ export class FieldExecutionsService {
   }
 
   async saveChecklist(id: number, dto: SaveChecklistDto, user: User) {
-    const duplicate = await this.eventAlreadyProcessed(dto.clientOperationId);
-    if (duplicate) return this.detailed(duplicate.id);
     const execution = await this.owned(id, user);
+    const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'CHECKLIST_UPDATED', { executionId: id });
+    if (duplicate) return this.detailed(duplicate.id);
     if (![ExecutionStatus.STARTED, ExecutionStatus.IN_PROGRESS, ExecutionStatus.REJECTED].includes(execution.status)) {
       throw new BadRequestException('Чек-лист доступен после начала работы');
     }
@@ -369,9 +468,9 @@ export class FieldExecutionsService {
   }
 
   async complete(id: number, dto: ExecutionActionDto, user: User) {
-    const duplicate = await this.eventAlreadyProcessed(dto.clientOperationId);
-    if (duplicate) return this.detailed(duplicate.id);
     const execution = await this.owned(id, user);
+    const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'COMPLETED', { executionId: id });
+    if (duplicate) return this.detailed(duplicate.id);
     if (![ExecutionStatus.STARTED, ExecutionStatus.IN_PROGRESS, ExecutionStatus.REJECTED].includes(execution.status)) {
       throw new BadRequestException('Завершить можно только начатую работу');
     }
@@ -431,11 +530,12 @@ export class FieldExecutionsService {
   }
 
   async review(id: number, dto: ReviewExecutionDto, reviewer: User) {
-    const duplicate = await this.eventAlreadyProcessed(dto.clientOperationId);
-    if (duplicate) return this.detailed(duplicate.id);
     const execution = await this.baseQuery().where('execution.id = :id', { id }).getOne();
     if (!execution) throw new NotFoundException('Выполнение работы не найдено');
     if (!this.canReview(execution, reviewer)) throw new ForbiddenException('Нет доступа к приёмке этой работы');
+    const eventType = dto.accepted ? 'ACCEPTED' : 'REJECTED';
+    const duplicate = await this.duplicateEvent(dto.clientOperationId, reviewer, eventType, { executionId: id });
+    if (duplicate) return this.detailed(duplicate.id);
     assertTransition(execution.status, dto.accepted ? ExecutionStatus.ACCEPTED : ExecutionStatus.REJECTED);
     if (dto.accepted) {
       const face = await this.faceRepo.findOne({ where: { executionId: id }, order: { createdAt: 'DESC' } });
@@ -459,27 +559,56 @@ export class FieldExecutionsService {
     }
     await this.executionRepo.save(execution);
     await this.taskRepo.save(execution.task);
-    await this.recordEvent(execution, dto.accepted ? 'ACCEPTED' : 'REJECTED', dto, reviewer, { comment: dto.comment });
+    await this.recordEvent(execution, eventType, dto, reviewer, { comment: dto.comment });
     return this.detailed(id);
   }
 
   async addLocations(dto: LocationBatchDto, user: User) {
-    const ids = dto.points.map((point) => point.clientOperationId);
-    const existing = ids.length ? await this.locationRepo.find({ where: { clientOperationId: In(ids) } }) : [];
-    const known = new Set(existing.map((row) => row.clientOperationId));
-    const fresh = dto.points.filter((point) => !known.has(point.clientOperationId));
-    if (fresh.length) {
-      await this.locationRepo.save(fresh.map((point) => this.locationRepo.create({
-        clientOperationId: point.clientOperationId,
-        userId: user.id,
-        brigadeId: user.brigadeId,
-        routeId: point.routeId ?? null,
-        latitude: point.latitude,
-        longitude: point.longitude,
-        accuracy: point.accuracy ?? null,
-        recordedAt: point.occurredAt ? new Date(point.occurredAt) : new Date(),
-      })));
+    const uniquePoints = new Map<string, (typeof dto.points)[number]>();
+    for (const point of dto.points) {
+      const duplicate = uniquePoints.get(point.clientOperationId);
+      if (duplicate && JSON.stringify(duplicate) !== JSON.stringify(point)) {
+        throw new BadRequestException('Один идентификатор геопозиции передан с разными данными');
+      }
+      uniquePoints.set(point.clientOperationId, point);
     }
-    return { received: dto.points.length, created: fresh.length, duplicates: existing.length };
+    const points = [...uniquePoints.values()];
+    const routeIds = [...new Set(points.flatMap((point) => point.routeId == null ? [] : [point.routeId]))];
+    if (routeIds.length) {
+      const routes = await this.routeRepo.find({ where: { id: In(routeIds) } });
+      if (routes.length !== routeIds.length) throw new BadRequestException('Один из маршрутов не найден');
+      if (!user.brigadeId || routes.some((route) => route.brigadeId !== user.brigadeId)) {
+        throw new ForbiddenException('Нельзя отправлять геопозицию для маршрута другой бригады');
+      }
+    }
+    const ids = points.map((point) => point.clientOperationId);
+    const existing = ids.length ? await this.locationRepo.find({ where: { clientOperationId: In(ids) } }) : [];
+    if (existing.some((row) => row.userId !== user.id)) {
+      throw new BadRequestException('Идентификатор геопозиции уже использован другим сотрудником');
+    }
+    const pointsById = new Map(points.map((point) => [point.clientOperationId, point]));
+    if (existing.some((row) => {
+      const point = pointsById.get(row.clientOperationId)!;
+      return row.routeId !== (point.routeId ?? null) || row.latitude !== point.latitude || row.longitude !== point.longitude;
+    })) {
+      throw new BadRequestException('Идентификатор геопозиции уже использован с другими данными');
+    }
+    const known = new Set(existing.map((row) => row.clientOperationId));
+    const fresh = points.filter((point) => !known.has(point.clientOperationId));
+    let created = 0;
+    if (fresh.length) {
+      const result = await this.locationRepo.createQueryBuilder().insert().values(fresh.map((point) => ({
+          clientOperationId: point.clientOperationId,
+          userId: user.id,
+          brigadeId: user.brigadeId,
+          routeId: point.routeId ?? null,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          accuracy: point.accuracy ?? null,
+          recordedAt: point.occurredAt ? new Date(point.occurredAt) : new Date(),
+      }))).orIgnore().execute();
+      created = result.identifiers.length;
+    }
+    return { received: dto.points.length, created, duplicates: dto.points.length - created };
   }
 }

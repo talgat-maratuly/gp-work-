@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
-import { writeFile } from 'fs/promises';
+import { unlink, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 export function detectImageExtension(buffer: Buffer): '.jpg' | '.png' | '.webp' | '.heic' | null {
@@ -28,14 +28,21 @@ export class UploadsService {
   }
 
   async saveValidatedPhotos(files: Express.Multer.File[]): Promise<string[]> {
+    const extensions = files.map((file) => detectImageExtension(file.buffer));
+    if (extensions.some((extension) => extension === null)) {
+      throw new BadRequestException('Файл не является поддерживаемым изображением');
+    }
     this.ensurePhotosDir();
     const stored: string[] = [];
-    for (const file of files) {
-      const extension = detectImageExtension(file.buffer);
-      if (!extension) throw new BadRequestException('Файл не является поддерживаемым изображением');
-      const filename = `${Date.now()}-${randomUUID()}${extension}`;
-      await writeFile(join(this.photosDir, filename), file.buffer, { flag: 'wx', mode: 0o640 });
-      stored.push(filename);
+    try {
+      for (const [index, file] of files.entries()) {
+        const filename = `${Date.now()}-${randomUUID()}${extensions[index]!}`;
+        await writeFile(join(this.photosDir, filename), file.buffer, { flag: 'wx', mode: 0o640 });
+        stored.push(filename);
+      }
+    } catch (error) {
+      await Promise.all(stored.map((filename) => unlink(join(this.photosDir, filename)).catch(() => undefined)));
+      throw error;
     }
     return this.toPublicUrls(stored);
   }

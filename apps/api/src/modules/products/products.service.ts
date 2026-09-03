@@ -134,6 +134,28 @@ export class ProductsService {
     };
   }
 
+  private assertMovementReplay(
+    movement: StockMovement,
+    dto: CreateStockMovementDto,
+    user: User,
+  ) {
+    const sameRequest =
+      movement.createdById === user.id &&
+      movement.productId === dto.productId &&
+      movement.type === dto.type &&
+      num(movement.quantity) === dto.quantity &&
+      movement.objectId === (dto.objectId ?? null) &&
+      movement.sectionId === (dto.sectionId ?? null) &&
+      movement.taskId === (dto.taskId ?? null) &&
+      movement.brigadeId === (dto.brigadeId ?? null) &&
+      movement.employeeId === (dto.employeeId ?? null) &&
+      movement.routeId === (dto.routeId ?? null) &&
+      movement.executionId === (dto.executionId ?? null);
+    if (!sameRequest) {
+      throw new BadRequestException('Идентификатор складской операции уже использован с другими данными');
+    }
+  }
+
   private mapMovement(row: StockMovement) {
     return {
       id: row.id,
@@ -416,7 +438,10 @@ export class ProductsService {
     if (dto.quantity <= 0) throw new BadRequestException('Количество должно быть больше 0');
     if (dto.clientOperationId) {
       const previous = await this.movementRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
-      if (previous) return this.findMovement(previous.id);
+      if (previous) {
+        this.assertMovementReplay(previous, dto, user);
+        return this.findMovement(previous.id);
+      }
     }
 
     const movement = await this.dataSource.transaction(async (manager) => {
@@ -424,7 +449,10 @@ export class ProductsService {
         const duplicate = await manager.findOne(StockMovement, {
           where: { clientOperationId: dto.clientOperationId },
         });
-        if (duplicate) return duplicate;
+        if (duplicate) {
+          this.assertMovementReplay(duplicate, dto, user);
+          return duplicate;
+        }
       }
       const product = await manager.findOne(Product, {
         where: { id: dto.productId },

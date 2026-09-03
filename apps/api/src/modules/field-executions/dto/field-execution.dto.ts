@@ -10,7 +10,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { FaceVerificationStatus, WorkPhotoPhase } from '../../../common/enums/field-execution.enums';
@@ -25,15 +27,20 @@ export class GeoOperationDto {
 
   @Type(() => Number)
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   latitude!: number;
 
   @Type(() => Number)
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   longitude!: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
   accuracy?: number;
 }
 
@@ -65,6 +72,10 @@ export class CaptureFaceDto {
 }
 
 export class ReviewFaceDto {
+  @IsOptional()
+  @IsUUID()
+  clientOperationId?: string;
+
   @IsEnum(FaceVerificationStatus)
   status!: FaceVerificationStatus.VERIFIED | FaceVerificationStatus.REJECTED;
 

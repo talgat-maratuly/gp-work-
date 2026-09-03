@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useOfflineQueue } from '@/hooks/useOfflineQueue'
+import { useRouteLocationTracking } from '@/hooks/useRouteLocationTracking'
 
 const items = [
   { to: '/field/today', label: 'Сегодня', icon: '⌂' },
@@ -13,7 +14,8 @@ const items = [
 export function FieldLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const { pending, online } = useOfflineQueue()
+  const { pending, online, lastError } = useOfflineQueue()
+  const tracking = useRouteLocationTracking()
 
   return (
     <div className="mx-auto min-h-dvh max-w-xl bg-slate-50 pb-24 shadow-xl">
@@ -25,7 +27,9 @@ export function FieldLayout() {
           </div>
           <div className="text-right text-xs">
             <p className={online ? 'text-emerald-700' : 'text-amber-700'}>{online ? '● На связи' : '● Нет сети'}</p>
+            {tracking.routeId && <p className={tracking.status === 'denied' || tracking.status === 'error' ? 'font-semibold text-red-700' : 'text-blue-700'}>{tracking.status === 'denied' ? 'GPS запрещён' : tracking.status === 'error' ? 'Ошибка GPS' : tracking.status === 'queued' ? 'GPS сохранён offline' : 'GPS маршрута активен'}</p>}
             {pending > 0 && <p className="font-semibold text-amber-700">Не синхронизировано: {pending}</p>}
+            {lastError && <p className="max-w-48 truncate text-red-700" title={lastError}>Ошибка синхронизации</p>}
           </div>
         </div>
       </header>

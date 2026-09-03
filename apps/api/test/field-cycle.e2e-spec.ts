@@ -110,7 +110,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const beforeUrl = await upload('before.jpg');
     const afterUrl = await upload('after.jpg');
 
-    let execution = (await request(app.getHttpServer()).post(`/api/field/tasks/${task.id}/arrive`).set(auth(workerToken)).send({
+    const arrivalBody = {
       clientOperationId: clientId(),
       clientExecutionId: clientId(),
       sectionCode: section.code,
@@ -118,17 +118,24 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       latitude: 51.2301,
       longitude: 51.3701,
       accuracy: 5,
-    }).expect(201)).body;
+    };
+    let execution = (await request(app.getHttpServer()).post(`/api/field/tasks/${task.id}/arrive`).set(auth(workerToken)).send(arrivalBody).expect(201)).body;
+    const repeatedArrival = (await request(app.getHttpServer()).post(`/api/field/tasks/${task.id}/arrive`).set(auth(workerToken)).send(arrivalBody).expect(201)).body;
+    expect(repeatedArrival.id).toBe(execution.id);
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
       clientOperationId: clientId(), selfieUrl: faceUrl, livenessEvidenceUrls: [faceUrl],
     }).expect(201)).body;
-    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send({
+    const beforePhotoBody = {
       photos: [{ clientPhotoId: clientId(), phase: 'BEFORE', url: beforeUrl, capturedAt: new Date().toISOString(), latitude: 51.2301, longitude: 51.3701 }],
-    }).expect(201)).body;
-    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send({
-      clientOperationId: clientId(), occurredAt: new Date().toISOString(),
-    }).expect(201)).body;
+    };
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send(beforePhotoBody).expect(201)).body;
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send(beforePhotoBody).expect(201)).body;
+    expect(execution.photos.filter((photo: { phase: string }) => photo.phase === 'BEFORE')).toHaveLength(1);
+    const startBody = { clientOperationId: clientId(), occurredAt: new Date().toISOString() };
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send(startBody).expect(201)).body;
     expect(execution.status).toBe('STARTED');
+    const repeatedStart = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send(startBody).expect(201)).body;
+    expect(repeatedStart.id).toBe(execution.id);
 
     const material = await dataSource.getRepository(Product).save(dataSource.getRepository(Product).create({
       code: `E2E-${suffix}`,
@@ -149,6 +156,14 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const duplicateIssue = (await request(app.getHttpServer()).post('/api/stock-movements').set(auth(workerToken)).send(issueBody).expect(201)).body;
     expect(duplicateIssue.id).toBe(issued.id);
     expect(await dataSource.getRepository(StockMovement).count({ where: { clientOperationId: stockOperation } })).toBe(1);
+    await request(app.getHttpServer()).post('/api/stock-movements').set(auth(workerToken)).send({ ...issueBody, quantity: 3 }).expect(400);
+
+    const locationOperation = clientId();
+    const locationPoint = { clientOperationId: locationOperation, routeId: route.id, latitude: 51.2301, longitude: 51.3701, accuracy: 5, occurredAt: new Date().toISOString() };
+    const locations = (await request(app.getHttpServer()).post('/api/field/locations/batch').set(auth(workerToken)).send({ points: [locationPoint, locationPoint] }).expect(201)).body;
+    expect(locations).toMatchObject({ received: 2, created: 1, duplicates: 1 });
+    const repeatedLocations = (await request(app.getHttpServer()).post('/api/field/locations/batch').set(auth(workerToken)).send({ points: [locationPoint] }).expect(201)).body;
+    expect(repeatedLocations).toMatchObject({ received: 1, created: 0, duplicates: 1 });
 
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/checklist`).set(auth(workerToken)).send({
       clientOperationId: clientId(),

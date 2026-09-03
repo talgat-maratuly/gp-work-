@@ -61,14 +61,20 @@ export async function listQueued(): Promise<QueueItem[]> {
   return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
-export function queueRequest(path: string, method: string, body: Record<string, unknown>) {
-  const item: QueueItem = { id: newClientId(), kind: 'REQUEST', path, method, body, createdAt: new Date().toISOString(), attempts: 0 }
-  return transact('readwrite', (store) => store.put(item))
+function notifyQueueChanged() {
+  window.dispatchEvent(new Event('gp-work-queue-changed'))
 }
 
-export function queuePhoto(input: Omit<Extract<QueueItem, { kind: 'PHOTO' }>, 'id' | 'kind' | 'createdAt' | 'attempts'>) {
+export async function queueRequest(path: string, method: string, body: Record<string, unknown>) {
+  const item: QueueItem = { id: newClientId(), kind: 'REQUEST', path, method, body, createdAt: new Date().toISOString(), attempts: 0 }
+  await transact('readwrite', (store) => store.put(item))
+  notifyQueueChanged()
+}
+
+export async function queuePhoto(input: Omit<Extract<QueueItem, { kind: 'PHOTO' }>, 'id' | 'kind' | 'createdAt' | 'attempts'>) {
   const item: QueueItem = { ...input, id: newClientId(), kind: 'PHOTO', createdAt: new Date().toISOString(), attempts: 0 }
-  return transact('readwrite', (store) => store.put(item))
+  await transact('readwrite', (store) => store.put(item))
+  notifyQueueChanged()
 }
 
 async function removeQueued(id: string) {
@@ -79,7 +85,7 @@ async function saveQueued(item: QueueItem) {
   await transact('readwrite', (store) => store.put(item))
 }
 
-export async function processQueue(): Promise<{ sent: number; remaining: number }> {
+async function processQueueItems(): Promise<{ sent: number; remaining: number }> {
   if (!navigator.onLine) return { sent: 0, remaining: (await listQueued()).length }
   const items = await listQueued()
   let sent = 0
@@ -111,4 +117,15 @@ export async function processQueue(): Promise<{ sent: number; remaining: number 
     }
   }
   return { sent, remaining: (await listQueued()).length }
+}
+
+let activeProcessing: Promise<{ sent: number; remaining: number }> | null = null
+
+export function processQueue(): Promise<{ sent: number; remaining: number }> {
+  if (activeProcessing) return activeProcessing
+  activeProcessing = processQueueItems().finally(() => {
+    activeProcessing = null
+    notifyQueueChanged()
+  })
+  return activeProcessing
 }

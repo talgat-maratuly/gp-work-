@@ -16,6 +16,16 @@ import {
   WateringRecord,
   WorkLog,
   WorkType,
+  Route,
+  RouteStop,
+  WorkExecution,
+  WorkExecutionEvent,
+  WorkPhoto,
+  ChecklistItem,
+  ChecklistAnswer,
+  FaceVerification,
+  LocationEvent,
+  SyncOperation,
 } from '../entities';
 
 loadEnvFiles();
@@ -37,6 +47,16 @@ export default new DataSource({
     AdminDailyReport,
     ScheduleEntry,
     ManagementDecision,
+    Route,
+    RouteStop,
+    WorkExecution,
+    WorkExecutionEvent,
+    WorkPhoto,
+    ChecklistItem,
+    ChecklistAnswer,
+    FaceVerification,
+    LocationEvent,
+    SyncOperation,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
 });

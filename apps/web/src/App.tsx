@@ -34,7 +34,16 @@ const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').the
 const ProductionSchedulePage = lazy(() => import('@/pages/admin/ProductionSchedulePage').then((m) => ({ default: m.ProductionSchedulePage })))
 const ManagementPage = lazy(() => import('@/pages/admin/ManagementPage').then((m) => ({ default: m.ManagementPage })))
 const WorkerLayout = lazy(() => import('@/pages/worker/WorkerLayout').then((m) => ({ default: m.WorkerLayout })))
-const WorkerTasksPage = lazy(() => import('@/pages/worker/WorkerTasksPage').then((m) => ({ default: m.WorkerTasksPage })))
+const FieldLayout = lazy(() => import('@/layouts/FieldLayout').then((m) => ({ default: m.FieldLayout })))
+const FieldTodayPage = lazy(() => import('@/pages/field/FieldTodayPage').then((m) => ({ default: m.FieldTodayPage })))
+const FieldRoutePage = lazy(() => import('@/pages/field/FieldRoutePage').then((m) => ({ default: m.FieldRoutePage })))
+const FieldQrPage = lazy(() => import('@/pages/field/FieldQrPage').then((m) => ({ default: m.FieldQrPage })))
+const FieldTasksPage = lazy(() => import('@/pages/field/FieldTasksPage').then((m) => ({ default: m.FieldTasksPage })))
+const FieldTaskPage = lazy(() => import('@/pages/field/FieldTaskPage').then((m) => ({ default: m.FieldTaskPage })))
+const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage').then((m) => ({ default: m.FieldExecutionPage })))
+const FieldMorePage = lazy(() => import('@/pages/field/FieldMorePage').then((m) => ({ default: m.FieldMorePage })))
+const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
+const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
@@ -52,6 +61,23 @@ export default function App() {
             <Route path="/work-form" element={<WorkFormPage />} />
             <Route path="/attendance/check-out" element={<CheckOutPage />} />
             <Route
+              path="/field"
+              element={
+                <ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}>
+                  <FieldLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/field/today" replace />} />
+              <Route path="today" element={<FieldTodayPage />} />
+              <Route path="route" element={<FieldRoutePage />} />
+              <Route path="qr" element={<FieldQrPage />} />
+              <Route path="tasks" element={<FieldTasksPage />} />
+              <Route path="tasks/:taskId" element={<FieldTaskPage />} />
+              <Route path="executions/:id" element={<FieldExecutionPage />} />
+              <Route path="more" element={<FieldMorePage />} />
+            </Route>
+            <Route
               path="/worker"
               element={
                 <ProtectedRoute roles={['WORKER']}>
@@ -59,8 +85,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/worker/tasks" replace />} />
-              <Route path="tasks" element={<WorkerTasksPage />} />
+              <Route index element={<Navigate to="/field/today" replace />} />
+              <Route path="tasks" element={<Navigate to="/field/tasks" replace />} />
             </Route>
             <Route
               path="/admin"
@@ -86,6 +112,8 @@ export default function App() {
               <Route path="users" element={<UsersPage />} />
               <Route path="brigades" element={<BrigadesPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="routes" element={<RoutesPage />} />
+              <Route path="executions" element={<ExecutionReviewPage />} />
               <Route path="watering" element={<WateringPage />} />
               <Route path="schedule" element={<ProductionSchedulePage />} />
               <Route path="management" element={<ManagementPage />} />

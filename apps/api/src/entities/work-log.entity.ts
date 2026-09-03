@@ -12,6 +12,8 @@ import { Section } from './section.entity';
 import { Task } from './task.entity';
 import { User } from './user.entity';
 import { WorkType } from './work-type.entity';
+import { Brigade } from './brigade.entity';
+import { WorkExecution } from './work-execution.entity';
 
 @Entity('work_logs')
 export class WorkLog {
@@ -58,6 +60,15 @@ export class WorkLog {
   @Column({ name: 'task_id', nullable: true })
   taskId!: number | null;
 
+  @Column({ name: 'user_id', nullable: true })
+  userId!: number | null;
+
+  @Column({ name: 'brigade_id', nullable: true })
+  brigadeId!: number | null;
+
+  @Column({ name: 'execution_id', nullable: true, unique: true })
+  executionId!: number | null;
+
   @Column({ name: 'review_status', type: 'varchar', length: 32, default: ReviewStatus.PENDING })
   reviewStatus!: ReviewStatus;
 
@@ -76,6 +87,18 @@ export class WorkLog {
   @ManyToOne(() => Task, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'task_id' })
   task!: Task | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
+
+  @ManyToOne(() => Brigade, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'brigade_id' })
+  brigade!: Brigade | null;
+
+  @ManyToOne(() => WorkExecution, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'execution_id' })
+  execution!: WorkExecution | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reviewed_by_id' })

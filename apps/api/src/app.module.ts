@@ -27,6 +27,8 @@ import { AdminReportsModule } from './modules/admin-reports/admin-reports.module
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { ManagementModule } from './modules/management/management.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { RoutesModule } from './modules/routes/routes.module';
+import { FieldExecutionsModule } from './modules/field-executions/field-executions.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
   AdminDailyReport,
@@ -47,6 +49,16 @@ import {
   WateringRecord,
   WorkLog,
   WorkType,
+  Route,
+  RouteStop,
+  WorkExecution,
+  WorkExecutionEvent,
+  WorkPhoto,
+  ChecklistItem,
+  ChecklistAnswer,
+  FaceVerification,
+  LocationEvent,
+  SyncOperation,
 } from './entities';
 
 @Module({
@@ -84,6 +96,16 @@ import {
           AdminDailyReport,
           ScheduleEntry,
           ManagementDecision,
+          Route,
+          RouteStop,
+          WorkExecution,
+          WorkExecutionEvent,
+          WorkPhoto,
+          ChecklistItem,
+          ChecklistAnswer,
+          FaceVerification,
+          LocationEvent,
+          SyncOperation,
         ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: config.get('DB_MIGRATE') !== 'false',
@@ -103,6 +125,8 @@ import {
     ScheduleModule,
     ManagementModule,
     DashboardModule,
+    RoutesModule,
+    FieldExecutionsModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,

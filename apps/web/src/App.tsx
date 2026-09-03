@@ -43,6 +43,7 @@ const FieldTasksPage = lazy(() => import('@/pages/field/FieldTasksPage').then((m
 const FieldTaskPage = lazy(() => import('@/pages/field/FieldTaskPage').then((m) => ({ default: m.FieldTaskPage })))
 const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage').then((m) => ({ default: m.FieldExecutionPage })))
 const FieldMorePage = lazy(() => import('@/pages/field/FieldMorePage').then((m) => ({ default: m.FieldMorePage })))
+const FieldAiAssistantPage = lazy(() => import('@/pages/field/FieldAiAssistantPage').then((m) => ({ default: m.FieldAiAssistantPage })))
 const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
 const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
 const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
@@ -84,6 +85,7 @@ export default function App() {
               <Route path="tasks/:taskId" element={<FieldTaskPage />} />
               <Route path="executions/:id" element={<FieldExecutionPage />} />
               <Route path="more" element={<FieldMorePage />} />
+              <Route path="assistant" element={<FieldAiAssistantPage />} />
             </Route>
             <Route
               path="/worker"

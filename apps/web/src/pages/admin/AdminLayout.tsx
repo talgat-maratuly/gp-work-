@@ -41,7 +41,7 @@ const groups: NavGroup[] = [
     { to: '/admin/management', label: 'Управление', icon: '◆', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/daily-reports', label: 'Отчёты', icon: '▥', roles: ['ADMIN', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/export', label: 'Экспорт Excel', icon: '⇧', roles: ['ADMIN'] },
-    { to: '/admin/ai-assistant', label: 'AI-помощник', icon: '✦', roles: ['ADMIN'] },
+    { to: '/admin/ai-assistant', label: 'ИИ‑директор', icon: '✦', roles: ['DIRECTOR', 'ADMIN'] },
     { to: '/admin/form-settings', label: 'Настройки формы', icon: '⚙', roles: ['ADMIN'] },
     { to: '/admin/seed', label: 'Системные данные', icon: '◫', roles: ['ADMIN'] },
   ]},

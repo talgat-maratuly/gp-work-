@@ -16,6 +16,8 @@ import { Section } from '../../entities/section.entity';
 import { Task } from '../../entities/task.entity';
 import { User } from '../../entities/user.entity';
 import { WorkLog } from '../../entities/work-log.entity';
+import { WorkDaySession, WorkDayStatus } from '../../entities/work-day-session.entity';
+import { WorkExecution } from '../../entities/work-execution.entity';
 import { AdminAiQuestionDto } from './dto/admin-ai-question.dto';
 
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -65,6 +67,10 @@ export class AdminAiService {
     private readonly sectionRepo: Repository<Section>,
     @InjectRepository(AiAgronomAnalysis)
     private readonly aiAgronomRepo: Repository<AiAgronomAnalysis>,
+    @InjectRepository(WorkDaySession)
+    private readonly workDayRepo: Repository<WorkDaySession>,
+    @InjectRepository(WorkExecution)
+    private readonly executionRepo: Repository<WorkExecution>,
   ) {}
 
   private todayRange() {
@@ -314,10 +320,128 @@ export class AdminAiService {
     return this.buildRiskItems();
   }
 
+  async getWorkerBrief(user: User) {
+    const today = this.todayRange().today;
+    const tasks = await this.taskRepo
+      .createQueryBuilder('task')
+      .leftJoinAndSelect('task.section', 'section')
+      .leftJoinAndSelect('section.object', 'object')
+      .leftJoinAndSelect('task.workType', 'workType')
+      .leftJoinAndMapOne('task.execution', WorkExecution, 'execution', 'execution.task_id = task.id')
+      .where('(task.assignee_user_id = :userId OR task.brigade_id = :brigadeId)', {
+        userId: user.id,
+        brigadeId: user.brigadeId ?? -1,
+      })
+      .andWhere('(task.due_date IS NULL OR task.due_date <= :today)', { today })
+      .andWhere('task.status NOT IN (:...done)', { done: [TaskStatus.VERIFIED] })
+      .orderBy('task.due_date', 'ASC', 'NULLS LAST')
+      .addOrderBy('task.id', 'ASC')
+      .getMany();
+
+    const openDay = await this.workDayRepo.findOne({
+      where: { userId: user.id, status: WorkDayStatus.OPEN },
+      relations: { section: { object: true } },
+    });
+
+    const rows = tasks.map((task) => {
+      const execution = (task as Task & { execution?: WorkExecution | null }).execution ?? null;
+      const status = execution?.status ?? 'ASSIGNED';
+      const nextAction =
+        status === 'ASSIGNED'
+          ? 'Отсканируйте QR участка и подтвердите геолокацию.'
+          : status === 'ARRIVED'
+            ? 'Сделайте селфи и фото ДО начала работы.'
+            : status === 'STARTED' || status === 'IN_PROGRESS'
+              ? 'Выполните чек-лист и добавьте фото результата.'
+              : status === 'COMPLETED'
+                ? 'Работа отправлена руководителю на проверку.'
+                : status === 'REJECTED'
+                  ? 'Откройте замечание руководителя и исправьте работу.'
+                  : 'Дополнительных действий по задаче сейчас нет.';
+      return {
+        id: task.id,
+        title: task.description || task.workType?.name || `Задача #${task.id}`,
+        dueDate: task.dueDate,
+        objectName: task.section?.object?.name ?? '—',
+        sectionName: task.section?.name ?? '—',
+        sectionCode: task.section?.code ?? '—',
+        status,
+        nextAction,
+      };
+    });
+
+    const activeCount = rows.filter((task) => ['ARRIVED', 'STARTED', 'IN_PROGRESS'].includes(task.status)).length;
+    const problemCount = rows.filter((task) => task.status === 'REJECTED').length;
+    const recommendations = [
+      !openDay
+        ? 'Для начала рабочего дня отсканируйте QR участка, включите GPS и пройдите проверку лица.'
+        : `Рабочий день открыт на участке ${openDay.section?.object?.name ?? '—'} / ${openDay.section?.name ?? '—'}.`,
+      rows[0]?.nextAction ?? 'На сегодня назначенных задач нет. Уточните план у руководителя.',
+      openDay ? 'Перед уходом закройте рабочий день: QR, GPS, селфи, фото результата и процент выполнения.' : null,
+    ].filter((item): item is string => Boolean(item));
+
+    return {
+      date: today,
+      worker: { id: user.id, fullName: user.fullName, role: user.role },
+      workDay: openDay
+        ? {
+            id: openDay.id,
+            status: openDay.status,
+            startedAt: openDay.startedAt,
+            objectName: openDay.section?.object?.name ?? '—',
+            sectionName: openDay.section?.name ?? '—',
+            sectionCode: openDay.section?.code ?? '—',
+          }
+        : null,
+      metrics: { total: rows.length, active: activeCount, problems: problemCount },
+      tasks: rows,
+      recommendations,
+      summary: openDay
+        ? `Рабочий день открыт. Задач: ${rows.length}, в работе: ${activeCount}, с замечаниями: ${problemCount}.`
+        : `Рабочий день ещё не открыт. На сегодня задач: ${rows.length}.`,
+    };
+  }
+
+  async answerWorkerQuestion(dto: AdminAiQuestionDto, user: User) {
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new BadRequestException('ИИ-ассистент не настроен. Укажите OPENAI_API_KEY на backend.');
+    }
+
+    const model = this.configService.get<string>('OPENAI_WORKER_MODEL', 'gpt-4o-mini');
+    const brief = await this.getWorkerBrief(user);
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Ты ИИ-ассистент сотрудника GP Work. Отвечай по-русски, просто, коротко и пошагово. Используй только данные этого сотрудника. Не придумывай факты, не меняй задачи и данные, не принимай кадровые или финансовые решения. Напоминай про QR, GPS, селфи, фото ДО/ПОСЛЕ, чек-лист и закрытие рабочего дня, когда это уместно.',
+          },
+          {
+            role: 'user',
+            content: `Вопрос сотрудника: ${dto.question}\n\nЕго текущий рабочий день:\n${JSON.stringify(brief, null, 2)}`,
+          },
+        ],
+      }),
+    });
+    if (!response.ok) {
+      throw new BadRequestException(`ИИ-ассистент не смог ответить: ${await response.text()}`);
+    }
+    const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const answer = body.choices?.[0]?.message?.content?.trim();
+    if (!answer) throw new BadRequestException('ИИ-ассистент не вернул ответ');
+    return { answer, model };
+  }
+
   async answerQuestion(dto: AdminAiQuestionDto) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
-      throw new BadRequestException('AI-помощник не настроен. Укажите OPENAI_API_KEY на backend.');
+      throw new BadRequestException('ИИ-директор не настроен. Укажите OPENAI_API_KEY на backend.');
     }
 
     const model = this.configService.get<string>('OPENAI_ADMIN_MODEL', 'gpt-4o-mini');
@@ -377,7 +501,7 @@ export class AdminAiService {
           {
             role: 'system',
             content:
-              'Ты AI-помощник администратора питомника. Отвечай по-русски, кратко и по делу. Используй только переданный контекст системы, не выдумывай отсутствующие данные. Если данных недостаточно, прямо скажи это. Окончательное решение принимает администратор.',
+              'Ты ИИ-директор GP Work. Отвечай по-русски, кратко и по делу. Используй только переданный контекст системы, не выдумывай отсутствующие данные. Выделяй факты, риски, причины и рекомендуемые действия. Ты не увольняешь сотрудников, не назначаешь штрафы, не удаляешь данные и не меняешь production. Любое кадровое, финансовое или необратимое действие требует явного подтверждения владельца.',
           },
           {
             role: 'user',
@@ -389,7 +513,7 @@ export class AdminAiService {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new BadRequestException(`AI-помощник не смог выполнить запрос: ${text}`);
+      throw new BadRequestException(`ИИ-директор не смог выполнить запрос: ${text}`);
     }
 
     const body = (await response.json()) as {
@@ -397,7 +521,7 @@ export class AdminAiService {
     };
     const answer = body.choices?.[0]?.message?.content?.trim();
     if (!answer) {
-      throw new BadRequestException('AI-помощник не вернул ответ');
+      throw new BadRequestException('ИИ-директор не вернул ответ');
     }
 
     return {

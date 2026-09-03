@@ -35,6 +35,32 @@ export type AdminAiRisk = {
   source: string
 }
 
+export type WorkerAiBrief = {
+  date: string
+  worker: { id: number; fullName: string; role: string }
+  workDay: {
+    id: number
+    status: string
+    startedAt: string
+    objectName: string
+    sectionName: string
+    sectionCode: string
+  } | null
+  metrics: { total: number; active: number; problems: number }
+  tasks: {
+    id: number
+    title: string
+    dueDate: string | null
+    objectName: string
+    sectionName: string
+    sectionCode: string
+    status: string
+    nextAction: string
+  }[]
+  recommendations: string[]
+  summary: string
+}
+
 export const ADMIN_AI_RISK_LABELS: Record<AdminAiRiskLevel, string> = {
   LOW: 'Низкий риск',
   MEDIUM: 'Средний риск',
@@ -52,6 +78,17 @@ export async function fetchAdminAiRisks(): Promise<AdminAiRisk[]> {
 
 export async function askAdminAi(question: string): Promise<{ answer: string }> {
   return apiRequest<{ answer: string }>('/admin-ai/question', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  })
+}
+
+export async function fetchWorkerAiBrief(): Promise<WorkerAiBrief> {
+  return apiRequest<WorkerAiBrief>('/admin-ai/worker/brief')
+}
+
+export async function askWorkerAi(question: string): Promise<{ answer: string }> {
+  return apiRequest<{ answer: string }>('/admin-ai/worker/question', {
     method: 'POST',
     body: JSON.stringify({ question }),
   })

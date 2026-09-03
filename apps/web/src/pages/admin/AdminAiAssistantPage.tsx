@@ -11,7 +11,7 @@ import {
 import { toUserMessage } from '@/api/client'
 
 const DISCLAIMER =
-  'AI-помощник помогает анализировать данные, но окончательное решение принимает администратор.'
+  'ИИ‑директор анализирует и рекомендует. Кадровые, финансовые и необратимые решения подтверждает владелец.'
 
 function riskClass(level: AdminAiRiskLevel): string {
   if (level === 'URGENT') return 'border-red-300 bg-red-50 text-red-900'
@@ -52,7 +52,7 @@ export function AdminAiAssistantPage() {
       setAnswer(result.answer)
     } catch (err) {
       console.error('[admin-ai/question]', err)
-      setError(toUserMessage(err, 'Не удалось получить ответ AI-помощника'))
+        setError(toUserMessage(err, 'Не удалось получить ответ ИИ‑директора'))
     } finally {
       setAsking(false)
     }
@@ -61,9 +61,9 @@ export function AdminAiAssistantPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">AI-помощник администратора</h1>
+        <h1 className="text-2xl font-bold">ИИ‑директор</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Управленческая сводка по людям, задачам, табелю, складу, отчетам и рискам питомника.
+          Управленческая сводка по людям, задачам, табелю, складу, качеству и рискам GP Work.
         </p>
       </div>
 
@@ -133,7 +133,7 @@ export function AdminAiAssistantPage() {
           </section>
 
           <section className="rounded-xl border bg-white p-4">
-            <h2 className="text-lg font-semibold">Вопрос к AI</h2>
+            <h2 className="text-lg font-semibold">Вопрос ИИ‑директору</h2>
             <form onSubmit={handleQuestion} className="mt-3 flex flex-col gap-3 md:flex-row">
               <input
                 className="min-w-0 flex-1 rounded-lg border px-3 py-2"

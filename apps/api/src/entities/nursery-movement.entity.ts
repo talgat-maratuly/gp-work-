@@ -1,46 +1,38 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { StockMovementType } from '../common/enums/stock-movement-type.enum';
-import { NurseryObject } from './nursery-object.entity';
-import { Product } from './product.entity';
-import { Section } from './section.entity';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { NurseryMovementType } from '../common/enums/resource.enums';
 import { Brigade } from './brigade.entity';
+import { NurseryBatch } from './nursery-batch.entity';
+import { NurseryObject } from './nursery-object.entity';
 import { Route } from './route.entity';
 import { Task } from './task.entity';
 import { User } from './user.entity';
 import { WorkExecution } from './work-execution.entity';
 
-@Entity('stock_movements')
-export class StockMovement {
+@Entity('nursery_movements')
+export class NurseryMovement {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'product_id', nullable: true })
-  productId!: number | null;
+  @Column({ name: 'batch_id' })
+  batchId!: number;
 
-  @Column({ type: 'varchar', length: 32 })
-  type!: StockMovementType;
+  @Column({ type: 'varchar', length: 24 })
+  type!: NurseryMovementType;
 
   @Column({ type: 'decimal', precision: 14, scale: 3 })
   quantity!: string;
 
-  @Column({ name: 'created_by_id', nullable: true })
-  createdById!: number | null;
+  @Column({ name: 'balance_after', type: 'decimal', precision: 14, scale: 3 })
+  balanceAfter!: string;
 
-  @Column({ name: 'worker_name', type: 'varchar', nullable: true })
-  workerName!: string | null;
+  @Column({ name: 'from_location', type: 'varchar', length: 180, nullable: true })
+  fromLocation!: string | null;
+
+  @Column({ name: 'to_location', type: 'varchar', length: 180, nullable: true })
+  toLocation!: string | null;
 
   @Column({ name: 'object_id', nullable: true })
   objectId!: number | null;
-
-  @Column({ name: 'section_id', nullable: true })
-  sectionId!: number | null;
 
   @Column({ name: 'task_id', nullable: true })
   taskId!: number | null;
@@ -57,36 +49,25 @@ export class StockMovement {
   @Column({ name: 'execution_id', nullable: true })
   executionId!: number | null;
 
+  @Column({ name: 'created_by_id', nullable: true })
+  createdById!: number | null;
+
   @Column({ name: 'client_operation_id', type: 'uuid', nullable: true, unique: true })
   clientOperationId!: string | null;
 
   @Column({ type: 'text', nullable: true })
-  purpose!: string | null;
-
-  @Column({ type: 'text', nullable: true })
   comment!: string | null;
-
-  @Column({ name: 'balance_after', type: 'decimal', precision: 14, scale: 3 })
-  balanceAfter!: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @ManyToOne(() => Product, (product) => product.movements, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'product_id' })
-  product!: Product | null;
-
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'created_by_id' })
-  createdBy!: User | null;
+  @ManyToOne(() => NurseryBatch, (batch) => batch.movements, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'batch_id' })
+  batch!: NurseryBatch;
 
   @ManyToOne(() => NurseryObject, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'object_id' })
   object!: NurseryObject | null;
-
-  @ManyToOne(() => Section, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'section_id' })
-  section!: Section | null;
 
   @ManyToOne(() => Task, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'task_id' })
@@ -107,4 +88,8 @@ export class StockMovement {
   @ManyToOne(() => WorkExecution, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'execution_id' })
   execution!: WorkExecution | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'created_by_id' })
+  createdBy!: User | null;
 }

@@ -13,6 +13,7 @@ import {
   WorkExecutionEvent,
   WorkLog,
   WorkPhoto,
+  StockMovement,
 } from '../../entities';
 import { FieldExecutionsController } from './field-executions.controller';
 import { FieldExecutionsService } from './field-executions.service';
@@ -33,6 +34,7 @@ import { AttendanceModule } from '../attendance/attendance.module';
       Task,
       Section,
       WorkLog,
+      StockMovement,
     ]),
     AttendanceModule,
   ],

@@ -26,6 +26,14 @@ import {
   FaceVerification,
   LocationEvent,
   SyncOperation,
+  Product,
+  StockMovement,
+  AttendanceRecord,
+  AiAgronomAnalysis,
+  Vehicle,
+  VehicleAssignment,
+  NurseryBatch,
+  NurseryMovement,
 } from '../entities';
 
 loadEnvFiles();
@@ -57,6 +65,14 @@ export default new DataSource({
     FaceVerification,
     LocationEvent,
     SyncOperation,
+    Product,
+    StockMovement,
+    AttendanceRecord,
+    AiAgronomAnalysis,
+    Vehicle,
+    VehicleAssignment,
+    NurseryBatch,
+    NurseryMovement,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
 });

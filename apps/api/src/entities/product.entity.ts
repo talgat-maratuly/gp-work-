@@ -53,6 +53,12 @@ export class Product {
   @Column({ name: 'current_quantity', type: 'decimal', precision: 14, scale: 3, default: 0 })
   currentQuantity!: string;
 
+  @Column({ name: 'reserved_quantity', type: 'decimal', precision: 14, scale: 3, default: 0 })
+  reservedQuantity!: string;
+
+  @Column({ name: 'minimum_quantity', type: 'decimal', precision: 14, scale: 3, default: 0 })
+  minimumQuantity!: string;
+
   @Column({ name: 'total_amount', type: 'decimal', precision: 14, scale: 2, default: 0 })
   totalAmount!: string;
 

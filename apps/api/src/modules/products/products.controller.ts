@@ -71,6 +71,7 @@ export class ProductsController {
   }
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
   findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll(query);
   }

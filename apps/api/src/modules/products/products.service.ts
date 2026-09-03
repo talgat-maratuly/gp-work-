@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { ProductSource } from '../../common/enums/product-source.enum';
 import { StockMovementType } from '../../common/enums/stock-movement-type.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -15,6 +16,7 @@ import { Product } from '../../entities/product.entity';
 import { Section } from '../../entities/section.entity';
 import { StockMovement } from '../../entities/stock-movement.entity';
 import { User } from '../../entities/user.entity';
+import { Brigade, Route, Task, WorkExecution } from '../../entities';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { StockMovementQueryDto } from './dto/stock-movement-query.dto';
@@ -83,7 +85,8 @@ function productStatus(product: Product): 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STO
   if (!product.isActual) return 'INACTIVE';
   const current = num(product.currentQuantity);
   if (current <= 0) return 'OUT_OF_STOCK';
-  if (current <= 5) return 'LOW_STOCK';
+  const threshold = num(product.minimumQuantity) || 5;
+  if (current <= threshold) return 'LOW_STOCK';
   return 'IN_STOCK';
 }
 
@@ -98,6 +101,7 @@ export class ProductsService {
     private readonly objectRepo: Repository<NurseryObject>,
     @InjectRepository(Section)
     private readonly sectionRepo: Repository<Section>,
+    private readonly dataSource: DataSource,
   ) {}
 
   private mapProduct(product: Product) {
@@ -115,6 +119,9 @@ export class ProductsService {
       incomingQuantity: num(product.incomingQuantity),
       outgoingQuantity: num(product.outgoingQuantity),
       currentQuantity: num(product.currentQuantity),
+      reservedQuantity: num(product.reservedQuantity),
+      availableQuantity: Math.max(0, num(product.currentQuantity) - num(product.reservedQuantity)),
+      minimumQuantity: num(product.minimumQuantity),
       totalAmount: num(product.totalAmount),
       externalId1C: product.externalId1C,
       code1C: product.code1C,
@@ -137,6 +144,12 @@ export class ProductsService {
       workerName: row.workerName,
       objectId: row.objectId,
       sectionId: row.sectionId,
+      taskId: row.taskId,
+      brigadeId: row.brigadeId,
+      employeeId: row.employeeId,
+      routeId: row.routeId,
+      executionId: row.executionId,
+      clientOperationId: row.clientOperationId,
       purpose: row.purpose,
       comment: row.comment,
       balanceAfter: num(row.balanceAfter),
@@ -147,6 +160,11 @@ export class ProductsService {
         : null,
       object: row.object ? { id: row.object.id, name: row.object.name } : null,
       section: row.section ? { id: row.section.id, name: row.section.name, code: row.section.code } : null,
+      task: row.task ? { id: row.task.id, description: row.task.description } : null,
+      brigade: row.brigade ? { id: row.brigade.id, name: row.brigade.name } : null,
+      employee: row.employee ? { id: row.employee.id, fullName: row.employee.fullName } : null,
+      route: row.route ? { id: row.route.id, workDate: row.route.workDate } : null,
+      execution: row.execution ? { id: row.execution.id, status: row.execution.status } : null,
     };
   }
 
@@ -396,57 +414,123 @@ export class ProductsService {
 
   async createMovement(dto: CreateStockMovementDto, user: User) {
     if (dto.quantity <= 0) throw new BadRequestException('Количество должно быть больше 0');
-    const product = await this.findOne(dto.productId);
-
-    if (dto.objectId) {
-      const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
-      if (!object) throw new NotFoundException('Объект не найден');
+    if (dto.clientOperationId) {
+      const previous = await this.movementRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
+      if (previous) return this.findMovement(previous.id);
     }
-    if (dto.sectionId) {
-      const section = await this.sectionRepo.findOne({ where: { id: dto.sectionId } });
-      if (!section) throw new NotFoundException('Участок не найден');
-      if (dto.objectId && section.objectId !== dto.objectId) {
+
+    const movement = await this.dataSource.transaction(async (manager) => {
+      if (dto.clientOperationId) {
+        const duplicate = await manager.findOne(StockMovement, {
+          where: { clientOperationId: dto.clientOperationId },
+        });
+        if (duplicate) return duplicate;
+      }
+      const product = await manager.findOne(Product, {
+        where: { id: dto.productId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!product) throw new NotFoundException('Товар не найден');
+
+      const [object, section, task, brigade, employee, route, execution] = await Promise.all([
+        dto.objectId ? manager.findOneBy(NurseryObject, { id: dto.objectId }) : null,
+        dto.sectionId ? manager.findOneBy(Section, { id: dto.sectionId }) : null,
+        dto.taskId ? manager.findOneBy(Task, { id: dto.taskId }) : null,
+        dto.brigadeId ? manager.findOneBy(Brigade, { id: dto.brigadeId }) : null,
+        dto.employeeId ? manager.findOneBy(User, { id: dto.employeeId }) : null,
+        dto.routeId ? manager.findOneBy(Route, { id: dto.routeId }) : null,
+        dto.executionId ? manager.findOneBy(WorkExecution, { id: dto.executionId }) : null,
+      ]);
+      if (dto.objectId && !object) throw new NotFoundException('Объект не найден');
+      if (dto.sectionId && !section) throw new NotFoundException('Участок не найден');
+      if (dto.taskId && !task) throw new NotFoundException('Задача не найдена');
+      if (dto.brigadeId && !brigade) throw new NotFoundException('Бригада не найдена');
+      if (dto.employeeId && !employee) throw new NotFoundException('Сотрудник не найден');
+      if (dto.routeId && !route) throw new NotFoundException('Маршрут не найден');
+      if (dto.executionId && !execution) throw new NotFoundException('Выполнение работы не найдено');
+      if ([UserRole.WORKER, UserRole.WATER_CARRIER].includes(user.role)) {
+        if (!execution) throw new ForbiddenException('Полевое списание необходимо привязать к выполнению работы');
+        const belongsToUser = execution.workerUserId === user.id;
+        const belongsToBrigade = !!user.brigadeId && execution.brigadeId === user.brigadeId;
+        if (!belongsToUser && !belongsToBrigade) throw new ForbiddenException('Работа назначена другому сотруднику');
+        if (![StockMovementType.OUTCOME, StockMovementType.RETURN].includes(dto.type)) {
+          throw new ForbiddenException('В поле доступны только выдача и возврат материалов');
+        }
+      }
+      if (section && dto.objectId && section.objectId !== dto.objectId) {
         throw new BadRequestException('Участок не относится к выбранному объекту');
       }
-    }
+      if (execution && dto.taskId && execution.taskId !== dto.taskId) {
+        throw new BadRequestException('Выполнение относится к другой задаче');
+      }
 
-    if (dto.type === StockMovementType.INCOME) {
-      product.incomingQuantity = toQuantity(num(product.incomingQuantity) + dto.quantity);
-    } else if (dto.type === StockMovementType.OUTCOME || dto.type === StockMovementType.WRITE_OFF) {
-      const next = num(product.currentQuantity) - dto.quantity;
-      if (next < 0) throw new BadRequestException('Недостаточно товара на складе');
-      product.outgoingQuantity = toQuantity(num(product.outgoingQuantity) + dto.quantity);
-    } else if (dto.type === StockMovementType.CORRECTION) {
-      product.initialQuantity = toQuantity(
-        dto.quantity - num(product.incomingQuantity) + num(product.outgoingQuantity),
+      if ([StockMovementType.INCOME, StockMovementType.RETURN].includes(dto.type)) {
+        product.incomingQuantity = toQuantity(num(product.incomingQuantity) + dto.quantity);
+      } else if ([StockMovementType.OUTCOME, StockMovementType.WRITE_OFF].includes(dto.type)) {
+        const next = num(product.currentQuantity) - dto.quantity;
+        if (next < 0) throw new BadRequestException('Недостаточно товара на складе');
+        product.outgoingQuantity = toQuantity(num(product.outgoingQuantity) + dto.quantity);
+        product.reservedQuantity = toQuantity(
+          Math.max(0, num(product.reservedQuantity) - dto.quantity),
+        );
+      } else if (dto.type === StockMovementType.RESERVE) {
+        const available = num(product.currentQuantity) - num(product.reservedQuantity);
+        if (available < dto.quantity) throw new BadRequestException('Недостаточно свободного остатка');
+        product.reservedQuantity = toQuantity(num(product.reservedQuantity) + dto.quantity);
+      } else if (dto.type === StockMovementType.RELEASE) {
+        if (num(product.reservedQuantity) < dto.quantity) {
+          throw new BadRequestException('Недостаточно зарезервированного товара');
+        }
+        product.reservedQuantity = toQuantity(num(product.reservedQuantity) - dto.quantity);
+      } else if (dto.type === StockMovementType.CORRECTION) {
+        product.initialQuantity = toQuantity(
+          dto.quantity - num(product.incomingQuantity) + num(product.outgoingQuantity),
+        );
+        product.reservedQuantity = toQuantity(Math.min(num(product.reservedQuantity), dto.quantity));
+      } else if (dto.type !== StockMovementType.TRANSFER) {
+        throw new BadRequestException('Этот тип движения создаётся автоматически');
+      }
+
+      this.recalcProduct(product);
+      const savedProduct = await manager.save(product);
+      return manager.save(
+        manager.create(StockMovement, {
+          productId: savedProduct.id,
+          type: dto.type,
+          quantity: toQuantity(dto.quantity),
+          createdById: user.id,
+          workerName: dto.workerName?.trim() || null,
+          objectId: dto.objectId ?? null,
+          sectionId: dto.sectionId ?? null,
+          taskId: dto.taskId ?? null,
+          brigadeId: dto.brigadeId ?? null,
+          employeeId: dto.employeeId ?? null,
+          routeId: dto.routeId ?? null,
+          executionId: dto.executionId ?? null,
+          clientOperationId: dto.clientOperationId ?? null,
+          purpose: dto.purpose?.trim() || null,
+          comment: dto.comment?.trim() || null,
+          balanceAfter: savedProduct.currentQuantity,
+        }),
       );
-    } else {
-      throw new BadRequestException('Этот тип движения создаётся автоматически');
-    }
-
-    this.recalcProduct(product);
-    const savedProduct = await this.productRepo.save(product);
-    const movement = await this.movementRepo.save(
-      this.movementRepo.create({
-        productId: savedProduct.id,
-        type: dto.type,
-        quantity: toQuantity(dto.quantity),
-        createdById: user.id,
-        workerName: dto.workerName?.trim() || null,
-        objectId: dto.objectId ?? null,
-        sectionId: dto.sectionId ?? null,
-        purpose: dto.purpose?.trim() || null,
-        comment: dto.comment?.trim() || null,
-        balanceAfter: savedProduct.currentQuantity,
-      }),
-    );
+    });
     return this.findMovement(movement.id);
   }
 
   async findMovement(id: number) {
     const row = await this.movementRepo.findOne({
       where: { id },
-      relations: { product: true, createdBy: true, object: true, section: true },
+      relations: {
+        product: true,
+        createdBy: true,
+        object: true,
+        section: true,
+        task: true,
+        brigade: true,
+        employee: true,
+        route: true,
+        execution: true,
+      },
     });
     if (!row) throw new NotFoundException('Движение товара не найдено');
     return this.mapMovement(row);
@@ -459,11 +543,16 @@ export class ProductsService {
       .leftJoinAndSelect('movement.createdBy', 'createdBy')
       .leftJoinAndSelect('movement.object', 'object')
       .leftJoinAndSelect('movement.section', 'section')
+      .leftJoinAndSelect('movement.task', 'task')
+      .leftJoinAndSelect('movement.brigade', 'brigade')
+      .leftJoinAndSelect('movement.employee', 'employee')
+      .leftJoinAndSelect('movement.route', 'route')
+      .leftJoinAndSelect('movement.execution', 'execution')
       .orderBy('movement.createdAt', 'DESC');
     if (query.productId) {
       qb.andWhere('movement.productId = :productId', { productId: query.productId });
     }
-    if (user?.role === UserRole.BRIGADIER) {
+    if (user && [UserRole.BRIGADIER, UserRole.WORKER, UserRole.WATER_CARRIER].includes(user.role)) {
       qb.andWhere('movement.createdById = :userId', { userId: user.id });
     }
     const rows = await qb.getMany();

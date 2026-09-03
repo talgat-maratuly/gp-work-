@@ -2,7 +2,7 @@ import { apiDownload, apiRequest } from './client'
 
 export type ProductSource = 'EXCEL' | 'MANUAL' | '1C'
 export type ProductStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'INACTIVE'
-export type StockMovementType = 'IMPORT' | 'INCOME' | 'OUTCOME' | 'WRITE_OFF' | 'CORRECTION'
+export type StockMovementType = 'IMPORT' | 'INCOME' | 'OUTCOME' | 'RETURN' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'WRITE_OFF' | 'CORRECTION'
 
 export type Product = {
   id: number
@@ -18,6 +18,9 @@ export type Product = {
   incomingQuantity: number
   outgoingQuantity: number
   currentQuantity: number
+  reservedQuantity: number
+  availableQuantity: number
+  minimumQuantity: number
   totalAmount: number
   externalId1C: string | null
   code1C: string | null
@@ -38,6 +41,12 @@ export type StockMovement = {
   workerName: string | null
   objectId: number | null
   sectionId: number | null
+  taskId: number | null
+  brigadeId: number | null
+  employeeId: number | null
+  routeId: number | null
+  executionId: number | null
+  clientOperationId: string | null
   purpose: string | null
   comment: string | null
   balanceAfter: number
@@ -46,6 +55,11 @@ export type StockMovement = {
   createdBy?: { id: number; fullName: string } | null
   object?: { id: number; name: string } | null
   section?: { id: number; name: string; code: string } | null
+  task?: { id: number; description: string } | null
+  brigade?: { id: number; name: string } | null
+  employee?: { id: number; fullName: string } | null
+  route?: { id: number; workDate: string } | null
+  execution?: { id: number; status: string } | null
 }
 
 export type ProductImportResult = {
@@ -71,6 +85,10 @@ export const STOCK_MOVEMENT_LABELS: Record<StockMovementType, string> = {
   IMPORT: 'Импорт',
   INCOME: 'Приход',
   OUTCOME: 'Расход',
+  RETURN: 'Возврат',
+  TRANSFER: 'Перемещение',
+  RESERVE: 'Резерв',
+  RELEASE: 'Снять резерв',
   WRITE_OFF: 'Списание',
   CORRECTION: 'Корректировка',
 }
@@ -112,6 +130,12 @@ export async function createStockMovement(payload: {
   workerName?: string
   objectId?: number
   sectionId?: number
+  taskId?: number
+  brigadeId?: number
+  employeeId?: number
+  routeId?: number
+  executionId?: number
+  clientOperationId?: string
   purpose?: string
   comment?: string
 }): Promise<StockMovement> {

@@ -23,6 +23,7 @@ import {
   WorkExecutionEvent,
   WorkLog,
   WorkPhoto,
+  StockMovement,
 } from '../../entities';
 import { AttendanceService } from '../attendance/attendance.service';
 import {
@@ -60,6 +61,7 @@ export class FieldExecutionsService {
     @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
     @InjectRepository(Section) private readonly sectionRepo: Repository<Section>,
     @InjectRepository(WorkLog) private readonly workLogRepo: Repository<WorkLog>,
+    @InjectRepository(StockMovement) private readonly stockMovementRepo: Repository<StockMovement>,
     private readonly attendanceService: AttendanceService,
   ) {}
 
@@ -79,14 +81,19 @@ export class FieldExecutionsService {
   private async detailed(id: number) {
     const execution = await this.baseQuery().where('execution.id = :id', { id }).getOne();
     if (!execution) throw new NotFoundException('Выполнение работы не найдено');
-    const [events, photos, checklist, faceVerifications] = await Promise.all([
+    const [events, photos, checklist, faceVerifications, materials] = await Promise.all([
       this.eventRepo.find({ where: { executionId: id }, order: { occurredAt: 'ASC' } }),
       this.photoRepo.find({ where: { executionId: id }, order: { capturedAt: 'ASC' } }),
       this.checklistAnswerRepo.find({ where: { executionId: id }, relations: { item: true }, order: { itemId: 'ASC' } }),
       this.faceRepo.find({ where: { executionId: id }, relations: { user: true, reviewedBy: true }, order: { createdAt: 'DESC' } }),
+      this.stockMovementRepo.find({
+        where: { executionId: id },
+        relations: { product: true, createdBy: true },
+        order: { createdAt: 'ASC' },
+      }),
     ]);
     const availableChecklist = await this.getRequiredItems(execution.task.workTypeId);
-    return { ...execution, events, photos, checklist, availableChecklist, faceVerifications };
+    return { ...execution, events, photos, checklist, availableChecklist, faceVerifications, materials };
   }
 
   private canExecute(task: Task, user: User): boolean {

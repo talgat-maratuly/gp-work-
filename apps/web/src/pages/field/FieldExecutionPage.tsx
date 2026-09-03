@@ -16,15 +16,20 @@ import { uploadWorkPhotos } from '@/api/uploadsApi'
 import { FieldStatus } from '@/components/field/FieldStatus'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { queuePhoto, queueRequest } from '@/offline/queue'
+import { createStockMovement, fetchProducts, type Product } from '@/api/productsApi'
 
 export function FieldExecutionPage() {
   const id = Number(useParams().id)
   const [execution, setExecution] = useState<FieldExecution | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [materialProductId, setMaterialProductId] = useState('')
+  const [materialQuantity, setMaterialQuantity] = useState('')
   const { requestGeolocation } = useGeolocation()
   const load = useCallback(async () => { try { setExecution(await fetchExecution(id)) } catch (error) { setMessage(toUserMessage(error)) } }, [id])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { void fetchProducts().then(setProducts).catch(() => undefined) }, [])
 
   const completedIds = useMemo(() => new Set(execution?.checklist.filter((item) => item.isCompleted).map((item) => item.itemId) ?? []), [execution])
   const before = execution?.photos.filter((photo) => photo.phase === 'BEFORE') ?? []
@@ -97,6 +102,42 @@ export function FieldExecutionPage() {
     try { setExecution(await saveExecutionChecklist(execution.id, body)) } catch (error) { setMessage(toUserMessage(error)) }
   }
 
+  async function issueMaterial() {
+    if (!execution || !materialProductId || Number(materialQuantity) <= 0) return
+    const product = products.find((row) => row.id === Number(materialProductId))
+    const body = {
+      productId: Number(materialProductId),
+      type: 'OUTCOME',
+      quantity: Number(materialQuantity),
+      objectId: execution.section.object?.id,
+      sectionId: execution.section.id,
+      taskId: execution.task.id,
+      brigadeId: execution.task.brigade?.id,
+      executionId: execution.id,
+      clientOperationId: newClientId(),
+      purpose: `Работа #${execution.task.id}`,
+    } as const
+    setBusy(true); setMessage(null)
+    try {
+      if (!navigator.onLine) {
+        await queueRequest('/stock-movements', 'POST', body)
+        setExecution({
+          ...execution,
+          materials: [...execution.materials, {
+            id: -Date.now(), productId: body.productId, type: body.type,
+            quantity: String(body.quantity), balanceAfter: '', createdAt: new Date().toISOString(),
+            product: product ? { id: product.id, name: product.name, unit: product.unit } : undefined,
+          }],
+        })
+        setMessage('Материал сохранён offline и будет списан один раз после синхронизации.')
+      } else {
+        await createStockMovement(body)
+        await load()
+      }
+      setMaterialProductId(''); setMaterialQuantity('')
+    } catch (error) { setMessage(toUserMessage(error, 'Не удалось списать материал')) } finally { setBusy(false) }
+  }
+
   if (!execution) return <p className="py-16 text-center text-slate-500">Загрузка выполнения…</p>
   return (
     <div className="space-y-4">
@@ -110,7 +151,9 @@ export function FieldExecutionPage() {
 
       {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">3. Чек-лист</h2><div className="mt-3 space-y-2">{execution.availableChecklist.map((item) => <label key={item.id} className="flex gap-3 rounded-xl bg-slate-50 p-3"><input type="checkbox" checked={completedIds.has(item.id)} onChange={(e) => void saveChecklist(item.id, e.target.checked)} className="h-5 w-5 accent-emerald-700" /><span className="text-sm font-medium">{item.label}{item.isRequired && <span className="text-red-600"> *</span>}</span></label>)}</div></section>}
 
-      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-bold">4. Фото ПОСЛЕ</h2><span className="text-xs text-slate-500">{after.length} фото</span></div><div className="mt-3 grid grid-cols-3 gap-2">{after.map((photo) => <img key={photo.clientPhotoId} src={photo.url} className="aspect-square rounded-xl object-cover" />)}<label className="flex aspect-square cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 text-2xl text-blue-700">＋<input className="hidden" type="file" accept="image/*" capture="environment" multiple onChange={(e) => void uploadPhotos(e, 'AFTER')} /></label></div></section>}
+      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">4. Материалы</h2><div className="mt-3 space-y-2">{execution.materials.map((row) => <div key={row.id} className="flex justify-between rounded-xl bg-slate-50 p-3 text-sm"><span>{row.product?.name ?? `Материал #${row.productId}`}</span><b>{Number(row.quantity).toLocaleString('ru-RU')} {row.product?.unit ?? ''}</b></div>)}</div><div className="mt-3 grid grid-cols-[1fr_7rem] gap-2"><select value={materialProductId} onChange={(e) => setMaterialProductId(e.target.value)} className="min-w-0 rounded-xl border px-3 py-2"><option value="">— добавить материал —</option>{products.filter((row) => row.availableQuantity > 0).map((row) => <option key={row.id} value={row.id}>{row.name} · {row.availableQuantity} {row.unit ?? ''}</option>)}</select><input type="number" min="0.001" step="0.001" value={materialQuantity} onChange={(e) => setMaterialQuantity(e.target.value)} placeholder="Кол-во" className="min-w-0 rounded-xl border px-3 py-2"/></div><button disabled={busy || !materialProductId || Number(materialQuantity) <= 0} onClick={() => void issueMaterial()} className="mt-2 w-full rounded-xl border border-emerald-700 py-2 font-bold text-emerald-800 disabled:opacity-40">Списать на эту работу</button></section>}
+
+      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-bold">5. Фото ПОСЛЕ</h2><span className="text-xs text-slate-500">{after.length} фото</span></div><div className="mt-3 grid grid-cols-3 gap-2">{after.map((photo) => <img key={photo.clientPhotoId} src={photo.url} className="aspect-square rounded-xl object-cover" />)}<label className="flex aspect-square cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 text-2xl text-blue-700">＋<input className="hidden" type="file" accept="image/*" capture="environment" multiple onChange={(e) => void uploadPhotos(e, 'AFTER')} /></label></div></section>}
 
       {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <button disabled={busy || after.length === 0 || execution.availableChecklist.some((item) => item.isRequired && !completedIds.has(item.id))} onClick={() => void action(`/field/executions/${execution.id}/complete`, { clientOperationId: newClientId(), occurredAt: new Date().toISOString() }, 'COMPLETED')} className="w-full rounded-xl bg-blue-700 py-4 font-bold text-white disabled:opacity-40">Завершить и отправить</button>}
       {execution.status === 'COMPLETED' && <div className="rounded-2xl bg-amber-50 p-4 text-center text-amber-900"><p className="font-bold">Работа ожидает приёмки</p><p className="mt-1 text-sm">Руководитель проверит лицо, фото, чек-лист и геолокацию.</p></div>}

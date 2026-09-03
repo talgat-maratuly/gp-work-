@@ -29,6 +29,7 @@ import { ManagementModule } from './modules/management/management.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { FieldExecutionsModule } from './modules/field-executions/field-executions.module';
+import { ResourcesModule } from './modules/resources/resources.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
   AdminDailyReport,
@@ -59,6 +60,10 @@ import {
   FaceVerification,
   LocationEvent,
   SyncOperation,
+  Vehicle,
+  VehicleAssignment,
+  NurseryBatch,
+  NurseryMovement,
 } from './entities';
 
 @Module({
@@ -106,6 +111,10 @@ import {
           FaceVerification,
           LocationEvent,
           SyncOperation,
+          Vehicle,
+          VehicleAssignment,
+          NurseryBatch,
+          NurseryMovement,
         ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: config.get('DB_MIGRATE') !== 'false',
@@ -127,6 +136,7 @@ import {
     DashboardModule,
     RoutesModule,
     FieldExecutionsModule,
+    ResourcesModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,

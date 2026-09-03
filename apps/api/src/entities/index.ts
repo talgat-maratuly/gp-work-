@@ -26,3 +26,7 @@ export { ChecklistAnswer } from './checklist-answer.entity';
 export { FaceVerification } from './face-verification.entity';
 export { LocationEvent } from './location-event.entity';
 export { SyncOperation } from './sync-operation.entity';
+export { Vehicle } from './vehicle.entity';
+export { VehicleAssignment } from './vehicle-assignment.entity';
+export { NurseryBatch } from './nursery-batch.entity';
+export { NurseryMovement } from './nursery-movement.entity';

@@ -28,6 +28,8 @@ const groups: NavGroup[] = [
   ]},
   { label: 'Ресурсы', items: [
     { to: '/admin/warehouse', label: 'Склад', icon: '▰', roles: ['ADMIN', 'BRIGADIER'] },
+    { to: '/admin/nursery', label: 'Питомник', icon: '♧', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
+    { to: '/admin/vehicles', label: 'Техника', icon: '▱', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
     { to: '/admin/products/import', label: 'Импорт товаров', icon: '⇩', roles: ['ADMIN'] },
     { to: '/admin/work-types', label: 'Виды работ', icon: '⌁', roles: ['ADMIN'] },
   ]},

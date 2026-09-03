@@ -10,7 +10,7 @@ import { ProductsService } from './products.service';
 
 @ApiTags('stock-movements')
 @Controller('stock-movements')
-@Roles(UserRole.ADMIN, UserRole.BRIGADIER)
+@Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
 export class StockMovementsController {
   constructor(private readonly productsService: ProductsService) {}
 

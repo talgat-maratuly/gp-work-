@@ -42,6 +42,7 @@ export type RouteStop = {
 export type FieldRoute = {
   id: number
   workDate: string
+  brigadeId: number
   status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
   startedAt: string | null
   brigade: { id: number; name: string }
@@ -74,6 +75,15 @@ export type FieldExecution = {
   availableChecklist: ChecklistItem[]
   checklist: ChecklistAnswer[]
   faceVerifications: FaceVerification[]
+  materials: {
+    id: number
+    productId: number
+    type: string
+    quantity: string
+    balanceAfter: string
+    createdAt: string
+    product?: { id: number; name: string; unit: string | null }
+  }[]
 }
 
 export const newClientId = () => crypto.randomUUID()

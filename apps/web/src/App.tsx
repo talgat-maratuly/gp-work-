@@ -44,6 +44,8 @@ const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage')
 const FieldMorePage = lazy(() => import('@/pages/field/FieldMorePage').then((m) => ({ default: m.FieldMorePage })))
 const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
 const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
+const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
+const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => ({ default: m.NurseryPage })))
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
@@ -114,6 +116,22 @@ export default function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="routes" element={<RoutesPage />} />
               <Route path="executions" element={<ExecutionReviewPage />} />
+              <Route
+                path="vehicles"
+                element={
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
+                    <VehiclesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="nursery"
+                element={
+                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
+                    <NurseryPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="watering" element={<WateringPage />} />
               <Route path="schedule" element={<ProductionSchedulePage />} />
               <Route path="management" element={<ManagementPage />} />

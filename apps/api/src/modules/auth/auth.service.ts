@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -43,8 +44,19 @@ export class AuthService {
     };
   }
 
-  async resetAdmin() {
-    const passwordHash = await bcrypt.hash('admin123', 10);
+  async resetAdmin(resetToken?: string) {
+    const expected = process.env.ADMIN_RESET_TOKEN?.trim();
+    if (process.env.ENABLE_ADMIN_RESET !== 'true' || !expected || !resetToken) {
+      throw new NotFoundException('Endpoint недоступен');
+    }
+    const supplied = Buffer.from(resetToken);
+    const reference = Buffer.from(expected);
+    if (supplied.length !== reference.length || !timingSafeEqual(supplied, reference)) {
+      throw new ForbiddenException('Неверный токен восстановления');
+    }
+    const password = process.env.ADMIN_PASSWORD?.trim();
+    if (!password) throw new ForbiddenException('ADMIN_PASSWORD не настроен');
+    const passwordHash = await bcrypt.hash(password, 10);
     let admin = await this.userRepo.findOne({ where: { username: 'admin' } });
 
     if (!admin) {

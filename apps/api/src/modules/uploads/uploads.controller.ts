@@ -5,15 +5,12 @@ import {
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Public } from '../../common/decorators/public.decorator';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { randomUUID } from 'crypto';
+import { memoryStorage } from 'multer';
 import { UploadsService } from './uploads.service';
-
-const PHOTOS_DIR = join(process.cwd(), 'uploads', 'photos');
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -24,20 +21,13 @@ export class UploadsController {
 
   @Public()
   @Post('photos')
+  @Throttle({ default: { limit: 20, ttl: 60_000, blockDuration: 60_000 } })
   @UseInterceptors(
     FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          cb(null, PHOTOS_DIR);
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname) || '.jpg';
-          cb(null, `${Date.now()}-${randomUUID()}${ext}`);
-        },
-      }),
+      storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
+        if (!['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(file.mimetype)) {
           cb(new BadRequestException('Допустимы только изображения') as Error, false);
           return;
         }
@@ -45,10 +35,10 @@ export class UploadsController {
       },
     }),
   )
-  uploadPhotos(@UploadedFiles() files: Express.Multer.File[]) {
+  async uploadPhotos(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files?.length) {
       throw new BadRequestException('Загрузите хотя бы одно фото');
     }
-    return this.uploadsService.toPublicUrls(files.map((f) => f.filename));
+    return this.uploadsService.saveValidatedPhotos(files);
   }
 }

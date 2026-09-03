@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { join } from 'path';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -31,6 +32,7 @@ import { RoutesModule } from './modules/routes/routes.module';
 import { FieldExecutionsModule } from './modules/field-executions/field-executions.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { OperationsModule } from './modules/operations/operations.module';
+import { HealthModule } from './modules/health/health.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
   AdminDailyReport,
@@ -78,6 +80,7 @@ import {
         join(__dirname, '..', '..', '.env'),
       ],
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -139,6 +142,7 @@ import {
     FieldExecutionsModule,
     ResourcesModule,
     OperationsModule,
+    HealthModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,
@@ -149,6 +153,7 @@ import {
     SeedModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

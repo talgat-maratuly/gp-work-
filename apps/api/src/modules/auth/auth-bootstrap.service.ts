@@ -14,13 +14,17 @@ export class AuthBootstrapService implements OnModuleInit {
 
   async onModuleInit() {
     const username = (process.env.ADMIN_USERNAME ?? 'admin').trim();
-    const password = process.env.ADMIN_PASSWORD ?? 'admin123';
+    const configuredPassword = process.env.ADMIN_PASSWORD?.trim();
 
     let admin =
       (await this.userRepo.findOne({ where: { username } })) ??
       (await this.userRepo.findOne({ where: { role: UserRole.ADMIN } }));
 
     if (!admin) {
+      if (process.env.NODE_ENV === 'production' && !configuredPassword) {
+        throw new Error('ADMIN_PASSWORD обязателен при первом production-запуске');
+      }
+      const password = configuredPassword || 'admin123';
       await this.userRepo.save(
         this.userRepo.create({
           fullName: 'Администратор',
@@ -34,10 +38,10 @@ export class AuthBootstrapService implements OnModuleInit {
       return;
     }
 
-    if (!process.env.ADMIN_PASSWORD) return;
+    if (!configuredPassword) return;
 
     admin.username = username;
-    admin.passwordHash = await bcrypt.hash(password, 10);
+    admin.passwordHash = await bcrypt.hash(configuredPassword, 10);
     admin.role = UserRole.ADMIN;
     admin.isActive = true;
     await this.userRepo.save(admin);

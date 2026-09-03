@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthBootstrapService } from './auth-bootstrap.service';
 import { JwtStrategy } from './jwt.strategy';
+import { getJwtSecret } from './auth.config';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { JwtStrategy } from './jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') ?? 'gp-work-dev-secret',
+        secret: getJwtSecret(config),
         signOptions: { expiresIn: '7d' },
       }),
     }),

@@ -8,9 +8,14 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 'loopback');
   app.setGlobalPrefix('api');
+  const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
 
@@ -19,6 +24,10 @@ async function bootstrap() {
   // (ответ /auth/me кэшировался по URL без учёта токена).
   app.getHttpAdapter().getInstance().set('etag', false);
   app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=()');
     if (req.path.startsWith('/api')) {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -35,20 +44,23 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('GP Work API')
-    .setDescription('QR-отчёты о работах GP Work')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addSecurityRequirements('bearer')
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
+  const swaggerEnabled = process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV !== 'production';
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('GP Work API')
+      .setDescription('QR-отчёты о работах GP Work')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addSecurityRequirements('bearer')
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
+  }
 
   const port = Number(process.env.PORT) || 3002;
   await app.listen(port);
   console.log(`Backend: http://localhost:${port}/api`);
-  console.log(`Swagger: http://localhost:${port}/api/docs`);
+  if (swaggerEnabled) console.log(`Swagger: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

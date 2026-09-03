@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Header, Post, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import * as QRCode from 'qrcode';
 import { buildCheckOutUrl } from '../../common/app-url';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -19,18 +20,21 @@ export class AttendanceController {
 
   @Public()
   @Get('active-today')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   findActiveToday() {
     return this.attendanceService.findActiveForToday();
   }
 
   @Public()
   @Post('check-out')
+  @Throttle({ default: { limit: 10, ttl: 60_000, blockDuration: 60_000 } })
   checkOut(@Body() dto: CheckOutDto) {
     return this.attendanceService.checkOut(dto);
   }
 
   @Public()
   @Get('check-out/qr.png')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Header('Content-Type', 'image/png')
   @Header('Content-Disposition', 'attachment; filename="qr-attendance-check-out.png"')
   async getCheckOutQr(@Res() res: Response) {

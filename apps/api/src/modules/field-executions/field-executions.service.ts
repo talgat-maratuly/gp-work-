@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import {
   ExecutionStatus,
   FaceVerificationStatus,
+  RouteStatus,
   RouteStopStatus,
   WorkPhotoPhase,
 } from '../../common/enums/field-execution.enums';
@@ -15,6 +16,7 @@ import {
   ChecklistItem,
   FaceVerification,
   LocationEvent,
+  Route,
   RouteStop,
   Section,
   Task,
@@ -58,6 +60,7 @@ export class FieldExecutionsService {
     @InjectRepository(FaceVerification) private readonly faceRepo: Repository<FaceVerification>,
     @InjectRepository(LocationEvent) private readonly locationRepo: Repository<LocationEvent>,
     @InjectRepository(RouteStop) private readonly stopRepo: Repository<RouteStop>,
+    @InjectRepository(Route) private readonly routeRepo: Repository<Route>,
     @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
     @InjectRepository(Section) private readonly sectionRepo: Repository<Section>,
     @InjectRepository(WorkLog) private readonly workLogRepo: Repository<WorkLog>,
@@ -152,6 +155,18 @@ export class FieldExecutionsService {
     const event = await this.eventRepo.findOne({ where: { clientOperationId } });
     if (!event) return null;
     return this.executionRepo.findOne({ where: { id: event.executionId } });
+  }
+
+  private async completeRouteIfReady(routeId: number | null | undefined) {
+    if (!routeId) return;
+    const openStops = await this.stopRepo
+      .createQueryBuilder('stop')
+      .where('stop.routeId = :routeId', { routeId })
+      .andWhere('stop.status NOT IN (:...closed)', { closed: [RouteStopStatus.COMPLETED, RouteStopStatus.SKIPPED] })
+      .getCount();
+    if (!openStops) {
+      await this.routeRepo.update(routeId, { status: RouteStatus.COMPLETED, completedAt: new Date() });
+    }
   }
 
   private async recordEvent(
@@ -384,7 +399,10 @@ export class FieldExecutionsService {
     const photos = await this.photoRepo.find({ where: { executionId: id }, order: { capturedAt: 'ASC' } });
     execution.task.completionPhotoUrls = serializePhotoUrls(photos.map((photo) => photo.url));
     await this.taskRepo.save(execution.task);
-    if (execution.routeStopId) await this.stopRepo.update(execution.routeStopId, { status: RouteStopStatus.COMPLETED });
+    if (execution.routeStopId) {
+      await this.stopRepo.update(execution.routeStopId, { status: RouteStopStatus.COMPLETED });
+      await this.completeRouteIfReady(execution.routeStop?.routeId);
+    }
 
     let workLog = await this.workLogRepo.findOne({ where: { executionId: id } });
     if (!workLog) {

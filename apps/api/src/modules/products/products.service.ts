@@ -156,7 +156,11 @@ export class ProductsService {
     }
   }
 
-  private mapMovement(row: StockMovement) {
+  private isFieldStockRole(user?: User): boolean {
+    return !!user && [UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER].includes(user.role);
+  }
+
+  private mapMovement(row: StockMovement, redactPricing = false) {
     return {
       id: row.id,
       productId: row.productId,
@@ -176,7 +180,11 @@ export class ProductsService {
       comment: row.comment,
       balanceAfter: num(row.balanceAfter),
       createdAt: row.createdAt,
-      product: row.product ? this.mapProduct(row.product) : undefined,
+      product: row.product
+        ? redactPricing
+          ? { id: row.product.id, name: row.product.name, unit: row.product.unit }
+          : this.mapProduct(row.product)
+        : undefined,
       createdBy: row.createdBy
         ? { id: row.createdBy.id, fullName: row.createdBy.fullName }
         : null,
@@ -226,6 +234,19 @@ export class ProductsService {
     }
     const rows = await qb.getMany();
     return rows.map((p) => this.mapProduct(p));
+  }
+
+  async findFieldOptions() {
+    const rows = await this.productRepo.find({
+      where: { isActual: true },
+      order: { name: 'ASC' },
+    });
+    return rows.map((product) => ({
+      id: product.id,
+      name: product.name,
+      unit: product.unit,
+      availableQuantity: Math.max(0, num(product.currentQuantity) - num(product.reservedQuantity)),
+    }));
   }
 
   async findOne(id: number) {
@@ -440,7 +461,7 @@ export class ProductsService {
       const previous = await this.movementRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
       if (previous) {
         this.assertMovementReplay(previous, dto, user);
-        return this.findMovement(previous.id);
+        return this.findMovement(previous.id, user);
       }
     }
 
@@ -476,7 +497,7 @@ export class ProductsService {
       if (dto.employeeId && !employee) throw new NotFoundException('Сотрудник не найден');
       if (dto.routeId && !route) throw new NotFoundException('Маршрут не найден');
       if (dto.executionId && !execution) throw new NotFoundException('Выполнение работы не найдено');
-      if ([UserRole.WORKER, UserRole.WATER_CARRIER].includes(user.role)) {
+      if ([UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.AGRONOMIST].includes(user.role)) {
         if (!execution) throw new ForbiddenException('Полевое списание необходимо привязать к выполнению работы');
         const belongsToUser = execution.workerUserId === user.id;
         const belongsToBrigade = !!user.brigadeId && execution.brigadeId === user.brigadeId;
@@ -542,10 +563,10 @@ export class ProductsService {
         }),
       );
     });
-    return this.findMovement(movement.id);
+    return this.findMovement(movement.id, user);
   }
 
-  async findMovement(id: number) {
+  async findMovement(id: number, user?: User) {
     const row = await this.movementRepo.findOne({
       where: { id },
       relations: {
@@ -561,7 +582,7 @@ export class ProductsService {
       },
     });
     if (!row) throw new NotFoundException('Движение товара не найдено');
-    return this.mapMovement(row);
+    return this.mapMovement(row, this.isFieldStockRole(user));
   }
 
   async findMovements(query: StockMovementQueryDto, user?: User) {
@@ -580,11 +601,11 @@ export class ProductsService {
     if (query.productId) {
       qb.andWhere('movement.productId = :productId', { productId: query.productId });
     }
-    if (user && [UserRole.BRIGADIER, UserRole.WORKER, UserRole.WATER_CARRIER].includes(user.role)) {
-      qb.andWhere('movement.createdById = :userId', { userId: user.id });
+    if (this.isFieldStockRole(user)) {
+      qb.andWhere('movement.createdById = :userId', { userId: user!.id });
     }
     const rows = await qb.getMany();
-    return rows.map((r) => this.mapMovement(r));
+    return rows.map((r) => this.mapMovement(r, this.isFieldStockRole(user)));
   }
 
   async buildExportXlsx() {

@@ -32,6 +32,13 @@ export type Product = {
   updatedAt: string
 }
 
+export type FieldProductOption = {
+  id: number
+  name: string
+  unit: string | null
+  availableQuantity: number
+}
+
 export type StockMovement = {
   id: number
   productId: number
@@ -98,6 +105,10 @@ export async function fetchProducts(search?: string): Promise<Product[]> {
   if (search?.trim()) params.set('search', search.trim())
   const qs = params.toString()
   return apiRequest<Product[]>(`/products${qs ? `?${qs}` : ''}`)
+}
+
+export function fetchFieldProductOptions(): Promise<FieldProductOption[]> {
+  return apiRequest<FieldProductOption[]>('/products/field-options')
 }
 
 export async function fetchProduct(id: number): Promise<Product> {

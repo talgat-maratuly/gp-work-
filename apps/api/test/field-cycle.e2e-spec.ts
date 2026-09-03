@@ -150,6 +150,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       accountingPrice: '1.00', salePrice: '1.00', ourPrice: '1.00', totalAmount: '100.00',
       source: ProductSource.MANUAL,
     }));
+    await request(app.getHttpServer()).get('/api/products').set(auth(workerToken)).expect(403);
+    const fieldMaterials = (await request(app.getHttpServer()).get('/api/products/field-options').set(auth(workerToken)).expect(200)).body;
+    const fieldMaterial = fieldMaterials.find((row: { id: number }) => row.id === material.id);
+    expect(fieldMaterial).toMatchObject({ id: material.id, name: material.name, availableQuantity: 100 });
+    expect(fieldMaterial).not.toHaveProperty('accountingPrice');
     const stockOperation = clientId();
     const issueBody = { productId: material.id, type: 'OUTCOME', quantity: 2, objectId: object.id, sectionId: section.id, taskId: task.id, brigadeId: brigade.id, executionId: execution.id, clientOperationId: stockOperation };
     const issued = (await request(app.getHttpServer()).post('/api/stock-movements').set(auth(workerToken)).send(issueBody).expect(201)).body;

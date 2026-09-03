@@ -15,7 +15,7 @@ export class WorkExecutionEvent {
   @Column({ name: 'execution_id' })
   executionId!: number;
 
-  @Column({ name: 'actor_user_id', nullable: true })
+  @Column({ name: 'actor_user_id', type: 'int', nullable: true })
   actorUserId!: number | null;
 
   @Column({ type: 'varchar', length: 40 })

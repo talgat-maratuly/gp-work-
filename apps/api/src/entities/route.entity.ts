@@ -36,7 +36,7 @@ export class Route {
   @Column({ type: 'text', nullable: true })
   comment!: string | null;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

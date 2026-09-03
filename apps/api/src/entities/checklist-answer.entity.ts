@@ -22,7 +22,7 @@ export class ChecklistAnswer {
   @Column({ type: 'text', nullable: true })
   comment!: string | null;
 
-  @Column({ name: 'completed_by_id', nullable: true })
+  @Column({ name: 'completed_by_id', type: 'int', nullable: true })
   completedById!: number | null;
 
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })

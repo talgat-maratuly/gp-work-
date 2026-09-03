@@ -34,7 +34,7 @@ export class Vehicle {
   @Column({ name: 'registration_number', type: 'varchar', length: 64, nullable: true })
   registrationNumber!: string | null;
 
-  @Column({ name: 'responsible_user_id', nullable: true })
+  @Column({ name: 'responsible_user_id', type: 'int', nullable: true })
   responsibleUserId!: number | null;
 
   @Column({ type: 'decimal', precision: 14, scale: 1, nullable: true })

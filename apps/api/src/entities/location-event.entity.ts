@@ -15,10 +15,10 @@ export class LocationEvent {
   @Column({ name: 'user_id' })
   userId!: number;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
-  @Column({ name: 'route_id', nullable: true })
+  @Column({ name: 'route_id', type: 'int', nullable: true })
   routeId!: number | null;
 
   @Column({ type: 'double precision' })

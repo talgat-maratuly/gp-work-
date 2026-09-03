@@ -28,7 +28,7 @@ export class FaceVerification {
   @Column({ name: 'liveness_evidence_urls', type: 'jsonb', default: () => "'[]'::jsonb" })
   livenessEvidenceUrls!: string[];
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })

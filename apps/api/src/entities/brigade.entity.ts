@@ -19,7 +19,7 @@ export class Brigade {
   @Column()
   name!: string;
 
-  @Column({ name: 'brigadier_id', nullable: true })
+  @Column({ name: 'brigadier_id', type: 'int', nullable: true })
   brigadierId!: number | null;
 
   @Column({ type: 'text', nullable: true })

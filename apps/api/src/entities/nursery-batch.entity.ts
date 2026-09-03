@@ -29,7 +29,7 @@ export class NurseryBatch {
   @Column({ type: 'varchar', length: 80, nullable: true })
   size!: string | null;
 
-  @Column({ name: 'age_months', nullable: true })
+  @Column({ name: 'age_months', type: 'int', nullable: true })
   ageMonths!: number | null;
 
   @Column({ type: 'varchar', length: 180, nullable: true })

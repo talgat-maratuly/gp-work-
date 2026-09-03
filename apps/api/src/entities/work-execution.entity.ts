@@ -37,10 +37,10 @@ export class WorkExecution {
   @Column({ name: 'worker_user_id' })
   workerUserId!: number;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
-  @Column({ name: 'route_stop_id', nullable: true, unique: true })
+  @Column({ name: 'route_stop_id', type: 'int', nullable: true, unique: true })
   routeStopId!: number | null;
 
   @Column({ type: 'varchar', length: 24, default: ExecutionStatus.ASSIGNED })
@@ -61,7 +61,7 @@ export class WorkExecution {
   @Column({ name: 'accepted_at', type: 'timestamptz', nullable: true })
   acceptedAt!: Date | null;
 
-  @Column({ name: 'accepted_by_id', nullable: true })
+  @Column({ name: 'accepted_by_id', type: 'int', nullable: true })
   acceptedById!: number | null;
 
   @Column({ name: 'arrival_latitude', type: 'double precision', nullable: true })

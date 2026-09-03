@@ -20,7 +20,7 @@ export class AdminDailyReport {
   @Column({ name: 'report_date', type: 'date' })
   reportDate!: string;
 
-  @Column({ name: 'author_id', nullable: true })
+  @Column({ name: 'author_id', type: 'int', nullable: true })
   authorId!: number | null;
 
   @Column({ name: 'completed_works', type: 'text', nullable: true })
@@ -71,7 +71,7 @@ export class AdminDailyReport {
   @Column({ name: 'status_history', type: 'text', default: '[]' })
   statusHistory!: string;
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })

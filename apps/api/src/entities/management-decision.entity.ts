@@ -26,7 +26,7 @@ export class ManagementDecision {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
-  @Column({ name: 'responsible_user_id', nullable: true })
+  @Column({ name: 'responsible_user_id', type: 'int', nullable: true })
   responsibleUserId!: number | null;
 
   @Index()
@@ -42,13 +42,13 @@ export class ManagementDecision {
   @Column({ type: 'text', nullable: true })
   comment!: string | null;
 
-  @Column({ name: 'linked_task_id', nullable: true })
+  @Column({ name: 'linked_task_id', type: 'int', nullable: true })
   linkedTaskId!: number | null;
 
   @Column({ name: 'status_history', type: 'text', default: '[]' })
   statusHistory!: string;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

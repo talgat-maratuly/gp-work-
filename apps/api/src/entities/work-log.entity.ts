@@ -26,7 +26,7 @@ export class WorkLog {
   @Column({ name: 'worker_full_name' })
   workerFullName!: string;
 
-  @Column({ name: 'work_type_id', nullable: true })
+  @Column({ name: 'work_type_id', type: 'int', nullable: true })
   workTypeId!: number | null;
 
   @Column({ name: 'custom_work_type', type: 'text', nullable: true })
@@ -57,22 +57,22 @@ export class WorkLog {
   @Column({ name: 'submitted_at', type: 'timestamptz', default: () => 'NOW()' })
   submittedAt!: Date;
 
-  @Column({ name: 'task_id', nullable: true })
+  @Column({ name: 'task_id', type: 'int', nullable: true })
   taskId!: number | null;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'user_id', type: 'int', nullable: true })
   userId!: number | null;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
-  @Column({ name: 'execution_id', nullable: true, unique: true })
+  @Column({ name: 'execution_id', type: 'int', nullable: true, unique: true })
   executionId!: number | null;
 
   @Column({ name: 'review_status', type: 'varchar', length: 32, default: ReviewStatus.PENDING })
   reviewStatus!: ReviewStatus;
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'review_comment', type: 'text', nullable: true })

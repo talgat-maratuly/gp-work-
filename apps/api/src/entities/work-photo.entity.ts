@@ -16,7 +16,7 @@ export class WorkPhoto {
   @Column({ name: 'execution_id' })
   executionId!: number;
 
-  @Column({ name: 'uploaded_by_id', nullable: true })
+  @Column({ name: 'uploaded_by_id', type: 'int', nullable: true })
   uploadedById!: number | null;
 
   @Column({ type: 'varchar', length: 16 })

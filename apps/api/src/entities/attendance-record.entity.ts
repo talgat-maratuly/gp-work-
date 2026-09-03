@@ -59,7 +59,7 @@ export class AttendanceRecord {
   @Column({ name: 'report_count', type: 'int', default: 1 })
   reportCount!: number;
 
-  @Column({ name: 'first_work_log_id', nullable: true })
+  @Column({ name: 'first_work_log_id', type: 'int', nullable: true })
   firstWorkLogId!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

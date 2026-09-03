@@ -16,13 +16,13 @@ export class AiAgronomAnalysis {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
   @Column({ name: 'object_id' })
   objectId!: number;
 
-  @Column({ name: 'section_id', nullable: true })
+  @Column({ name: 'section_id', type: 'int', nullable: true })
   sectionId!: number | null;
 
   @Column({ type: 'varchar', nullable: true })

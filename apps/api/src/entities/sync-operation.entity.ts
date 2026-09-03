@@ -11,7 +11,7 @@ export class SyncOperation {
   @Column({ name: 'client_operation_id', type: 'uuid' })
   clientOperationId!: string;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'user_id', type: 'int', nullable: true })
   userId!: number | null;
 
   @Column({ type: 'varchar', length: 48 })

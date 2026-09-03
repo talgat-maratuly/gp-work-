@@ -43,8 +43,67 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+      - name: Repository secret guard
+        shell: bash
+        run: |
+          if git grep -nEI '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|JWT_SECRET=\$\{JWT_SECRET:-[^}]+\})' -- .; then
+            echo 'Potential committed credential or insecure JWT fallback detected.'
+            exit 1
+          fi
       - run: npm run build
       - run: npm test -w @gp-work/api
       - run: npm run test:e2e:typecheck -w @gp-work/api
+      - name: Verify additive migration source
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const files = [
+            'apps/api/src/database/migrations/1731400000000-AddFieldExecutionCore.ts',
+            'apps/api/src/database/migrations/1731500000000-AddOperationalResources.ts',
+          ];
+          const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
+          for (const file of files) {
+            const source = fs.readFileSync(file, 'utf8');
+            const up = source.split(/\n\s*async down\s*\(/)[0];
+            if (forbidden.test(up)) throw new Error(`${file} contains a destructive statement in up()`);
+          }
+          console.log('Both field-cycle migrations are additive.');
+          NODE
       - run: npm run migration:run
+      - name: Verify both additive migrations applied
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          const expected = [
+            'AddFieldExecutionCore1731400000000',
+            'AddOperationalResources1731500000000',
+          ];
+          const client = new Client({
+            host: process.env.DATABASE_HOST,
+            port: Number(process.env.DATABASE_PORT),
+            user: process.env.DATABASE_USERNAME,
+            password: process.env.DATABASE_PASSWORD,
+            database: process.env.DATABASE_NAME,
+          });
+          (async () => {
+            await client.connect();
+            const { rows } = await client.query(
+              'SELECT name FROM migrations WHERE name = ANY($1::text[])',
+              [expected],
+            );
+            const found = new Set(rows.map(({ name }) => name));
+            const missing = expected.filter((name) => !found.has(name));
+            if (missing.length) throw new Error(`Missing migrations: ${missing.join(', ')}`);
+            console.log(`Verified migrations: ${expected.join(', ')}`);
+          })()
+            .finally(() => client.end())
+            .catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          NODE
       - run: npm run test:e2e -w @gp-work/api

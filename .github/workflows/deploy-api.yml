@@ -120,12 +120,15 @@ jobs:
           envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
           script: |
             set -euo pipefail
+            : "${DB_PASSWORD:?DB_PASSWORD secret is required}"
+            : "${JWT_SECRET:?JWT_SECRET secret is required}"
+            : "${ADMIN_PASSWORD:?ADMIN_PASSWORD secret is required}"
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             cat > "${DEPLOY_PATH}/.env" <<EOF
             API_IMAGE=${IMAGE_PREFIX}/gp-work-api:prod-latest
             DB_PASSWORD=${DB_PASSWORD}
-            JWT_SECRET=${JWT_SECRET:-gp-work-prod-secret}
+            JWT_SECRET=${JWT_SECRET}
             ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
             ADMIN_PASSWORD=${ADMIN_PASSWORD}
             OPENAI_API_KEY=${OPENAI_API_KEY}

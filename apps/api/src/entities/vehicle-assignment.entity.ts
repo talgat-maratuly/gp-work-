@@ -15,22 +15,22 @@ export class VehicleAssignment {
   @Column({ name: 'vehicle_id' })
   vehicleId!: number;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
-  @Column({ name: 'route_id', nullable: true })
+  @Column({ name: 'route_id', type: 'int', nullable: true })
   routeId!: number | null;
 
-  @Column({ name: 'task_id', nullable: true })
+  @Column({ name: 'task_id', type: 'int', nullable: true })
   taskId!: number | null;
 
-  @Column({ name: 'execution_id', nullable: true })
+  @Column({ name: 'execution_id', type: 'int', nullable: true })
   executionId!: number | null;
 
   @Column({ type: 'varchar', length: 24, default: VehicleAssignmentStatus.ASSIGNED })
   status!: VehicleAssignmentStatus;
 
-  @Column({ name: 'assigned_by_id', nullable: true })
+  @Column({ name: 'assigned_by_id', type: 'int', nullable: true })
   assignedById!: number | null;
 
   @Column({ name: 'starts_at', type: 'timestamptz' })

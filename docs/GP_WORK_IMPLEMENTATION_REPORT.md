@@ -1,8 +1,8 @@
 # GP Work — отчёт по развитию от production baseline
 
-Дата проверки: 2026-09-03  
-Production baseline: `b677937c9e657debce27588ae0a621c48269b5d3`  
-Рабочая ветка: `codex/field-cycle-v1`  
+Дата проверки: 2026-09-03
+Production baseline: `b677937c9e657debce27588ae0a621c48269b5d3`
+Рабочая ветка: `codex/field-cycle-v1`
 Production deploy: **не выполнялся**
 
 ## 1. Исходное состояние и ограничения

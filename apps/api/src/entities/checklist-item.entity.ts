@@ -8,7 +8,7 @@ export class ChecklistItem {
   id!: number;
 
   @Index()
-  @Column({ name: 'work_type_id', nullable: true })
+  @Column({ name: 'work_type_id', type: 'int', nullable: true })
   workTypeId!: number | null;
 
   @Column({ type: 'text' })

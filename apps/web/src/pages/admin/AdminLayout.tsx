@@ -24,6 +24,7 @@ const groups: NavGroup[] = [
     { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ['ADMIN'] },
     { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ['ADMIN', 'BRIGADIER'] },
     { to: '/admin/attendance', label: 'Табель', icon: '◷', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
+    { to: '/admin/work-days', label: 'Рабочие дни', icon: '◉', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
     { to: '/admin/qr', label: 'QR-паспорта', icon: '▦', roles: ['ADMIN'] },
     { to: '/admin/photos', label: 'Фото ДО/ПОСЛЕ', icon: '▧', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
   ]},

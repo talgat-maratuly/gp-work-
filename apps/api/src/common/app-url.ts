@@ -10,7 +10,7 @@ export function getApiPublicUrl(): string {
 }
 
 export function buildFormUrl(sectionCode: string): string {
-  return `${getFrontendUrl()}/work-form/${encodeURIComponent(sectionCode)}`;
+  return `${getFrontendUrl()}/field/scan/${encodeURIComponent(sectionCode)}`;
 }
 
 export function buildCheckOutUrl(): string {

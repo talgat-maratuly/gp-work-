@@ -8,7 +8,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { Public } from '../../common/decorators/public.decorator';
 import { memoryStorage } from 'multer';
 import { UploadsService } from './uploads.service';
 
@@ -19,7 +18,6 @@ export class UploadsController {
     this.uploadsService.ensurePhotosDir();
   }
 
-  @Public()
   @Post('photos')
   @Throttle({ default: { limit: 20, ttl: 60_000, blockDuration: 60_000 } })
   @UseInterceptors(

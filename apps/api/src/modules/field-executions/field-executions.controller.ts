@@ -15,13 +15,35 @@ import {
   SaveChecklistDto,
 } from './dto/field-execution.dto';
 import { FieldExecutionsService } from './field-executions.service';
+import { WorkDaysService } from './work-days.service';
+import { CloseWorkDayDto, ReviewWorkDayDto, StartWorkDayDto } from './dto/work-day.dto';
 
 const FIELD_ROLES = [UserRole.WORKER, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WATER_CARRIER] as const;
 
 @ApiTags('field-executions')
 @Controller('field')
 export class FieldExecutionsController {
-  constructor(private readonly service: FieldExecutionsService) {}
+  constructor(private readonly service: FieldExecutionsService, private readonly workDays: WorkDaysService) {}
+
+  @Get('scan/:sectionCode')
+  @Roles(...FIELD_ROLES)
+  scanState(@Param('sectionCode') code: string, @CurrentUser() user: User) { return this.workDays.state(code, user); }
+
+  @Post('work-days/start')
+  @Roles(...FIELD_ROLES)
+  startDay(@Body() dto: StartWorkDayDto, @CurrentUser() user: User) { return this.workDays.start(dto, user); }
+
+  @Post('work-days/close')
+  @Roles(...FIELD_ROLES)
+  closeDay(@Body() dto: CloseWorkDayDto, @CurrentUser() user: User) { return this.workDays.close(dto, user); }
+
+  @Get('work-days')
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  workDayList() { return this.workDays.list(); }
+
+  @Post('work-days/:id/review')
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  reviewDay(@Param('id', ParseIntPipe) id: number, @Body() dto: ReviewWorkDayDto, @CurrentUser() user: User) { return this.workDays.review(id, dto, user); }
 
   @Get('today')
   @Roles(...FIELD_ROLES)

@@ -30,3 +30,4 @@ export { Vehicle } from './vehicle.entity';
 export { VehicleAssignment } from './vehicle-assignment.entity';
 export { NurseryBatch } from './nursery-batch.entity';
 export { NurseryMovement } from './nursery-movement.entity';
+export { WorkDaySession, WorkDayStatus } from './work-day-session.entity';

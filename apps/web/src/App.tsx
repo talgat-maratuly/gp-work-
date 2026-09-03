@@ -38,6 +38,7 @@ const FieldLayout = lazy(() => import('@/layouts/FieldLayout').then((m) => ({ de
 const FieldTodayPage = lazy(() => import('@/pages/field/FieldTodayPage').then((m) => ({ default: m.FieldTodayPage })))
 const FieldRoutePage = lazy(() => import('@/pages/field/FieldRoutePage').then((m) => ({ default: m.FieldRoutePage })))
 const FieldQrPage = lazy(() => import('@/pages/field/FieldQrPage').then((m) => ({ default: m.FieldQrPage })))
+const FieldScanPage = lazy(() => import('@/pages/field/FieldScanPage').then((m) => ({ default: m.FieldScanPage })))
 const FieldTasksPage = lazy(() => import('@/pages/field/FieldTasksPage').then((m) => ({ default: m.FieldTasksPage })))
 const FieldTaskPage = lazy(() => import('@/pages/field/FieldTaskPage').then((m) => ({ default: m.FieldTaskPage })))
 const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage').then((m) => ({ default: m.FieldExecutionPage })))
@@ -49,6 +50,7 @@ const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => (
 const DispatcherPage = lazy(() => import('@/pages/admin/DispatcherPage').then((m) => ({ default: m.DispatcherPage })))
 const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ default: m.KpiPage })))
 const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
+const WorkDaysPage = lazy(() => import('@/pages/admin/WorkDaysPage').then((m) => ({ default: m.WorkDaysPage })))
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
@@ -65,6 +67,7 @@ export default function App() {
             <Route path="/work-form/:sectionCode" element={<WorkFormPage />} />
             <Route path="/work-form" element={<WorkFormPage />} />
             <Route path="/attendance/check-out" element={<CheckOutPage />} />
+            <Route path="/field/scan/:sectionCode" element={<ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}><FieldScanPage /></ProtectedRoute>} />
             <Route
               path="/field"
               element={
@@ -158,6 +161,7 @@ export default function App() {
                 }
               />
               <Route path="attendance" element={<AttendancePage />} />
+              <Route path="work-days" element={<WorkDaysPage />} />
               <Route
                 path="warehouse"
                 element={

@@ -21,7 +21,7 @@ function getApiOrigin(): string {
 }
 
 export function buildWorkFormUrlBySectionCode(sectionCode: string): string {
-  return `${getAppBaseUrl()}/work-form/${encodeURIComponent(sectionCode)}`
+  return `${getAppBaseUrl()}/field/scan/${encodeURIComponent(sectionCode)}`
 }
 
 export function buildWorkFormUrl(objectId: number, sectionId: number): string {

@@ -67,6 +67,7 @@ import {
   VehicleAssignment,
   NurseryBatch,
   NurseryMovement,
+  WorkDaySession,
 } from './entities';
 
 @Module({
@@ -119,6 +120,7 @@ import {
           VehicleAssignment,
           NurseryBatch,
           NurseryMovement,
+          WorkDaySession,
         ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: config.get('DB_MIGRATE') !== 'false',

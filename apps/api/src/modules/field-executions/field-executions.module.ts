@@ -14,10 +14,12 @@ import {
   WorkLog,
   WorkPhoto,
   StockMovement,
+  WorkDaySession,
 } from '../../entities';
 import { FieldExecutionsController } from './field-executions.controller';
 import { FieldExecutionsService } from './field-executions.service';
 import { AttendanceModule } from '../attendance/attendance.module';
+import { WorkDaysService } from './work-days.service';
 
 @Module({
   imports: [
@@ -35,11 +37,12 @@ import { AttendanceModule } from '../attendance/attendance.module';
       Section,
       WorkLog,
       StockMovement,
+      WorkDaySession,
     ]),
     AttendanceModule,
   ],
   controllers: [FieldExecutionsController],
-  providers: [FieldExecutionsService],
+  providers: [FieldExecutionsService, WorkDaysService],
   exports: [FieldExecutionsService],
 })
 export class FieldExecutionsModule {}

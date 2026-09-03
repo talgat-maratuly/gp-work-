@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/worker-day-cycle-v2']
     paths:
       - 'apps/web/**'
       - 'package.json'
@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy gp-work]')
     name: Build and deploy web
     runs-on: ubuntu-latest
     steps:
@@ -57,8 +58,40 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -euo pipefail
+            backup_dir="/opt/gp-work/backups"
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            mkdir -p "$backup_dir"
+            if [ -d /opt/gp-work/web ] && [ "$(find /opt/gp-work/web -mindepth 1 -print -quit)" ]; then
+              web_backup="$backup_dir/web-${stamp}.tar.gz"
+              tar -czf "$web_backup" -C /opt/gp-work/web .
+              printf '%s\n' "$web_backup" > /opt/gp-work/.last-web-backup
+            fi
             mkdir -p /opt/gp-work/web
             rm -rf /opt/gp-work/web/*
             tar -xzf /tmp/web-dist.tar.gz -C /opt/gp-work/web
             rm -f /tmp/web-dist.tar.gz
             chmod -R a+rX /opt/gp-work/web
+            test -s /opt/gp-work/web/index.html
+            find "$backup_dir" -type f -mtime +14 -delete
+
+      - name: Smoke test production web
+        env:
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+        run: curl --retry 5 --retry-delay 2 --fail --silent --show-error "${FRONTEND_URL}/" >/dev/null
+
+      - name: Roll back web after failed smoke test
+        if: failure()
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            if [ -s /opt/gp-work/.last-web-backup ]; then
+              web_backup="$(cat /opt/gp-work/.last-web-backup)"
+              test -s "$web_backup"
+              rm -rf /opt/gp-work/web/*
+              tar -xzf "$web_backup" -C /opt/gp-work/web
+              chmod -R a+rX /opt/gp-work/web
+            fi

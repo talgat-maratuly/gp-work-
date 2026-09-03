@@ -2,7 +2,7 @@ name: Deploy API
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/worker-day-cycle-v2']
     paths:
       - 'apps/api/**'
       - 'deploy/docker-compose.yml'
@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   build-and-push:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy gp-work]')
     name: Build and push API image
     runs-on: ubuntu-latest
     steps:
@@ -96,6 +97,19 @@ jobs:
           target: ${{ env.DEPLOY_PATH }}/
           strip_components: 1
 
+      - name: Preserve current API environment
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            if [ -s "${DEPLOY_PATH}/.env" ]; then
+              cp "${DEPLOY_PATH}/.env" "${DEPLOY_PATH}/.rollback-api-env"
+            fi
+
       - name: Prepare remote environment
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -108,6 +122,7 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_ADMIN_MODEL: ${{ vars.OPENAI_ADMIN_MODEL }}
+          OPENAI_WORKER_MODEL: ${{ vars.OPENAI_WORKER_MODEL }}
           OPENAI_VISION_MODEL: ${{ vars.OPENAI_VISION_MODEL }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL }}
@@ -117,7 +132,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 60s
           command_timeout: 10m
-          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
+          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_WORKER_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
           script: |
             set -euo pipefail
             : "${DB_PASSWORD:?DB_PASSWORD secret is required}"
@@ -133,11 +148,40 @@ jobs:
             ADMIN_PASSWORD=${ADMIN_PASSWORD}
             OPENAI_API_KEY=${OPENAI_API_KEY}
             OPENAI_ADMIN_MODEL=${OPENAI_ADMIN_MODEL:-gpt-4o}
+            OPENAI_WORKER_MODEL=${OPENAI_WORKER_MODEL:-gpt-4o-mini}
             OPENAI_VISION_MODEL=${OPENAI_VISION_MODEL:-gpt-4o}
             FRONTEND_URL=${FRONTEND_URL}
             API_PUBLIC_URL=${API_PUBLIC_URL}
             DB_MIGRATE=true
+            APP_COMMIT_SHA=${{ github.sha }}
             EOF
+
+      - name: Backup database and current API image
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 20m
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            backup_dir="/opt/gp-work/backups"
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            mkdir -p "$backup_dir"
+            docker exec gp-work-postgres pg_dump -U postgres -d gp-work -Fc > "$backup_dir/database-${stamp}.dump"
+            test -s "$backup_dir/database-${stamp}.dump"
+            if docker inspect gp-work-api >/dev/null 2>&1; then
+              previous_image="$(docker inspect --format '{{.Image}}' gp-work-api)"
+              rollback_tag="gp-work-api:rollback-${stamp}"
+              docker tag "$previous_image" "$rollback_tag"
+              printf '%s\n' "$rollback_tag" > "${DEPLOY_PATH}/.rollback-api-image"
+            fi
+            if [ -s "${DEPLOY_PATH}/.rollback-api-env" ]; then
+              cp "${DEPLOY_PATH}/.rollback-api-env" "$backup_dir/api-env-${stamp}.backup"
+            fi
+            find "$backup_dir" -type f -mtime +14 -delete
 
       - name: Pull and restart API
         uses: appleboy/ssh-action@v1.2.0
@@ -154,4 +198,24 @@ jobs:
             docker compose --env-file .env pull
             docker compose --env-file .env up -d --remove-orphans
             docker compose --env-file .env ps
+            healthy=false
+            for attempt in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:3002/api/health | grep -q '"status":"ok"'; then
+                healthy=true
+                break
+              fi
+              sleep 2
+            done
+            if [ "$healthy" != true ]; then
+              if [ -s .rollback-api-image ]; then
+                rollback_image="$(cat .rollback-api-image)"
+                if [ -s .rollback-api-env ]; then
+                  cp .rollback-api-env .env
+                fi
+                sed -i "s|^API_IMAGE=.*|API_IMAGE=${rollback_image}|" .env
+                docker compose --env-file .env up -d --no-deps gp-work-api
+              fi
+              echo 'API health check failed; rollback attempted.' >&2
+              exit 1
+            fi
             docker image prune -f

@@ -23,6 +23,8 @@ export type AttendanceRecord = {
   status: AttendanceStatus
   reportCount: number
   firstWorkLogId: number | null
+  completionPercent: number | null
+  extraValues: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }
@@ -43,6 +45,8 @@ export async function checkOut(payload: {
   longitude?: number
   locationAccuracy?: number
   locationAllowed?: boolean
+  completionPercent?: number
+  extraValues?: Record<string, unknown>
 }): Promise<AttendanceRecord> {
   return apiRequest<AttendanceRecord>('/attendance/check-out', {
     method: 'POST',

@@ -114,6 +114,7 @@ export function AttendancePage() {
               <th className="px-3 py-2 text-left">Последняя активность</th>
               <th className="px-3 py-2 text-left">Уход</th>
               <th className="px-3 py-2 text-left">Часов</th>
+              <th className="px-3 py-2 text-left">% выполнения</th>
               <th className="px-3 py-2 text-left">Отчётов</th>
               <th className="px-3 py-2 text-left">Статус</th>
               <th className="px-3 py-2 text-left">Гео прихода</th>
@@ -123,13 +124,13 @@ export function AttendancePage() {
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={11} className="px-3 py-6 text-center text-slate-500">
                   Загрузка…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={11} className="px-3 py-6 text-center text-slate-500">
                   Записей нет
                 </td>
               </tr>
@@ -151,6 +152,9 @@ export function AttendancePage() {
                   </td>
                   <td className="px-3 py-2">
                     {r.workedHours != null ? r.workedHours.toFixed(2) : '—'}
+                  </td>
+                  <td className="px-3 py-2 font-medium">
+                    {r.completionPercent != null ? `${r.completionPercent}%` : '—'}
                   </td>
                   <td className="px-3 py-2">{r.reportCount}</td>
                   <td className="px-3 py-2">

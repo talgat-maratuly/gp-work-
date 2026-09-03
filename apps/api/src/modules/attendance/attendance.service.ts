@@ -57,9 +57,21 @@ export class AttendanceService {
       status: row.status,
       reportCount: row.reportCount,
       firstWorkLogId: row.firstWorkLogId,
+      completionPercent: row.completionPercent ?? null,
+      extraValues: this.parseExtra(row.extraValues),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private parseExtra(raw: string | null): Record<string, unknown> | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 
   async syncOnWorkLogCreated(workLog: WorkLog) {
@@ -188,6 +200,13 @@ export class AttendanceService {
     row.checkOutLongitude = dto.longitude ?? null;
     row.workedHours = String(calcWorkedHours(row.checkInTime, checkOutTime));
     row.status = AttendanceStatus.COMPLETED;
+    if (dto.completionPercent != null) {
+      row.completionPercent = dto.completionPercent;
+    }
+    row.extraValues =
+      dto.extraValues && Object.keys(dto.extraValues).length
+        ? JSON.stringify(dto.extraValues)
+        : row.extraValues ?? null;
 
     if (!hasCoords && dto.locationAllowed === false) {
       // still allow checkout without geo

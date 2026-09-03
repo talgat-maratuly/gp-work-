@@ -1,4 +1,14 @@
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CheckOutDto {
@@ -30,4 +40,17 @@ export class CheckOutDto {
 
   @IsOptional()
   locationAllowed?: boolean;
+
+  // Процент выполненной работы (целое число 0..100).
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  completionPercent?: number;
+
+  // Значения дополнительных полей формы ухода (comment, причина, фото и т.д.).
+  @IsOptional()
+  @IsObject()
+  extraValues?: Record<string, unknown>;
 }

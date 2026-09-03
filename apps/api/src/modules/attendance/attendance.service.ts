@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 import { Repository } from 'typeorm';
+import { businessDateString, businessDayUtcRange } from '../../common/business-date';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { AttendanceRecord } from '../../entities/attendance-record.entity';
@@ -21,7 +22,7 @@ function normalizeName(name: string): string {
 }
 
 function todayDateString(): string {
-  return format(startOfDay(new Date()), 'yyyy-MM-dd');
+  return businessDateString();
 }
 
 function calcWorkedHours(checkIn: Date, checkOut: Date): number {
@@ -64,7 +65,7 @@ export class AttendanceService {
 
   async syncOnWorkLogCreated(workLog: WorkLog) {
     const workerFullName = normalizeName(workLog.workerFullName);
-    const workDate = format(startOfDay(workLog.submittedAt), 'yyyy-MM-dd');
+    const workDate = businessDateString(workLog.submittedAt);
     const submittedAt = workLog.submittedAt;
 
     let row = await this.attendanceRepo.findOne({
@@ -120,8 +121,7 @@ export class AttendanceService {
 
   private async ensureAttendanceFromWorkLogs(workerFullName: string) {
     const normalized = normalizeName(workerFullName);
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
+    const { start: todayStart, end: todayEnd } = businessDayUtcRange();
 
     const logs = await this.workLogRepo
       .createQueryBuilder('workLog')

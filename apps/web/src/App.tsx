@@ -46,6 +46,9 @@ const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ 
 const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
 const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
 const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => ({ default: m.NurseryPage })))
+const DispatcherPage = lazy(() => import('@/pages/admin/DispatcherPage').then((m) => ({ default: m.DispatcherPage })))
+const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ default: m.KpiPage })))
+const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
@@ -116,6 +119,9 @@ export default function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="routes" element={<RoutesPage />} />
               <Route path="executions" element={<ExecutionReviewPage />} />
+              <Route path="dispatcher" element={<DispatcherPage />} />
+              <Route path="kpi" element={<KpiPage />} />
+              <Route path="evidence-reports" element={<EvidenceReportsPage />} />
               <Route
                 path="vehicles"
                 element={

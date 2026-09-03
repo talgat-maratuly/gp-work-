@@ -30,6 +30,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { RoutesModule } from './modules/routes/routes.module';
 import { FieldExecutionsModule } from './modules/field-executions/field-executions.module';
 import { ResourcesModule } from './modules/resources/resources.module';
+import { OperationsModule } from './modules/operations/operations.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
   AdminDailyReport,
@@ -137,6 +138,7 @@ import {
     RoutesModule,
     FieldExecutionsModule,
     ResourcesModule,
+    OperationsModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,

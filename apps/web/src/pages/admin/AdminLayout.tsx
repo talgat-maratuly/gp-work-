@@ -10,6 +10,7 @@ type NavGroup = { label: string; items: NavItem[] }
 const groups: NavGroup[] = [
   { label: 'Операции', items: [
     { to: '/admin', label: 'Главная', icon: '⌂', end: true },
+    { to: '/admin/dispatcher', label: 'Диспетчерская', icon: '◎', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/executions', label: 'Приёмка работ', icon: '✓', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
     { to: '/admin/tasks', label: 'Задачи', icon: '▣', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
     { to: '/admin/routes', label: 'Маршруты', icon: '↗', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
@@ -34,6 +35,8 @@ const groups: NavGroup[] = [
     { to: '/admin/work-types', label: 'Виды работ', icon: '⌁', roles: ['ADMIN'] },
   ]},
   { label: 'Контроль', items: [
+    { to: '/admin/kpi', label: 'KPI / Качество', icon: '↥', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
+    { to: '/admin/evidence-reports', label: 'Отчёты по работам', icon: '▥', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/management', label: 'Управление', icon: '◆', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/daily-reports', label: 'Отчёты', icon: '▥', roles: ['ADMIN', 'AKIMAT', 'ANTICOR'] },
     { to: '/admin/export', label: 'Экспорт Excel', icon: '⇧', roles: ['ADMIN'] },

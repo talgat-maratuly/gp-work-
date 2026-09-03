@@ -1,42 +1,72 @@
-name: Deploy API
+name: Deploy exact GP Work 17d6aad
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'apps/api/**'
-      - 'deploy/docker-compose.yml'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/deploy-api.yml'
-  workflow_dispatch:
+    branches: ['deploy/exact-17d6aad']
+    paths: ['.github/workflows/deploy-api.yml']
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: deploy-gp-work-api
-  cancel-in-progress: true
+  group: deploy-gp-work-production
+  cancel-in-progress: false
+
+env:
+  TARGET_SHA: 17d6aad7f0a0bdbf585b3f018785dbb801d369fb
+  DEPLOY_PATH: /opt/gp-work/api
+  WEB_PATH: /opt/gp-work/web
+  PUBLIC_URL: https://gp-work.gpartners.kz
 
 jobs:
-  build-and-push:
-    name: Build and push API image
+  deploy-exact:
+    name: Backup, deploy exact commit, smoke, rollback on error
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 1
 
-      - name: Compute image prefix
-        id: image_vars
+      - name: Verify checkout
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Build exact web artifact
+        env:
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
         shell: bash
         run: |
+          set -euo pipefail
+          cat > apps/web/.env.production <<EOF
+          VITE_API_URL=/api
+          VITE_APP_URL=${FRONTEND_URL:-https://gp-work.gpartners.kz}
+          VITE_NURSERY_NAME=GP Work
+          EOF
+          npm run build -w @gp-work/web
+          test -s apps/web/dist/index.html
+          tar -czf web-dist.tar.gz -C apps/web/dist .
+
+      - name: Compute immutable image name
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
           owner="${GITHUB_REPOSITORY_OWNER,,}"
           repo="${GITHUB_REPOSITORY#*/}"
           repo="${repo,,}"
-          # Docker image path компоненттері дефиспен аяқтала алмайды —
-          # репо атындағы (мыс. "gp-work-") жиек дефистерін алып тастаймыз.
           repo="$(echo "$repo" | sed -E 's/^-+//; s/-+$//')"
-          echo "image_prefix=ghcr.io/${owner}/${repo}" >> "$GITHUB_OUTPUT"
+          echo "prefix=ghcr.io/${owner}/${repo}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@v3
         with:
@@ -44,114 +74,385 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push immutable exact API image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: |
-            ${{ steps.image_vars.outputs.image_prefix }}/gp-work-api:prod-latest
-            ${{ steps.image_vars.outputs.image_prefix }}/gp-work-api:sha-${{ github.sha }}
+          tags: ${{ steps.image.outputs.prefix }}/gp-work-api:sha-${{ env.TARGET_SHA }}
 
-  deploy:
-    name: Deploy API to server
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    env:
-      DEPLOY_PATH: /opt/gp-work/api
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Compute image prefix
-        id: image_vars
+      - name: Pack exact release payload
         shell: bash
         run: |
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          repo="${GITHUB_REPOSITORY#*/}"
-          repo="${repo,,}"
-          # Docker image path компоненттері дефиспен аяқтала алмайды —
-          # репо атындағы (мыс. "gp-work-") жиек дефистерін алып тастаймыз.
-          repo="$(echo "$repo" | sed -E 's/^-+//; s/-+$//')"
-          echo "image_prefix=ghcr.io/${owner}/${repo}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          printf '%s\n' "$TARGET_SHA" > TARGET_SHA
+          tar -czf "gp-work-release-${TARGET_SHA}.tgz" deploy/docker-compose.yml web-dist.tar.gz TARGET_SHA
+          tar -tzf "gp-work-release-${TARGET_SHA}.tgz" >/dev/null
 
-      - name: Prepare remote deploy directory
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: mkdir -p "${{ env.DEPLOY_PATH }}/uploads/photos"
-
-      - name: Upload docker-compose file
+      - name: Upload release payload to staging path
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: deploy/docker-compose.yml
-          target: ${{ env.DEPLOY_PATH }}/
-          strip_components: 1
+          source: gp-work-release-${{ env.TARGET_SHA }}.tgz
+          target: /tmp/
 
-      - name: Prepare remote environment
+      - name: Backup, deploy, verify, and rollback on any error
         uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_PREFIX: ${{ steps.image_vars.outputs.image_prefix }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          IMAGE_PREFIX: ${{ steps.image.outputs.prefix }}
           ADMIN_USERNAME: ${{ vars.ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_ADMIN_MODEL: ${{ vars.OPENAI_ADMIN_MODEL }}
-          OPENAI_VISION_MODEL: ${{ vars.OPENAI_VISION_MODEL }}
-          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
-          API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL }}
+          TARGET_SHA: ${{ env.TARGET_SHA }}
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          WEB_PATH: ${{ env.WEB_PATH }}
+          PUBLIC_URL: ${{ env.PUBLIC_URL }}
         with:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 60s
-          command_timeout: 10m
-          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
+          command_timeout: 30m
+          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,ADMIN_USERNAME,ADMIN_PASSWORD,TARGET_SHA,DEPLOY_PATH,WEB_PATH,PUBLIC_URL
           script: |
-            set -euo pipefail
-            : "${DB_PASSWORD:?DB_PASSWORD secret is required}"
-            : "${JWT_SECRET:?JWT_SECRET secret is required}"
-            : "${ADMIN_PASSWORD:?ADMIN_PASSWORD secret is required}"
+            set -Eeuo pipefail
+
+            STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+            BACKUP_DIR="/opt/gp-work/backups/${STAMP}-before-${TARGET_SHA}"
+            RELEASE_ARCHIVE="/tmp/gp-work-release-${TARGET_SHA}.tgz"
+            RELEASE_DIR="/tmp/gp-work-release-${TARGET_SHA}-${STAMP}"
+            NEW_WEB="/opt/gp-work/web-new-${TARGET_SHA}"
+            RELEASE_MARKER="/opt/gp-work/release-current"
+            ROLLBACK_TAG="gp-work-api:rollback-${STAMP}"
+            DEPLOYMENT_STARTED=0
+            PHASE=preflight
+
+            wait_for_postgres() {
+              for attempt in $(seq 1 60); do
+                if docker exec gp-work-postgres pg_isready -U postgres -d gp-work >/dev/null 2>&1; then
+                  return 0
+                fi
+                sleep 2
+              done
+              return 1
+            }
+
+            wait_for_api() {
+              for attempt in $(seq 1 60); do
+                if curl -fsS --max-time 5 http://127.0.0.1:3002/api/health 2>/dev/null \
+                  | grep -Fq "\"commit\":\"${TARGET_SHA}\""; then
+                  return 0
+                fi
+                sleep 2
+              done
+              return 1
+            }
+
+            rollback() {
+              set +e
+              echo "ROLLBACK STARTED after failure in phase: ${PHASE}"
+              local failed=0
+
+              cd "$DEPLOY_PATH" || return 1
+              docker rm -f gp-work-api >/dev/null 2>&1 || true
+              cp "$BACKUP_DIR/.env" "$DEPLOY_PATH/.env" || failed=1
+              cp "$BACKUP_DIR/docker-compose.yml" "$DEPLOY_PATH/docker-compose.yml" || failed=1
+
+              docker compose --env-file .env up -d gp-work-postgres || failed=1
+              wait_for_postgres || failed=1
+              docker exec gp-work-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+                -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'gp-work' AND pid <> pg_backend_pid();" \
+                >/dev/null || failed=1
+              docker exec gp-work-postgres dropdb -U postgres --if-exists gp-work || failed=1
+              docker exec gp-work-postgres createdb -U postgres gp-work || failed=1
+              docker exec -i gp-work-postgres pg_restore -U postgres -d gp-work \
+                --exit-on-error --no-owner --no-privileges < "$BACKUP_DIR/gp-work.dump" || failed=1
+
+              rm -rf "$WEB_PATH"
+              if [ -d "$BACKUP_DIR/web-live" ]; then
+                mv "$BACKUP_DIR/web-live" "$WEB_PATH" || failed=1
+              else
+                mkdir -p "$WEB_PATH" || failed=1
+                tar -xzf "$BACKUP_DIR/web.tar.gz" -C "$WEB_PATH" || failed=1
+              fi
+              chmod -R a+rX "$WEB_PATH" || failed=1
+
+              if [ -f "$BACKUP_DIR/release-current" ]; then
+                cp "$BACKUP_DIR/release-current" "$RELEASE_MARKER" || failed=1
+              else
+                rm -f "$RELEASE_MARKER"
+              fi
+
+              API_IMAGE="$ROLLBACK_TAG" docker compose --env-file .env up -d --remove-orphans || failed=1
+              for attempt in $(seq 1 60); do
+                curl -fsS --max-time 5 http://127.0.0.1:3002/api/form-settings >/dev/null 2>&1 && break
+                sleep 2
+              done
+              curl -fsS --max-time 10 http://127.0.0.1:3002/api/form-settings >/dev/null || failed=1
+              curl -fsS --max-time 15 "$PUBLIC_URL/" >/dev/null || failed=1
+
+              if [ "$failed" -eq 0 ]; then
+                echo "ROLLBACK COMPLETED: database, API image, web, and release marker restored"
+              else
+                echo "ROLLBACK FAILED: manual recovery required from $BACKUP_DIR"
+              fi
+              return "$failed"
+            }
+
+            on_exit() {
+              local code=$?
+              trap - EXIT
+              if [ "$code" -ne 0 ] && [ "$DEPLOYMENT_STARTED" -eq 1 ]; then
+                rollback || true
+              fi
+              rm -rf "$RELEASE_DIR" "$NEW_WEB" 2>/dev/null || true
+              rm -f "$RELEASE_ARCHIVE" 2>/dev/null || true
+              exit "$code"
+            }
+            trap on_exit EXIT
+
+            test -n "${GHCR_USERNAME:-}"
+            test -n "${GHCR_TOKEN:-}"
+            test -n "${ADMIN_PASSWORD:-}"
+            test -f "$RELEASE_ARCHIVE"
+            test -d "$DEPLOY_PATH"
+            test -f "$DEPLOY_PATH/.env"
+            test -f "$DEPLOY_PATH/docker-compose.yml"
+            test -d "$WEB_PATH"
+            test -s "$WEB_PATH/index.html"
+            docker inspect gp-work-api >/dev/null
+            docker inspect gp-work-postgres >/dev/null
+            wait_for_postgres
+
+            mkdir -p "$RELEASE_DIR" "$BACKUP_DIR"
+            chmod 700 "$BACKUP_DIR"
+            tar -xzf "$RELEASE_ARCHIVE" -C "$RELEASE_DIR"
+            test "$(cat "$RELEASE_DIR/TARGET_SHA")" = "$TARGET_SHA"
+            test -s "$RELEASE_DIR/deploy/docker-compose.yml"
+            test -s "$RELEASE_DIR/web-dist.tar.gz"
+
+            POSTGRES_VERSION="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atqc 'SHOW server_version')"
+            case "$POSTGRES_VERSION" in
+              18.*) ;;
+              *) echo "Production PostgreSQL is not major version 18: $POSTGRES_VERSION"; exit 1 ;;
+            esac
+
+            DB_BYTES="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atqc "SELECT pg_database_size('gp-work')")"
+            WEB_BYTES="$(du -sb "$WEB_PATH" | awk '{print $1}')"
+            FREE_KB="$(df -Pk --output=avail /opt | tail -1 | tr -d ' ')"
+            REQUIRED_KB="$((DB_BYTES / 1024 * 3 + WEB_BYTES / 1024 * 2 + 524288))"
+            if [ "$FREE_KB" -lt "$REQUIRED_KB" ]; then
+              echo "Insufficient disk space for verified backup and rollback"
+              exit 1
+            fi
+
+            PHASE=backup
+            OLD_IMAGE_ID="$(docker inspect -f '{{.Image}}' gp-work-api)"
+            OLD_IMAGE_REF="$(docker inspect -f '{{.Config.Image}}' gp-work-api)"
+            OLD_APP_COMMIT="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' gp-work-api \
+              | awk -F= '$1 == "APP_COMMIT_SHA" {print substr($0, index($0, "=") + 1)}' | tail -1)"
+            docker image tag "$OLD_IMAGE_ID" "$ROLLBACK_TAG"
+
+            cp -p "$DEPLOY_PATH/.env" "$BACKUP_DIR/.env"
+            cp -p "$DEPLOY_PATH/docker-compose.yml" "$BACKUP_DIR/docker-compose.yml"
+            chmod 600 "$BACKUP_DIR/.env"
+            if [ -f "$RELEASE_MARKER" ]; then cp -p "$RELEASE_MARKER" "$BACKUP_DIR/release-current"; fi
+            if [ -r /etc/nginx/conf.d/gp-work.gpartners.kz.conf ]; then
+              cp -p /etc/nginx/conf.d/gp-work.gpartners.kz.conf "$BACKUP_DIR/nginx.conf"
+            fi
+
+            tar -czf "$BACKUP_DIR/web.tar.gz.tmp" -C "$WEB_PATH" .
+            mv "$BACKUP_DIR/web.tar.gz.tmp" "$BACKUP_DIR/web.tar.gz"
+            docker exec gp-work-postgres pg_dump -U postgres -d gp-work \
+              --format=custom --no-owner --no-privileges > "$BACKUP_DIR/gp-work.dump.tmp"
+            test -s "$BACKUP_DIR/gp-work.dump.tmp"
+            docker exec -i gp-work-postgres pg_restore --list < "$BACKUP_DIR/gp-work.dump.tmp" >/dev/null
+            mv "$BACKUP_DIR/gp-work.dump.tmp" "$BACKUP_DIR/gp-work.dump"
+            docker exec gp-work-postgres pg_dumpall -U postgres --globals-only > "$BACKUP_DIR/globals.sql.tmp"
+            test -s "$BACKUP_DIR/globals.sql.tmp"
+            mv "$BACKUP_DIR/globals.sql.tmp" "$BACKUP_DIR/globals.sql"
+            sha256sum "$BACKUP_DIR/gp-work.dump" "$BACKUP_DIR/web.tar.gz" > "$BACKUP_DIR/SHA256SUMS"
+            sha256sum -c "$BACKUP_DIR/SHA256SUMS"
+
+            {
+              echo "captured_at_utc=$STAMP"
+              echo "postgres_version=$POSTGRES_VERSION"
+              echo "database_bytes=$DB_BYTES"
+              echo "api_image_ref=$OLD_IMAGE_REF"
+              echo "api_image_id=$OLD_IMAGE_ID"
+              echo "app_commit=${OLD_APP_COMMIT:-unknown}"
+              echo "web_index_sha256=$(sha256sum "$WEB_PATH/index.html" | awk '{print $1}')"
+              echo "rollback_tag=$ROLLBACK_TAG"
+            } > "$BACKUP_DIR/baseline.txt"
+            chmod 600 "$BACKUP_DIR/baseline.txt" "$BACKUP_DIR/SHA256SUMS"
+            sync
+            echo "BACKUP VERIFIED: $BACKUP_DIR"
+            echo "BASELINE: app_commit=${OLD_APP_COMMIT:-unknown}, image_id=$OLD_IMAGE_ID, PostgreSQL=$POSTGRES_VERSION"
+
+            PHASE=release-preparation
+            rm -rf "$NEW_WEB"
+            mkdir -p "$NEW_WEB"
+            tar -xzf "$RELEASE_DIR/web-dist.tar.gz" -C "$NEW_WEB"
+            test -s "$NEW_WEB/index.html"
+            chmod -R a+rX "$NEW_WEB"
+
+            cp "$RELEASE_DIR/deploy/docker-compose.yml" "$DEPLOY_PATH/docker-compose.yml.next"
+            cp "$DEPLOY_PATH/.env" "$DEPLOY_PATH/.env.next"
+            sed -i '/^API_IMAGE=/d; /^APP_COMMIT_SHA=/d' "$DEPLOY_PATH/.env.next"
+            printf 'API_IMAGE=%s/gp-work-api:sha-%s\n' "$IMAGE_PREFIX" "$TARGET_SHA" >> "$DEPLOY_PATH/.env.next"
+            printf 'APP_COMMIT_SHA=%s\n' "$TARGET_SHA" >> "$DEPLOY_PATH/.env.next"
+            chmod 600 "$DEPLOY_PATH/.env.next"
+            docker compose -f "$DEPLOY_PATH/docker-compose.yml.next" --env-file "$DEPLOY_PATH/.env.next" config >/dev/null
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            docker pull "$IMAGE_PREFIX/gp-work-api:sha-$TARGET_SHA"
 
-            cat > "${DEPLOY_PATH}/.env" <<EOF
-            API_IMAGE=${IMAGE_PREFIX}/gp-work-api:prod-latest
-            DB_PASSWORD=${DB_PASSWORD}
-            JWT_SECRET=${JWT_SECRET}
-            ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-            ADMIN_PASSWORD=${ADMIN_PASSWORD}
-            OPENAI_API_KEY=${OPENAI_API_KEY}
-            OPENAI_ADMIN_MODEL=${OPENAI_ADMIN_MODEL:-gpt-4o}
-            OPENAI_VISION_MODEL=${OPENAI_VISION_MODEL:-gpt-4o}
-            FRONTEND_URL=${FRONTEND_URL}
-            API_PUBLIC_URL=${API_PUBLIC_URL}
-            DB_MIGRATE=true
-            EOF
+            DEPLOYMENT_STARTED=1
+            PHASE=web-deploy
+            mv "$WEB_PATH" "$BACKUP_DIR/web-live"
+            mv "$NEW_WEB" "$WEB_PATH"
 
-      - name: Pull and restart API
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          timeout: 60s
-          command_timeout: 20m
-          envs: DEPLOY_PATH
-          script: |
-            set -euo pipefail
-            cd "${DEPLOY_PATH}"
-            docker compose --env-file .env pull
-            docker compose --env-file .env up -d --remove-orphans
-            docker compose --env-file .env ps
-            docker image prune -f
+            PHASE=api-deploy-and-migrations
+            mv "$DEPLOY_PATH/docker-compose.yml.next" "$DEPLOY_PATH/docker-compose.yml"
+            mv "$DEPLOY_PATH/.env.next" "$DEPLOY_PATH/.env"
+            cd "$DEPLOY_PATH"
+            docker compose --env-file .env up -d gp-work-postgres
+            wait_for_postgres
+            docker compose --env-file .env up -d --no-deps gp-work-api
+            wait_for_api
+
+            PHASE=migration-verification
+            for migration in AddFieldExecutionCore1731400000000 AddOperationalResources1731500000000; do
+              count="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atqc \
+                "SELECT count(*) FROM migrations WHERE name = '$migration'")"
+              test "$count" = 1
+              echo "MIGRATION VERIFIED: $migration"
+            done
+            for table in objects tasks routes route_stops work_executions location_events face_verifications work_photos stock_movements; do
+              present="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atqc \
+                "SELECT to_regclass('public.$table') IS NOT NULL")"
+              test "$present" = t
+            done
+
+            PHASE=module-smoke-tests
+            docker exec -i \
+              -e SMOKE_ADMIN_USERNAME="${ADMIN_USERNAME:-admin}" \
+              -e SMOKE_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+              -e TARGET_SHA="$TARGET_SHA" \
+              gp-work-api node - <<'NODE'
+            const { unlink } = require('node:fs/promises');
+            const base = 'http://127.0.0.1:3002/api';
+            let token = '';
+            let uploadedUrl = '';
+
+            async function request(path, options = {}, expected = [200], authenticated = true) {
+              const headers = new Headers(options.headers || {});
+              if (authenticated && token) headers.set('Authorization', `Bearer ${token}`);
+              if (typeof options.body === 'string' && !headers.has('content-type')) {
+                headers.set('content-type', 'application/json');
+              }
+              const response = await fetch(base + path, { ...options, headers });
+              if (!expected.includes(response.status)) {
+                const body = await response.text();
+                throw new Error(`${path}: HTTP ${response.status}: ${body.slice(0, 240)}`);
+              }
+              const type = response.headers.get('content-type') || '';
+              if (type.includes('application/json')) return response.json();
+              return { response, buffer: Buffer.from(await response.arrayBuffer()) };
+            }
+
+            (async () => {
+              const health = await request('/health', {}, [200], false);
+              if (health.status !== 'ok' || health.database !== 'ok' || health.commit !== process.env.TARGET_SHA) {
+                throw new Error('Health or deployed commit mismatch');
+              }
+              console.log('SMOKE OK: API health and exact commit');
+
+              const login = await request('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                  username: process.env.SMOKE_ADMIN_USERNAME || 'admin',
+                  password: process.env.SMOKE_ADMIN_PASSWORD,
+                }),
+              }, [201, 200], false);
+              token = login.accessToken;
+              if (!token) throw new Error('Authentication did not return a token');
+              await request('/auth/me');
+              console.log('SMOKE OK: authentication');
+
+              await request('/objects');
+              console.log('SMOKE OK: objects');
+              await request('/tasks');
+              console.log('SMOKE OK: tasks');
+              await request('/routes');
+              console.log('SMOKE OK: routes');
+
+              const qr = await request('/qr/checkout', {}, [200], false);
+              if (!qr.response.headers.get('content-type')?.includes('image/png') || qr.buffer.length < 100) {
+                throw new Error('QR endpoint did not return a valid PNG response');
+              }
+              console.log('SMOKE OK: QR');
+
+              await request('/operations/dispatcher');
+              await request('/field/executions/review-queue');
+              console.log('SMOKE OK: GPS, Face, and acceptance queues');
+
+              const form = new FormData();
+              const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZbJQAAAAASUVORK5CYII=', 'base64');
+              form.append('files', new Blob([png], { type: 'image/png' }), 'gp-work-smoke.png');
+              const uploaded = await request('/uploads/photos', { method: 'POST', body: form }, [201, 200], false);
+              if (!Array.isArray(uploaded) || uploaded.length !== 1 || !/^\/uploads\/photos\/[A-Za-z0-9.-]+$/.test(uploaded[0])) {
+                throw new Error('Photo upload returned an unexpected result');
+              }
+              uploadedUrl = uploaded[0];
+              const photo = await fetch('http://127.0.0.1:3002' + uploadedUrl);
+              if (!photo.ok || !photo.headers.get('content-type')?.includes('image/png')) {
+                throw new Error('Uploaded photo is not retrievable');
+              }
+              console.log('SMOKE OK: photo upload and retrieval');
+
+              await request('/stock-movements');
+              console.log('SMOKE OK: materials');
+              await request('/operations/reports/evidence');
+              console.log('SMOKE OK: evidence and acceptance');
+              const kpi = await request('/operations/kpi');
+              if (!kpi || !Array.isArray(kpi.rows)) throw new Error('KPI response is invalid');
+              console.log('SMOKE OK: KPI');
+            })().finally(async () => {
+              if (uploadedUrl && /^\/uploads\/photos\/[A-Za-z0-9.-]+$/.test(uploadedUrl)) {
+                await unlink('/app' + uploadedUrl).catch(() => undefined);
+              }
+            }).catch((error) => {
+              console.error(error.message);
+              process.exit(1);
+            });
+            NODE
+
+            PHASE=public-smoke-tests
+            PUBLIC_HEALTH="$(curl -fsS --max-time 20 "$PUBLIC_URL/api/health")"
+            echo "$PUBLIC_HEALTH" | grep -Fq '"status":"ok"'
+            echo "$PUBLIC_HEALTH" | grep -Fq "\"commit\":\"${TARGET_SHA}\""
+            curl -fsS --max-time 20 "$PUBLIC_URL/" | grep -Fq '<div id="root"></div>'
+            QR_CONTENT_TYPE="$(curl -fsSI --max-time 20 "$PUBLIC_URL/api/qr/checkout" \
+              | tr -d '\r' | awk -F': ' 'tolower($1) == "content-type" {print tolower($2)}' | tail -1)"
+            echo "$QR_CONTENT_TYPE" | grep -Fq 'image/png'
+
+            API_IMAGE_ID="$(docker inspect -f '{{.Image}}' gp-work-api)"
+            WEB_SHA="$(sha256sum "$WEB_PATH/index.html" | awk '{print $1}')"
+            {
+              echo "deployed_at_utc=$STAMP"
+              echo "commit=$TARGET_SHA"
+              echo "api_image=$IMAGE_PREFIX/gp-work-api:sha-$TARGET_SHA"
+              echo "api_image_id=$API_IMAGE_ID"
+              echo "web_index_sha256=$WEB_SHA"
+              echo "backup_dir=$BACKUP_DIR"
+              echo "ci_run=33711782233"
+            } > "$RELEASE_MARKER"
+            chmod 600 "$RELEASE_MARKER"
+
+            PHASE=complete
+            echo "DEPLOYMENT SUCCESS: exact commit $TARGET_SHA"
+            echo "ROLLBACK CHECKPOINT: $BACKUP_DIR"

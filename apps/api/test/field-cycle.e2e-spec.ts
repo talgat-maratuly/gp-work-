@@ -104,6 +104,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
     const upload = async (name: string) => (await request(app.getHttpServer())
       .post('/api/uploads/photos')
+      .set(auth(workerToken))
       .attach('files', jpeg, { filename: name, contentType: 'image/jpeg' })
       .expect(201)).body[0] as string;
     const faceUrl = await upload('face.jpg');

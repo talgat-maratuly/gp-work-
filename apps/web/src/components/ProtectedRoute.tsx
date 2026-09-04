@@ -8,7 +8,7 @@ export function ProtectedRoute({
   roles,
 }: {
   children: React.ReactNode
-  roles?: UserRole[]
+  roles?: readonly UserRole[]
 }) {
   const { user, loading, hasRole } = useAuth()
   const location = useLocation()

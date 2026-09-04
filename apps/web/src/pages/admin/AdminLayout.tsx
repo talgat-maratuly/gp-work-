@@ -3,54 +3,55 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { getNurseryName } from '@/lib/appConfig'
 import { useAuth } from '@/context/AuthContext'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
+import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
 
-type NavItem = { to: string; label: string; icon: string; end?: boolean; roles?: UserRole[] }
+type NavItem = { to: string; label: string; icon: string; end?: boolean; roles?: readonly UserRole[] }
 type NavGroup = { label: string; items: NavItem[] }
 
 const groups: NavGroup[] = [
   { label: 'Операции', items: [
-    { to: '/admin', label: 'Главная', icon: '⌂', end: true },
-    { to: '/admin/dispatcher', label: 'Диспетчерская', icon: '◎', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/executions', label: 'Приёмка работ', icon: '✓', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/tasks', label: 'Задачи', icon: '▣', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/routes', label: 'Маршруты', icon: '↗', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/map', label: 'Карта', icon: '⌖', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/work-logs', label: 'Журнал работ', icon: '≡', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/schedule', label: 'График', icon: '□', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/watering', label: 'Полив и водовозы', icon: '◇', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR'] },
+    { to: '/admin', label: 'Главная', icon: '⌂', end: true, roles: ADMIN_ROUTE_ROLES.dashboard },
+    { to: '/admin/dispatcher', label: 'Диспетчерская', icon: '◎', roles: ADMIN_ROUTE_ROLES.dispatcher },
+    { to: '/admin/executions', label: 'Приёмка работ', icon: '✓', roles: ADMIN_ROUTE_ROLES.executions },
+    { to: '/admin/tasks', label: 'Задачи', icon: '▣', roles: ADMIN_ROUTE_ROLES.tasks },
+    { to: '/admin/routes', label: 'Маршруты', icon: '↗', roles: ADMIN_ROUTE_ROLES.routes },
+    { to: '/admin/map', label: 'Карта', icon: '⌖', roles: ADMIN_ROUTE_ROLES.map },
+    { to: '/admin/work-logs', label: 'Журнал работ', icon: '≡', roles: ADMIN_ROUTE_ROLES.workLogs },
+    { to: '/admin/schedule', label: 'График', icon: '□', roles: ADMIN_ROUTE_ROLES.schedule },
+    { to: '/admin/watering', label: 'Полив и водовозы', icon: '◇', roles: ADMIN_ROUTE_ROLES.watering },
   ]},
   { label: 'Объекты и люди', items: [
-    { to: '/admin/objects', label: 'Объекты', icon: '▤', roles: ['ADMIN', 'AGRONOMIST'] },
-    { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ['ADMIN'] },
-    { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ['ADMIN', 'BRIGADIER'] },
-    { to: '/admin/attendance', label: 'Табель', icon: '◷', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/work-days', label: 'Рабочие дни', icon: '◉', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/qr', label: 'QR-паспорта', icon: '▦', roles: ['ADMIN'] },
-    { to: '/admin/photos', label: 'Фото ДО/ПОСЛЕ', icon: '▧', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
+    { to: '/admin/objects', label: 'Объекты', icon: '▤', roles: ADMIN_ROUTE_ROLES.objects },
+    { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ADMIN_ROUTE_ROLES.users },
+    { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ADMIN_ROUTE_ROLES.brigades },
+    { to: '/admin/attendance', label: 'Табель', icon: '◷', roles: ADMIN_ROUTE_ROLES.attendance },
+    { to: '/admin/work-days', label: 'Рабочие дни', icon: '◉', roles: ADMIN_ROUTE_ROLES.workDays },
+    { to: '/admin/qr', label: 'QR-паспорта', icon: '▦', roles: ADMIN_ROUTE_ROLES.qr },
+    { to: '/admin/photos', label: 'Фото ДО/ПОСЛЕ', icon: '▧', roles: ADMIN_ROUTE_ROLES.photos },
   ]},
   { label: 'Ресурсы', items: [
-    { to: '/admin/warehouse', label: 'Склад', icon: '▰', roles: ['ADMIN', 'BRIGADIER'] },
-    { to: '/admin/nursery', label: 'Питомник', icon: '♧', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/vehicles', label: 'Техника', icon: '▱', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] },
-    { to: '/admin/products/import', label: 'Импорт товаров', icon: '⇩', roles: ['ADMIN'] },
-    { to: '/admin/work-types', label: 'Виды работ', icon: '⌁', roles: ['ADMIN'] },
+    { to: '/admin/warehouse', label: 'Склад', icon: '▰', roles: ADMIN_ROUTE_ROLES.warehouse },
+    { to: '/admin/nursery', label: 'Питомник', icon: '♧', roles: ADMIN_ROUTE_ROLES.nursery },
+    { to: '/admin/vehicles', label: 'Техника', icon: '▱', roles: ADMIN_ROUTE_ROLES.vehicles },
+    { to: '/admin/products/import', label: 'Импорт товаров', icon: '⇩', roles: ADMIN_ROUTE_ROLES.productImport },
+    { to: '/admin/work-types', label: 'Виды работ', icon: '⌁', roles: ADMIN_ROUTE_ROLES.workTypes },
   ]},
   { label: 'Контроль', items: [
-    { to: '/admin/kpi', label: 'KPI / Качество', icon: '↥', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/evidence-reports', label: 'Отчёты по работам', icon: '▥', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/management', label: 'Управление', icon: '◆', roles: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/daily-reports', label: 'Отчёты', icon: '▥', roles: ['ADMIN', 'AKIMAT', 'ANTICOR'] },
-    { to: '/admin/export', label: 'Экспорт Excel', icon: '⇧', roles: ['ADMIN'] },
-    { to: '/admin/ai-assistant', label: 'ИИ‑директор', icon: '✦', roles: ['DIRECTOR', 'ADMIN'] },
-    { to: '/admin/form-settings', label: 'Настройки формы', icon: '⚙', roles: ['ADMIN'] },
-    { to: '/admin/seed', label: 'Системные данные', icon: '◫', roles: ['ADMIN'] },
+    { to: '/admin/kpi', label: 'KPI / Качество', icon: '↥', roles: ADMIN_ROUTE_ROLES.kpi },
+    { to: '/admin/evidence-reports', label: 'Отчёты по работам', icon: '▥', roles: ADMIN_ROUTE_ROLES.evidenceReports },
+    { to: '/admin/management', label: 'Управление', icon: '◆', roles: ADMIN_ROUTE_ROLES.management },
+    { to: '/admin/daily-reports', label: 'Отчёты', icon: '▥', roles: ADMIN_ROUTE_ROLES.dailyReports },
+    { to: '/admin/export', label: 'Экспорт Excel', icon: '⇧', roles: ADMIN_ROUTE_ROLES.export },
+    { to: '/admin/ai-assistant', label: 'ИИ‑директор', icon: '✦', roles: ADMIN_ROUTE_ROLES.aiAssistant },
+    { to: '/admin/form-settings', label: 'Настройки формы', icon: '⚙', roles: ADMIN_ROUTE_ROLES.formSettings },
+    { to: '/admin/seed', label: 'Системные данные', icon: '◫', roles: ADMIN_ROUTE_ROLES.seed },
   ]},
 ]
 
 export function AdminLayout() {
   const { user, logout, hasRole } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const canSee = (roles?: UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
+  const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
   const visible = groups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)) })).filter((group) => group.items.length)
 
   const navigation = <>{visible.map((group) => <section key={group.label} className="mb-5"><p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{group.label}</p><div className="space-y-0.5">{group.items.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMobileOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><span className="w-5 text-center text-base">{item.icon}</span><span>{item.label}</span></NavLink>)}</div></section>)}</>

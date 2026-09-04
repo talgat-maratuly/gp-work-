@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
-import { In, Repository } from 'typeorm';
+import { In, MoreThan, Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import {
   ExecutionStatus,
   FaceVerificationStatus,
@@ -10,6 +11,7 @@ import {
   WorkPhotoPhase,
 } from '../../common/enums/field-execution.enums';
 import { TaskStatus } from '../../common/enums/task-status.enum';
+import { ReviewStatus } from '../../common/enums/review-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { serializePhotoUrls } from '../../common/photo-urls';
 import {
@@ -29,26 +31,19 @@ import {
   StockMovement,
 } from '../../entities';
 import { AttendanceService } from '../attendance/attendance.service';
+import { UploadsService } from '../uploads/uploads.service';
 import {
   AddWorkPhotosDto,
   ArriveExecutionDto,
   CaptureFaceDto,
+  CompleteExecutionDto,
   ExecutionActionDto,
   LocationBatchDto,
   ReviewExecutionDto,
   ReviewFaceDto,
   SaveChecklistDto,
 } from './dto/field-execution.dto';
-import { assertTransition, distanceMeters } from './field-execution.rules';
-
-function businessDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: process.env.BUSINESS_TIME_ZONE || 'Asia/Oral',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
+import { assertFreshLivenessEvidence, assertTransition, distanceMeters } from './field-execution.rules';
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
@@ -71,6 +66,7 @@ export class FieldExecutionsService {
     @InjectRepository(WorkLog) private readonly workLogRepo: Repository<WorkLog>,
     @InjectRepository(StockMovement) private readonly stockMovementRepo: Repository<StockMovement>,
     private readonly attendanceService: AttendanceService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   private baseQuery() {
@@ -130,7 +126,7 @@ export class FieldExecutionsService {
   }
 
   async today(user: User) {
-    const date = businessDate();
+    const date = businessDateString();
     const qb = this.taskRepo
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.section', 'section')
@@ -316,6 +312,16 @@ export class FieldExecutionsService {
       throw new BadRequestException('Идентификатор Face verification уже использован в другой работе');
     }
     if (!existing) {
+      const previous = await this.faceRepo.find({ where: { executionId: execution.id } });
+      assertFreshLivenessEvidence(
+        dto.selfieUrl,
+        dto.livenessEvidenceUrls,
+        previous.flatMap((verification) => verification.livenessEvidenceUrls),
+      );
+      await this.uploadsService.assertStoredPhotoUrls([
+        dto.selfieUrl,
+        ...dto.livenessEvidenceUrls,
+      ]);
       try {
         await this.faceRepo.save(this.faceRepo.create({
           clientOperationId: dto.clientOperationId,
@@ -333,13 +339,22 @@ export class FieldExecutionsService {
         }
       }
     }
-    await this.recordEvent(execution, 'FACE_CAPTURED', { clientOperationId: dto.clientOperationId }, user);
+    await this.recordEvent(
+      execution,
+      'FACE_CAPTURED',
+      { clientOperationId: dto.clientOperationId },
+      user,
+      { selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls },
+    );
     return this.detailed(id);
   }
 
   async reviewFace(verificationId: number, dto: ReviewFaceDto, reviewer: User) {
     if (![FaceVerificationStatus.VERIFIED, FaceVerificationStatus.REJECTED].includes(dto.status)) {
       throw new BadRequestException('Некорректный результат Face verification');
+    }
+    if (dto.status === FaceVerificationStatus.REJECTED && !dto.reviewComment?.trim()) {
+      throw new BadRequestException('При отклонении Face verification укажите причину');
     }
     const face = await this.faceRepo.findOne({ where: { id: verificationId }, relations: { execution: { task: true }, user: true } });
     if (!face) throw new NotFoundException('Face verification не найдена');
@@ -365,6 +380,7 @@ export class FieldExecutionsService {
 
   async addPhotos(id: number, dto: AddWorkPhotosDto, user: User) {
     const execution = await this.owned(id, user);
+    await this.uploadsService.assertStoredPhotoUrls(dto.photos.map((photo) => photo.url));
     for (const photo of dto.photos) {
       await this.duplicateEvent(photo.clientPhotoId, user, `PHOTO_${photo.phase}`, { executionId: id });
       const existing = await this.photoRepo.findOne({ where: { clientPhotoId: photo.clientPhotoId } });
@@ -415,12 +431,15 @@ export class FieldExecutionsService {
     const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'STARTED', { executionId: id });
     if (duplicate) return this.detailed(duplicate.id);
     assertTransition(execution.status, ExecutionStatus.STARTED);
-    const [beforeCount, faceCount] = await Promise.all([
+    const [beforeCount, latestFace] = await Promise.all([
       this.photoRepo.count({ where: { executionId: id, phase: WorkPhotoPhase.BEFORE } }),
-      this.faceRepo.count({ where: { executionId: id } }),
+      this.faceRepo.findOne({ where: { executionId: id }, order: { createdAt: 'DESC' } }),
     ]);
     if (!beforeCount) throw new BadRequestException('Перед началом работы обязательно сделайте фото ДО');
-    if (!faceCount) throw new BadRequestException('Перед началом работы пройдите Face verification');
+    if (!latestFace) throw new BadRequestException('Перед началом работы пройдите Face verification');
+    if (latestFace.status === FaceVerificationStatus.REJECTED) {
+      throw new BadRequestException('Face verification отклонена. Пройдите проверку заново');
+    }
     execution.status = ExecutionStatus.STARTED;
     execution.startedAt = execution.startedAt ?? new Date();
     await this.executionRepo.save(execution);
@@ -467,34 +486,59 @@ export class FieldExecutionsService {
     return this.detailed(id);
   }
 
-  async complete(id: number, dto: ExecutionActionDto, user: User) {
+  async complete(id: number, dto: CompleteExecutionDto, user: User) {
     const execution = await this.owned(id, user);
     const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'COMPLETED', { executionId: id });
     if (duplicate) return this.detailed(duplicate.id);
     if (![ExecutionStatus.STARTED, ExecutionStatus.IN_PROGRESS, ExecutionStatus.REJECTED].includes(execution.status)) {
       throw new BadRequestException('Завершить можно только начатую работу');
     }
-    const [beforeCount, afterCount, faceCount, requiredItems, answers] = await Promise.all([
+    if (!dto.description.trim()) throw new BadRequestException('Укажите, что именно выполнено');
+    const [beforeCount, afterCount, latestFace, requiredItems, answers] = await Promise.all([
       this.photoRepo.count({ where: { executionId: id, phase: WorkPhotoPhase.BEFORE } }),
       this.photoRepo.count({ where: { executionId: id, phase: WorkPhotoPhase.AFTER } }),
-      this.faceRepo.count({ where: { executionId: id } }),
+      this.faceRepo.findOne({ where: { executionId: id }, order: { createdAt: 'DESC' } }),
       this.getRequiredItems(execution.task.workTypeId),
       this.checklistAnswerRepo.find({ where: { executionId: id } }),
     ]);
     if (!beforeCount) throw new BadRequestException('Отсутствует обязательное фото ДО');
     if (!afterCount) throw new BadRequestException('Отсутствует обязательное фото ПОСЛЕ');
-    if (!faceCount) throw new BadRequestException('Отсутствует Face verification');
+    if (!latestFace) throw new BadRequestException('Отсутствует Face verification');
+    if (latestFace.status === FaceVerificationStatus.REJECTED) {
+      throw new BadRequestException('Face verification отклонена. Пройдите проверку заново');
+    }
+    if (execution.reviewComment && execution.task.reviewedAt) {
+      const newAfterCount = await this.photoRepo.count({
+        where: {
+          executionId: id,
+          phase: WorkPhotoPhase.AFTER,
+          // capturedAt is client-controlled. Only the server timestamp proves
+          // that evidence was uploaded after the reviewer returned the work.
+          createdAt: MoreThan(execution.task.reviewedAt),
+        },
+      });
+      if (!newAfterCount) {
+        throw new BadRequestException('После возврата на доработку сделайте новое фото ПОСЛЕ');
+      }
+    }
     const completed = new Set(answers.filter((answer) => answer.isCompleted).map((answer) => answer.itemId));
     const missing = requiredItems.filter((item) => item.isRequired && !completed.has(item.id));
     if (missing.length) throw new BadRequestException(`Не выполнены обязательные пункты: ${missing.map((item) => item.label).join(', ')}`);
 
     execution.status = ExecutionStatus.COMPLETED;
     execution.completedAt = new Date();
-    execution.comment = dto.comment?.trim() || execution.comment;
+    execution.completionPercent = dto.percent;
+    execution.actualVolume = dto.actualVolume?.trim() || null;
+    execution.completionDescription = dto.description.trim();
+    execution.comment = dto.description.trim();
+    execution.reviewComment = null;
     await this.executionRepo.save(execution);
     execution.task.status = TaskStatus.COMPLETED;
     execution.task.completedAt = new Date();
     execution.task.completionComment = execution.comment;
+    execution.task.reviewedAt = null;
+    execution.task.reviewedById = null;
+    execution.task.reviewComment = null;
     const photos = await this.photoRepo.find({ where: { executionId: id }, order: { capturedAt: 'ASC' } });
     execution.task.completionPhotoUrls = serializePhotoUrls(photos.map((photo) => photo.url));
     await this.taskRepo.save(execution.task);
@@ -514,7 +558,7 @@ export class FieldExecutionsService {
         workerFullName: user.fullName,
         workTypeId: execution.task.workTypeId,
         customWorkType: null,
-        workVolume: '100%',
+        workVolume: execution.actualVolume || `${execution.completionPercent}%`,
         comment: execution.comment ?? '',
         photoUrls: serializePhotoUrls(photos.map((photo) => photo.url)),
         latitude: execution.arrivalLatitude,
@@ -524,8 +568,22 @@ export class FieldExecutionsService {
         submittedAt: new Date(),
       }));
       await this.attendanceService.syncOnWorkLogCreated(workLog);
+    } else {
+      workLog.workVolume = execution.actualVolume || `${execution.completionPercent}%`;
+      workLog.comment = execution.completionDescription;
+      workLog.photoUrls = serializePhotoUrls(photos.map((photo) => photo.url));
+      workLog.reviewStatus = ReviewStatus.PENDING;
+      workLog.reviewedById = null;
+      workLog.reviewedAt = null;
+      workLog.reviewComment = null;
+      await this.workLogRepo.save(workLog);
     }
-    await this.recordEvent(execution, 'COMPLETED', dto, user, { workLogId: workLog.id, comment: dto.comment });
+    await this.recordEvent(execution, 'COMPLETED', dto, user, {
+      workLogId: workLog.id,
+      percent: execution.completionPercent,
+      actualVolume: execution.actualVolume,
+      description: execution.completionDescription,
+    });
     return this.detailed(id);
   }
 
@@ -533,6 +591,9 @@ export class FieldExecutionsService {
     const execution = await this.baseQuery().where('execution.id = :id', { id }).getOne();
     if (!execution) throw new NotFoundException('Выполнение работы не найдено');
     if (!this.canReview(execution, reviewer)) throw new ForbiddenException('Нет доступа к приёмке этой работы');
+    if (!dto.accepted && !dto.comment?.trim()) {
+      throw new BadRequestException('При возврате на доработку обязательно укажите причину');
+    }
     const eventType = dto.accepted ? 'ACCEPTED' : 'REJECTED';
     const duplicate = await this.duplicateEvent(dto.clientOperationId, reviewer, eventType, { executionId: id });
     if (duplicate) return this.detailed(duplicate.id);
@@ -545,6 +606,7 @@ export class FieldExecutionsService {
       execution.status = ExecutionStatus.ACCEPTED;
       execution.acceptedAt = new Date();
       execution.acceptedById = reviewer.id;
+      execution.reviewComment = dto.comment?.trim() || null;
       execution.task.status = TaskStatus.VERIFIED;
       execution.task.reviewedAt = new Date();
       execution.task.reviewedById = reviewer.id;
@@ -559,6 +621,14 @@ export class FieldExecutionsService {
     }
     await this.executionRepo.save(execution);
     await this.taskRepo.save(execution.task);
+    const workLog = await this.workLogRepo.findOne({ where: { executionId: execution.id } });
+    if (workLog) {
+      workLog.reviewStatus = dto.accepted ? ReviewStatus.APPROVED : ReviewStatus.REJECTED;
+      workLog.reviewedById = reviewer.id;
+      workLog.reviewedAt = new Date();
+      workLog.reviewComment = dto.comment?.trim() || null;
+      await this.workLogRepo.save(workLog);
+    }
     await this.recordEvent(execution, eventType, dto, reviewer, { comment: dto.comment });
     return this.detailed(id);
   }

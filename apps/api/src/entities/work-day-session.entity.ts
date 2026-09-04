@@ -4,6 +4,18 @@ import { User } from './user.entity';
 
 export enum WorkDayStatus { OPEN = 'OPEN', CLOSED = 'CLOSED', REVIEWED = 'REVIEWED', RETURNED = 'RETURNED' }
 
+export interface WorkDayTaskScope {
+  taskId: number;
+  description: string;
+}
+
+export interface WorkDayTaskResult extends WorkDayTaskScope {
+  percent: number;
+  actualVolume: string | null;
+  workDescription: string | null;
+  incompleteReason: string | null;
+}
+
 @Entity('work_day_sessions')
 @Index('uq_work_day_open_user', ['userId'], { unique: true, where: `status = 'OPEN'` })
 export class WorkDaySession {
@@ -27,8 +39,12 @@ export class WorkDaySession {
   @Column({ name: 'end_distance_meters', type: 'double precision', nullable: true }) endDistanceMeters!: number | null;
   @Column({ name: 'start_selfie_url', type: 'text' }) startSelfieUrl!: string;
   @Column({ name: 'end_selfie_url', type: 'text', nullable: true }) endSelfieUrl!: string | null;
+  @Column({ name: 'start_liveness_evidence_urls', type: 'jsonb', default: () => "'[]'::jsonb" }) startLivenessEvidenceUrls!: string[];
+  @Column({ name: 'end_liveness_evidence_urls', type: 'jsonb', default: () => "'[]'::jsonb" }) endLivenessEvidenceUrls!: string[];
   @Column({ name: 'start_photo_url', type: 'text' }) startPhotoUrl!: string;
   @Column({ name: 'result_photo_urls', type: 'jsonb', default: () => "'[]'::jsonb" }) resultPhotoUrls!: string[];
+  @Column({ name: 'task_scope', type: 'jsonb', default: () => "'[]'::jsonb" }) taskScope!: WorkDayTaskScope[];
+  @Column({ name: 'task_results', type: 'jsonb', default: () => "'[]'::jsonb" }) taskResults!: WorkDayTaskResult[];
   @Column({ name: 'overall_percent', type: 'smallint', default: 0 }) overallPercent!: number;
   @Column({ name: 'summary', type: 'text', nullable: true }) summary!: string | null;
   @Column({ name: 'incomplete_reasons', type: 'jsonb', default: () => "'{}'::jsonb" }) incompleteReasons!: Record<string, string>;

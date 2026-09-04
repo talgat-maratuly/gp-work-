@@ -23,7 +23,7 @@ export function FieldQrPage() {
   const routeStopId = Number(params.get('routeStopId')) || undefined
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
-  const [manual, setManual] = useState('')
+  const [manual, setManual] = useState(params.get('code') || '')
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
@@ -83,7 +83,7 @@ export function FieldQrPage() {
       <div className="overflow-hidden rounded-3xl bg-slate-950 shadow-lg"><video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline /><div className="pointer-events-none absolute" /></div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <label className="text-sm font-semibold">Код участка вручную</label>
-        <div className="mt-2 flex gap-2"><input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Например GP-001" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-3" /><button disabled={!manual || busy} onClick={() => void confirm(manual)} className="rounded-xl bg-emerald-700 px-4 font-bold text-white disabled:opacity-50">Проверить</button></div>
+        <div className="mt-2 flex gap-2"><input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Например GP-001" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-3" /><button disabled={!manual || busy} onClick={() => void confirm(manual)} className="rounded-xl bg-emerald-700 px-4 font-bold text-white disabled:opacity-50">{busy ? 'Проверяем…' : 'Подтвердить QR и GPS'}</button></div>
       </div>
       {message && <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{message}</div>}
     </div>

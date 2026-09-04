@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import { ScheduleStatus } from '../../common/enums/schedule-status.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -18,13 +19,6 @@ import { WateringRecord } from '../../entities/watering-record.entity';
 import { ManagementService } from '../management/management.service';
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.VERIFIED];
-
-function isoToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`;
-}
 
 // Извлекаем число из текстового поля площади ("40 000 м²" -> 40000)
 function parseArea(area: string | null): number {
@@ -62,8 +56,8 @@ export class DashboardService {
   ) {}
 
   async summary(filters: DashboardFilters = {}) {
-    const date = filters.date || isoToday();
-    const today = isoToday();
+    const date = filters.date || businessDateString();
+    const today = businessDateString();
     const period = filters.period || 'day';
 
     // Диапазон дат для KPI (переиспользуем оперативную сводку «Управления»)

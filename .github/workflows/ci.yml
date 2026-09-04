@@ -54,6 +54,8 @@ jobs:
           fi
       - run: npm run build
       - run: npm test -w @gp-work/api
+      - run: npm run test:web:roles
+      - run: npm run test:web:actions
       - run: npm run test:e2e:typecheck -w @gp-work/api
       - name: Verify additive migration source
         shell: bash
@@ -63,6 +65,10 @@ jobs:
           const files = [
             'apps/api/src/database/migrations/1731400000000-AddFieldExecutionCore.ts',
             'apps/api/src/database/migrations/1731500000000-AddOperationalResources.ts',
+            'apps/api/src/database/migrations/1731600000000-AddWorkDaySessions.ts',
+            'apps/api/src/database/migrations/1731700000000-AddWorkDayTaskResults.ts',
+            'apps/api/src/database/migrations/1731800000000-AddExecutionResults.ts',
+            'apps/api/src/database/migrations/1731900000000-AddWorkDayLivenessEvidence.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -70,10 +76,10 @@ jobs:
             const up = source.split(/\n\s*async down\s*\(/)[0];
             if (forbidden.test(up)) throw new Error(`${file} contains a destructive statement in up()`);
           }
-          console.log('Both field-cycle migrations are additive.');
+          console.log('All field-cycle migrations are additive.');
           NODE
       - run: npm run migration:run
-      - name: Verify both additive migrations applied
+      - name: Verify field-cycle additive migrations applied
         shell: bash
         run: |
           node <<'NODE'
@@ -81,6 +87,10 @@ jobs:
           const expected = [
             'AddFieldExecutionCore1731400000000',
             'AddOperationalResources1731500000000',
+            'AddWorkDaySessions1731600000000',
+            'AddWorkDayTaskResults1731700000000',
+            'AddExecutionResults1731800000000',
+            'AddWorkDayLivenessEvidence1731900000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

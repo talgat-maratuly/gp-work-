@@ -39,3 +39,20 @@ export function distanceMeters(
     Math.cos(latA) * Math.cos(latB) * Math.sin(dLon / 2) ** 2;
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+export function assertFreshLivenessEvidence(
+  selfieUrl: string,
+  evidenceUrls: string[],
+  previouslyUsedUrls: string[] = [],
+): void {
+  if (evidenceUrls.length !== 3 || new Set(evidenceUrls).size !== 3) {
+    throw new BadRequestException('Liveness требует три разных кадра');
+  }
+  if (!evidenceUrls.includes(selfieUrl)) {
+    throw new BadRequestException('Основное селфи должно быть одним из трёх liveness-кадров');
+  }
+  const used = new Set(previouslyUsedUrls);
+  if (evidenceUrls.some((url) => used.has(url))) {
+    throw new BadRequestException('Для новой Face verification сделайте три новых кадра');
+  }
+}

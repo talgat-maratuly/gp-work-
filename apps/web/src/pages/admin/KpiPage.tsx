@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { fetchKpi, type KpiData } from '@/api/operationsApi'
 import { toUserMessage } from '@/api/client'
-
-const today = new Date().toISOString().slice(0, 10)
+import { businessDateString } from '@/lib/businessDate'
 const groupLabels = { employee: 'По сотрудникам', brigade: 'По бригадам', object: 'По объектам' } as const
 
 export function KpiPage() {
-  const [anchor, setAnchor] = useState(today)
+  const [anchor, setAnchor] = useState(businessDateString)
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week')
   const [groupBy, setGroupBy] = useState<'employee' | 'brigade' | 'object'>('brigade')
   const [data, setData] = useState<KpiData | null>(null)

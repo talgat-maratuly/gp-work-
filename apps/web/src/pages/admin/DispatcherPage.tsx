@@ -2,11 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchDispatcher, type DispatcherData } from '@/api/operationsApi'
 import { toUserMessage } from '@/api/client'
 import { DispatcherMap } from '@/components/operations/DispatcherMap'
-
-const today = new Date().toISOString().slice(0, 10)
+import { businessDateString } from '@/lib/businessDate'
 
 export function DispatcherPage() {
-  const [date, setDate] = useState(today)
+  const [date, setDate] = useState(businessDateString)
   const [data, setData] = useState<DispatcherData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const load = useCallback(async () => {

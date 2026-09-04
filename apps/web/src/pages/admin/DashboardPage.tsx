@@ -66,18 +66,26 @@ export function DashboardPage() {
   const [dispatcher, setDispatcher] = useState<DispatcherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setWarning(null)
     try {
       const params: DashboardParams = { period }
-      const [summary, operations] = await Promise.all([
+      const [summaryResult, operationsResult] = await Promise.allSettled([
         fetchDashboardSummary(params),
         fetchDispatcher(),
       ])
-      setData(summary)
-      setDispatcher(operations)
+      if (summaryResult.status === 'rejected') throw summaryResult.reason
+      setData(summaryResult.value)
+      if (operationsResult.status === 'fulfilled') {
+        setDispatcher(operationsResult.value)
+      } else {
+        setDispatcher(null)
+        setWarning('Основная сводка загружена, но оперативная карта временно недоступна.')
+      }
     } catch (err) {
       setError(toUserMessage(err, 'Не удалось загрузить дашборд'))
     } finally {
@@ -135,6 +143,7 @@ export function DashboardPage() {
         </div>
       ) : c ? (
         <>
+          {warning && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{warning}</div>}
           {/* KPI-карточки */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <KpiCard label="Всего объектов" value={c.objectsTotal} onClick={go('/admin/objects')} />

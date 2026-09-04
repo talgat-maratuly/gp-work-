@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ExecutionStatus } from '../../common/enums/field-execution.enums';
-import { assertTransition, canTransition, distanceMeters } from './field-execution.rules';
+import { assertFreshLivenessEvidence, assertTransition, canTransition, distanceMeters } from './field-execution.rules';
 
 describe('field execution rules', () => {
   it('allows the complete evidence lifecycle', () => {
@@ -33,5 +33,21 @@ describe('field execution rules', () => {
     const distance = distanceMeters(51.2333, 51.3667, 51.2342, 51.3667);
     expect(distance).toBeGreaterThan(95);
     expect(distance).toBeLessThan(105);
+  });
+
+  it('accepts three fresh liveness frames containing the primary selfie', () => {
+    expect(() => assertFreshLivenessEvidence('/a.jpg', ['/a.jpg', '/b.jpg', '/c.jpg'])).not.toThrow();
+  });
+
+  it('rejects a selfie outside the three liveness frames', () => {
+    expect(() => assertFreshLivenessEvidence('/selfie.jpg', ['/a.jpg', '/b.jpg', '/c.jpg'])).toThrow(
+      'Основное селфи должно быть одним из трёх liveness-кадров',
+    );
+  });
+
+  it('rejects evidence reused from a previous verification', () => {
+    expect(() => assertFreshLivenessEvidence('/a.jpg', ['/a.jpg', '/b.jpg', '/c.jpg'], ['/b.jpg'])).toThrow(
+      'Для новой Face verification сделайте три новых кадра',
+    );
   });
 });

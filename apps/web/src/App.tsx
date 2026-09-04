@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { HomeRedirect } from '@/components/HomeRedirect'
+import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
+import type { UserRole } from '@/lib/auth'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
@@ -57,6 +59,10 @@ function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
 }
 
+function forRoles(page: ReactNode, roles: readonly UserRole[]) {
+  return <ProtectedRoute roles={roles}>{page}</ProtectedRoute>
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -108,103 +114,85 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="work-logs" element={<JournalPage />} />
-              <Route path="map" element={<WorkMapPage />} />
+              <Route index element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
+              <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />
               <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />
               <Route path="work-map" element={<Navigate to="/admin/map" replace />} />
-              <Route path="objects" element={<ObjectsPage />} />
-              <Route path="work-types" element={<WorkTypesPage />} />
-              <Route path="qr" element={<QrPage />} />
-              <Route path="form-settings" element={<FormSettingsPage />} />
-              <Route path="export" element={<ExportPage />} />
-              <Route path="photos" element={<PhotosPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="brigades" element={<BrigadesPage />} />
-              <Route path="tasks" element={<TasksPage />} />
-              <Route path="routes" element={<RoutesPage />} />
-              <Route path="executions" element={<ExecutionReviewPage />} />
-              <Route path="dispatcher" element={<DispatcherPage />} />
-              <Route path="kpi" element={<KpiPage />} />
-              <Route path="evidence-reports" element={<EvidenceReportsPage />} />
+              <Route path="objects" element={forRoles(<ObjectsPage />, ADMIN_ROUTE_ROLES.objects)} />
+              <Route path="work-types" element={forRoles(<WorkTypesPage />, ADMIN_ROUTE_ROLES.workTypes)} />
+              <Route path="qr" element={forRoles(<QrPage />, ADMIN_ROUTE_ROLES.qr)} />
+              <Route path="form-settings" element={forRoles(<FormSettingsPage />, ADMIN_ROUTE_ROLES.formSettings)} />
+              <Route path="export" element={forRoles(<ExportPage />, ADMIN_ROUTE_ROLES.export)} />
+              <Route path="photos" element={forRoles(<PhotosPage />, ADMIN_ROUTE_ROLES.photos)} />
+              <Route path="users" element={forRoles(<UsersPage />, ADMIN_ROUTE_ROLES.users)} />
+              <Route path="brigades" element={forRoles(<BrigadesPage />, ADMIN_ROUTE_ROLES.brigades)} />
+              <Route path="tasks" element={forRoles(<TasksPage />, ADMIN_ROUTE_ROLES.tasks)} />
+              <Route path="routes" element={forRoles(<RoutesPage />, ADMIN_ROUTE_ROLES.routes)} />
+              <Route path="executions" element={forRoles(<ExecutionReviewPage />, ADMIN_ROUTE_ROLES.executions)} />
+              <Route path="dispatcher" element={forRoles(<DispatcherPage />, ADMIN_ROUTE_ROLES.dispatcher)} />
+              <Route path="kpi" element={forRoles(<KpiPage />, ADMIN_ROUTE_ROLES.kpi)} />
+              <Route path="evidence-reports" element={forRoles(<EvidenceReportsPage />, ADMIN_ROUTE_ROLES.evidenceReports)} />
               <Route
                 path="vehicles"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
-                    <VehiclesPage />
-                  </ProtectedRoute>
+                  forRoles(<VehiclesPage />, ADMIN_ROUTE_ROLES.vehicles)
                 }
               />
               <Route
                 path="nursery"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST']}>
-                    <NurseryPage />
-                  </ProtectedRoute>
+                  forRoles(<NurseryPage />, ADMIN_ROUTE_ROLES.nursery)
                 }
               />
-              <Route path="watering" element={<WateringPage />} />
-              <Route path="schedule" element={<ProductionSchedulePage />} />
-              <Route path="management" element={<ManagementPage />} />
+              <Route path="watering" element={forRoles(<WateringPage />, ADMIN_ROUTE_ROLES.watering)} />
+              <Route path="schedule" element={forRoles(<ProductionSchedulePage />, ADMIN_ROUTE_ROLES.schedule)} />
+              <Route path="management" element={forRoles(<ManagementPage />, ADMIN_ROUTE_ROLES.management)} />
               <Route
                 path="daily-reports"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR']}>
-                    <AdminReportsPage />
-                  </ProtectedRoute>
+                  forRoles(<AdminReportsPage />, ADMIN_ROUTE_ROLES.dailyReports)
                 }
               />
               <Route
                 path="my-tasks"
                 element={
-                  <ProtectedRoute roles={['BRIGADIER', 'AGRONOMIST']}>
-                    <MyTasksPage />
-                  </ProtectedRoute>
+                  forRoles(<MyTasksPage />, ADMIN_ROUTE_ROLES.myTasks)
                 }
               />
-              <Route path="attendance" element={<AttendancePage />} />
-              <Route path="work-days" element={<WorkDaysPage />} />
+              <Route path="attendance" element={forRoles(<AttendancePage />, ADMIN_ROUTE_ROLES.attendance)} />
+              <Route path="work-days" element={forRoles(<WorkDaysPage />, ADMIN_ROUTE_ROLES.workDays)} />
               <Route
                 path="warehouse"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouse)
                 }
               />
               <Route
                 path="warehouse/issue"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouse)
                 }
               />
               <Route
                 path="warehouse/export"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouseExport)
                 }
               />
               <Route
                 path="products/import"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <ProductImportPage />
-                  </ProtectedRoute>
+                  forRoles(<ProductImportPage />, ADMIN_ROUTE_ROLES.productImport)
                 }
               />
               <Route
                 path="ai-assistant"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <AdminAiAssistantPage />
-                  </ProtectedRoute>
+                  forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)
                 }
               />
-              <Route path="seed" element={<SeedPage />} />
+              <Route path="seed" element={forRoles(<SeedPage />, ADMIN_ROUTE_ROLES.seed)} />
             </Route>
           </Routes>
         </Suspense>

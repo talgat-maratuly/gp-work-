@@ -82,6 +82,15 @@ export class WorkExecution {
   @Column({ name: 'review_comment', type: 'text', nullable: true })
   reviewComment!: string | null;
 
+  @Column({ name: 'completion_percent', type: 'smallint', nullable: true })
+  completionPercent!: number | null;
+
+  @Column({ name: 'actual_volume', type: 'text', nullable: true })
+  actualVolume!: string | null;
+
+  @Column({ name: 'completion_description', type: 'text', nullable: true })
+  completionDescription!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

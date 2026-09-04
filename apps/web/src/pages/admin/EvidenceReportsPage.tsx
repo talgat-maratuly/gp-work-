@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { resolveAssetUrl, toUserMessage } from '@/api/client'
 import { fetchEvidenceReport, type EvidenceReport } from '@/api/operationsApi'
-
-const today = new Date().toISOString().slice(0, 10)
+import { businessDateString } from '@/lib/businessDate'
 
 export function EvidenceReportsPage() {
-  const [anchor, setAnchor] = useState(today)
+  const [anchor, setAnchor] = useState(businessDateString)
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day')
   const [data, setData] = useState<EvidenceReport | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)

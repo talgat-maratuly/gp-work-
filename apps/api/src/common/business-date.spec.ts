@@ -1,4 +1,8 @@
-import { businessDateString, businessDayUtcRange } from './business-date';
+import {
+  businessDateString,
+  businessDayUtcRange,
+  businessPeriodRange,
+} from './business-date';
 
 describe('business date', () => {
   beforeEach(() => {
@@ -15,5 +19,23 @@ describe('business date', () => {
       start: new Date('2026-09-03T19:00:00.000Z'),
       end: new Date('2026-09-04T18:59:59.999Z'),
     });
+  });
+
+  it('builds a Monday-to-Sunday week across a month boundary', () => {
+    expect(businessPeriodRange('week', '2026-09-04')).toEqual({
+      from: '2026-08-31',
+      to: '2026-09-06',
+    });
+  });
+
+  it('builds the complete leap-year month', () => {
+    expect(businessPeriodRange('month', '2024-02-29')).toEqual({
+      from: '2024-02-01',
+      to: '2024-02-29',
+    });
+  });
+
+  it('rejects calendar dates that do not exist', () => {
+    expect(() => businessPeriodRange('day', '2026-02-31')).toThrow('Date does not exist');
   });
 });

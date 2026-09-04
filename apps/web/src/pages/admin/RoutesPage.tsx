@@ -3,11 +3,10 @@ import { fetchBrigades, type ApiBrigade } from '@/api/brigadesApi'
 import { createRoute, fetchRoutes, type FieldRoute } from '@/api/fieldApi'
 import { fetchTasks, type ApiTask } from '@/api/tasksApi'
 import { toUserMessage } from '@/api/client'
-
-const today = new Date().toISOString().slice(0, 10)
+import { businessDateString } from '@/lib/businessDate'
 
 export function RoutesPage() {
-  const [date, setDate] = useState(today)
+  const [date, setDate] = useState(businessDateString)
   const [brigadeId, setBrigadeId] = useState('')
   const [selected, setSelected] = useState<number[]>([])
   const [routes, setRoutes] = useState<FieldRoute[]>([])

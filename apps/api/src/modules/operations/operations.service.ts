@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import { ExecutionStatus, RouteStatus } from '../../common/enums/field-execution.enums';
 import { VehicleAssignmentStatus, VehicleType } from '../../common/enums/resource.enums';
 import {
@@ -19,13 +20,6 @@ import {
 import { durationMinutes, evidenceRange, isCompletedOnTime, percent, periodDates, ReportPeriod } from './operations.metrics';
 
 type GroupBy = 'employee' | 'brigade' | 'object';
-
-function todayBusiness() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: process.env.BUSINESS_TIME_ZONE || 'Asia/Oral',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(new Date());
-}
 
 function assertDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new BadRequestException('Дата должна быть в формате YYYY-MM-DD');
@@ -55,7 +49,7 @@ export class OperationsService {
       if (from > to) throw new BadRequestException('Начальная дата позже конечной');
       return { dateFrom: from, dateTo: to };
     }
-    const date = anchor || todayBusiness();
+    const date = anchor || businessDateString();
     assertDate(date);
     try { return periodDates(date, period); } catch { throw new BadRequestException('Некорректная дата'); }
   }
@@ -190,7 +184,7 @@ export class OperationsService {
     };
   }
 
-  async dispatcher(date = todayBusiness()) {
+  async dispatcher(date = businessDateString()) {
     assertDate(date);
     const routes = await this.routeRepo.find({
       where: { workDate: date },

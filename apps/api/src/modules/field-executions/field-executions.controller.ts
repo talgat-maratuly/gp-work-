@@ -8,6 +8,7 @@ import {
   AddWorkPhotosDto,
   ArriveExecutionDto,
   CaptureFaceDto,
+  CompleteExecutionDto,
   ExecutionActionDto,
   LocationBatchDto,
   ReviewExecutionDto,
@@ -109,7 +110,7 @@ export class FieldExecutionsController {
 
   @Post('executions/:id/complete')
   @Roles(...FIELD_ROLES)
-  complete(@Param('id', ParseIntPipe) id: number, @Body() dto: ExecutionActionDto, @CurrentUser() user: User) {
+  complete(@Param('id', ParseIntPipe) id: number, @Body() dto: CompleteExecutionDto, @CurrentUser() user: User) {
     return this.service.complete(id, dto, user);
   }
 

@@ -23,6 +23,7 @@ import {
   type WateringStats,
   type WateringType,
 } from '@/api/wateringApi'
+import { businessDateString } from '@/lib/businessDate'
 
 const STATUS_BADGE: Record<WateringStatus, string> = {
   PLANNED: 'bg-slate-100 text-slate-700',
@@ -40,10 +41,8 @@ const STATUS_OPTIONS: WateringStatus[] = [
   'NEEDS_REVIEW',
 ]
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
-
 const emptyForm = (): WateringPayload => ({
-  workDate: todayIso(),
+  workDate: businessDateString(),
   shift: 'NIGHT',
   type: 'AUTO',
   objectId: null,

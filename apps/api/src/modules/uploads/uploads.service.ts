@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
-import { unlink, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { open, stat, unlink, writeFile } from 'fs/promises';
+import { extname, join } from 'path';
 
 export function detectImageExtension(buffer: Buffer): '.jpg' | '.png' | '.webp' | '.heic' | null {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return '.jpg';
@@ -25,6 +25,57 @@ export class UploadsService {
 
   toPublicUrls(filenames: string[]): string[] {
     return filenames.map((name) => `/uploads/photos/${name}`);
+  }
+
+  private storedFilename(value: string): string {
+    let pathname = value;
+    if (/^https?:\/\//i.test(value)) {
+      let parsed: URL;
+      try {
+        parsed = new URL(value);
+      } catch {
+        throw new BadRequestException('Некорректная ссылка на фото');
+      }
+      const allowedOrigins = [process.env.API_PUBLIC_URL, process.env.FRONTEND_URL]
+        .flatMap((entry) => (entry || '').split(','))
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          try { return new URL(entry).origin; } catch { return ''; }
+        });
+      if (!allowedOrigins.includes(parsed.origin)) {
+        throw new BadRequestException('Фото должно быть загружено в GP Work');
+      }
+      pathname = parsed.pathname;
+    }
+
+    const match = pathname.match(
+      /^\/uploads\/photos\/(\d{10,}-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp|heic))$/i,
+    );
+    if (!match) throw new BadRequestException('Фото должно быть загружено в GP Work');
+    return match[1];
+  }
+
+  async assertStoredPhotoUrls(urls: string[]): Promise<void> {
+    for (const url of new Set(urls)) {
+      const filename = this.storedFilename(url);
+      const filePath = join(this.photosDir, filename);
+      try {
+        const info = await stat(filePath);
+        if (!info.isFile() || info.size === 0) throw new Error('empty');
+        const handle = await open(filePath, 'r');
+        try {
+          const header = Buffer.alloc(12);
+          const { bytesRead } = await handle.read(header, 0, header.length, 0);
+          const detected = detectImageExtension(header.subarray(0, bytesRead));
+          if (!detected || detected !== extname(filename).toLowerCase()) throw new Error('signature');
+        } finally {
+          await handle.close();
+        }
+      } catch {
+        throw new BadRequestException('Загруженное фото не найдено или повреждено');
+      }
+    }
   }
 
   async saveValidatedPhotos(files: Express.Multer.File[]): Promise<string[]> {

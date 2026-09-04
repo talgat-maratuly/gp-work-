@@ -19,6 +19,7 @@ import {
   type AdminReportPayload,
   type AdminReportStatus,
 } from '@/api/adminReportsApi'
+import { businessDateString } from '@/lib/businessDate'
 
 const STATUS_BADGE: Record<AdminReportStatus, string> = {
   DRAFT: 'bg-slate-100 text-slate-700',
@@ -42,10 +43,8 @@ const TEXT_FIELDS: { key: keyof AdminReportPayload; label: string }[] = [
   { key: 'comment', label: 'Общий комментарий' },
 ]
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
-
 const emptyForm = (): AdminReportPayload => ({
-  reportDate: todayIso(),
+  reportDate: businessDateString(),
   completedWorks: '',
   pendingWorks: '',
   tasksInProgress: '',

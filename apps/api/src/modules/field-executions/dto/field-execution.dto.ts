@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -66,7 +67,8 @@ export class CaptureFaceDto {
   selfieUrl!: string;
 
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(3)
+  @ArrayMaxSize(3)
   @IsString({ each: true })
   livenessEvidenceUrls!: string[];
 }
@@ -155,6 +157,23 @@ export class ExecutionActionDto {
   @IsOptional()
   @IsString()
   comment?: string;
+}
+
+export class CompleteExecutionDto extends ExecutionActionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(100)
+  @Max(100)
+  percent!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  actualVolume?: string;
+
+  @IsString()
+  @MaxLength(1000)
+  description!: string;
 }
 
 export class ReviewExecutionDto extends ExecutionActionDto {

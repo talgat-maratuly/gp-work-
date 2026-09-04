@@ -17,6 +17,8 @@ import { FieldStatus } from '@/components/field/FieldStatus'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { queuePhoto, queueRequest } from '@/offline/queue'
 import { createStockMovement, fetchFieldProductOptions, type FieldProductOption } from '@/api/productsApi'
+import { LivenessCapture } from '@/components/field/LivenessCapture'
+import type { CameraShot } from '@/components/field/CameraCapture'
 
 export function FieldExecutionPage() {
   const id = Number(useParams().id)
@@ -26,6 +28,9 @@ export function FieldExecutionPage() {
   const [products, setProducts] = useState<FieldProductOption[]>([])
   const [materialProductId, setMaterialProductId] = useState('')
   const [materialQuantity, setMaterialQuantity] = useState('')
+  const [faceShots, setFaceShots] = useState<CameraShot[]>([])
+  const [actualVolume, setActualVolume] = useState('')
+  const [completionDescription, setCompletionDescription] = useState('')
   const { requestGeolocation } = useGeolocation()
   const load = useCallback(async () => { try { setExecution(await fetchExecution(id)) } catch (error) { setMessage(toUserMessage(error)) } }, [id])
   useEffect(() => { void load() }, [load])
@@ -60,16 +65,15 @@ export function FieldExecutionPage() {
     } catch (error) { setMessage(toUserMessage(error, 'Не удалось сохранить фото')) } finally { setBusy(false); event.target.value = '' }
   }
 
-  async function faceCapture(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-    if (!files.length || !execution) return
+  async function faceCapture() {
+    if (faceShots.length !== 3 || !execution) return
     if (!navigator.onLine) { setMessage('Первичная Face verification требует интернет. Фото работы можно продолжать сохранять offline.'); return }
     setBusy(true)
     try {
-      const urls = await uploadWorkPhotos(files)
+      const urls = await uploadWorkPhotos(faceShots.map((shot) => shot.file))
       setExecution(await captureFace(execution.id, { clientOperationId: newClientId(), selfieUrl: urls[0], livenessEvidenceUrls: urls }))
       setMessage('Face evidence отправлено руководителю на подтверждение.')
-    } catch (error) { setMessage(toUserMessage(error)) } finally { setBusy(false); event.target.value = '' }
+    } catch (error) { setMessage(toUserMessage(error)) } finally { setBusy(false) }
   }
 
   async function action(path: string, body: Record<string, unknown>, optimistic: FieldExecution['status']) {
@@ -144,7 +148,7 @@ export function FieldExecutionPage() {
     <div className="space-y-4">
       <section className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Работа #{execution.task.id}</p><FieldStatus status={execution.status} /></div><h1 className="mt-3 text-xl font-black">{execution.task.description || execution.task.workType?.name}</h1><p className="mt-2 font-bold text-emerald-800">{execution.section.object?.name}</p><p className="text-sm text-slate-500">{execution.section.name}{execution.arrivalDistanceMeters != null ? ` · прибытие ${Math.round(execution.arrivalDistanceMeters)} м от точки` : ''}</p></section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><div><h2 className="font-bold">1. Face verification</h2><p className="text-xs text-slate-500">Селфи и дополнительный кадр для проверки живого человека</p></div>{face && <span className={`text-xs font-bold ${face.status === 'VERIFIED' ? 'text-emerald-700' : face.status === 'REJECTED' ? 'text-red-700' : 'text-amber-700'}`}>{face.status === 'VERIFIED' ? 'Подтверждено' : face.status === 'REJECTED' ? 'Отклонено' : 'На проверке'}</span>}</div>{!face && <label className="mt-3 block cursor-pointer rounded-xl border border-emerald-300 bg-emerald-50 py-3 text-center font-bold text-emerald-800">Снять лицо<input className="hidden" type="file" accept="image/*" capture="user" multiple onChange={faceCapture} /></label>}</section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><div><h2 className="font-bold">1. Face verification</h2><p className="text-xs text-slate-500">Три последовательных кадра: прямо, налево и направо</p></div>{face && <span className={`text-xs font-bold ${face.status === 'VERIFIED' ? 'text-emerald-700' : face.status === 'REJECTED' ? 'text-red-700' : 'text-amber-700'}`}>{face.status === 'VERIFIED' ? 'Подтверждено' : face.status === 'REJECTED' ? 'Отклонено' : 'На проверке'}</span>}</div>{face?.status === 'REJECTED' && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">Причина: {face.reviewComment || 'Лицо не подтверждено'}. Пройдите проверку заново.</p>}{(!face || face.status === 'REJECTED') && <div className="mt-3 space-y-3"><LivenessCapture onChange={setFaceShots} /><button disabled={busy || faceShots.length !== 3} onClick={() => void faceCapture()} className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white disabled:opacity-40">Отправить Face evidence</button></div>}</section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-bold">2. Фото ДО</h2><span className="text-xs text-slate-500">{before.length} фото</span></div><div className="mt-3 grid grid-cols-3 gap-2">{before.map((photo) => <img key={photo.clientPhotoId} src={photo.url} className="aspect-square rounded-xl object-cover" />)}<label className="flex aspect-square cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50 text-2xl text-emerald-700">＋<input className="hidden" type="file" accept="image/*" capture="environment" multiple onChange={(e) => void uploadPhotos(e, 'BEFORE')} /></label></div></section>
 
@@ -156,7 +160,9 @@ export function FieldExecutionPage() {
 
       {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><h2 className="font-bold">5. Фото ПОСЛЕ</h2><span className="text-xs text-slate-500">{after.length} фото</span></div><div className="mt-3 grid grid-cols-3 gap-2">{after.map((photo) => <img key={photo.clientPhotoId} src={photo.url} className="aspect-square rounded-xl object-cover" />)}<label className="flex aspect-square cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 text-2xl text-blue-700">＋<input className="hidden" type="file" accept="image/*" capture="environment" multiple onChange={(e) => void uploadPhotos(e, 'AFTER')} /></label></div></section>}
 
-      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <button disabled={busy || after.length === 0 || execution.availableChecklist.some((item) => item.isRequired && !completedIds.has(item.id))} onClick={() => void action(`/field/executions/${execution.id}/complete`, { clientOperationId: newClientId(), occurredAt: new Date().toISOString() }, 'COMPLETED')} className="w-full rounded-xl bg-blue-700 py-4 font-bold text-white disabled:opacity-40">Завершить и отправить</button>}
+      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">6. Фактический результат</h2>{execution.status === 'REJECTED' && execution.reviewComment && <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm text-red-800">Причина возврата: {execution.reviewComment}</p>}<input value={actualVolume} onChange={(e) => setActualVolume(e.target.value)} placeholder="Фактический объём, например 150 м²" className="mt-3 w-full rounded-xl border p-3"/><textarea required value={completionDescription} onChange={(e) => setCompletionDescription(e.target.value)} placeholder="Что именно выполнено" className="mt-2 w-full rounded-xl border p-3"/><p className="mt-2 text-xs text-slate-500">Отправка подтверждает 100% завершение этой задачи. Частичный результат указывается при закрытии рабочего дня.</p></section>}
+
+      {['STARTED', 'IN_PROGRESS', 'REJECTED'].includes(execution.status) && <button disabled={busy || !completionDescription.trim() || after.length === 0 || execution.availableChecklist.some((item) => item.isRequired && !completedIds.has(item.id))} onClick={() => void action(`/field/executions/${execution.id}/complete`, { clientOperationId: newClientId(), occurredAt: new Date().toISOString(), percent: 100, actualVolume: actualVolume.trim() || undefined, description: completionDescription.trim() }, 'COMPLETED')} className="w-full rounded-xl bg-blue-700 py-4 font-bold text-white disabled:opacity-40">Подтвердить 100% и отправить</button>}
       {execution.status === 'COMPLETED' && <div className="rounded-2xl bg-amber-50 p-4 text-center text-amber-900"><p className="font-bold">Работа ожидает приёмки</p><p className="mt-1 text-sm">Руководитель проверит лицо, фото, чек-лист и геолокацию.</p></div>}
       {execution.status === 'ACCEPTED' && <div className="rounded-2xl bg-emerald-50 p-4 text-center text-emerald-900"><p className="text-xl font-black">Работа принята ✓</p></div>}
       {message && <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{message}</div>}

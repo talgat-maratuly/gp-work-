@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
+import {
+  businessDateString,
+  businessPeriodRange,
+  type BusinessPeriod,
+} from '../../common/business-date';
 import { parsePhotoUrls } from '../../common/photo-urls';
 import {
   DecisionPriority,
@@ -162,32 +167,22 @@ export class ManagementService {
   // ---------- СВОДКА (OVERVIEW) ----------
 
   private computeRange(period: string, dateStr?: string) {
-    const base = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
-    const iso = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-        d.getDate(),
-      ).padStart(2, '0')}`;
-
-    if (period === 'week') {
-      const day = (base.getDay() + 6) % 7; // Пн=0
-      const from = new Date(base);
-      from.setDate(base.getDate() - day);
-      const to = new Date(from);
-      to.setDate(from.getDate() + 6);
-      return { from: iso(from), to: iso(to), period };
+    if (!['day', 'week', 'month'].includes(period)) {
+      throw new BadRequestException('Период должен быть day, week или month');
     }
-    if (period === 'month') {
-      const from = new Date(base.getFullYear(), base.getMonth(), 1);
-      const to = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-      return { from: iso(from), to: iso(to), period };
+    try {
+      return {
+        ...businessPeriodRange(period as BusinessPeriod, dateStr || businessDateString()),
+        period,
+      };
+    } catch {
+      throw new BadRequestException('Дата должна существовать и иметь формат YYYY-MM-DD');
     }
-    // day
-    return { from: iso(base), to: iso(base), period: 'day' };
   }
 
   async overview(period = 'day', dateStr?: string) {
     const range = this.computeRange(period, dateStr);
-    const today = this.computeRange('day').from;
+    const today = businessDateString();
 
     // Задачи периода с деталями
     const tasks = await this.taskRepo

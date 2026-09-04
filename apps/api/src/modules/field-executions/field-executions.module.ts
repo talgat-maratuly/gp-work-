@@ -20,6 +20,7 @@ import { FieldExecutionsController } from './field-executions.controller';
 import { FieldExecutionsService } from './field-executions.service';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { WorkDaysService } from './work-days.service';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { WorkDaysService } from './work-days.service';
       WorkDaySession,
     ]),
     AttendanceModule,
+    UploadsModule,
   ],
   controllers: [FieldExecutionsController],
   providers: [FieldExecutionsService, WorkDaysService],

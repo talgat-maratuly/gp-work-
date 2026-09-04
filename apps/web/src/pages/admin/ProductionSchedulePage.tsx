@@ -22,6 +22,7 @@ import {
   type SchedulePayload,
   type ScheduleStatus,
 } from '@/api/scheduleApi'
+import { businessMonthString } from '@/lib/businessDate'
 
 // Цвета бригад для календаря (по индексу).
 const BRIGADE_COLORS = [
@@ -33,7 +34,7 @@ const BRIGADE_COLORS = [
   'bg-teal-400',
 ]
 
-const currentMonth = () => new Date().toISOString().slice(0, 7)
+const currentMonth = businessMonthString
 
 function monthDays(month: string): number {
   const [y, m] = month.split('-').map(Number)

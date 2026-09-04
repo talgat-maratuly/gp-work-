@@ -17,6 +17,8 @@
     "build": "npm run build:api && npm run build:web",
     "build:api": "npm run build -w @gp-work/api",
     "build:web": "npm run build -w @gp-work/web",
+    "test:web:roles": "node --test scripts/role-permissions.test.cjs",
+    "test:web:actions": "node --test scripts/ui-actions.test.cjs",
     "migration:run": "npm run migration:run -w @gp-work/api",
     "migration:revert": "npm run migration:revert -w @gp-work/api",
     "seed": "npm run seed -w @gp-work/api"

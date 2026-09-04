@@ -68,6 +68,10 @@ export type FieldExecution = {
   completedAt: string | null
   acceptedAt: string | null
   arrivalDistanceMeters: number | null
+  completionPercent: number | null
+  actualVolume: string | null
+  completionDescription: string | null
+  reviewComment: string | null
   task: FieldTask
   section: FieldTask['section']
   worker?: { id: number; fullName: string } | null

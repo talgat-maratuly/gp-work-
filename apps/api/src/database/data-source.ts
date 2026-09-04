@@ -34,6 +34,7 @@ import {
   VehicleAssignment,
   NurseryBatch,
   NurseryMovement,
+  WorkDaySession,
 } from '../entities';
 
 loadEnvFiles();
@@ -73,6 +74,7 @@ export default new DataSource({
     VehicleAssignment,
     NurseryBatch,
     NurseryMovement,
+    WorkDaySession,
   ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
 });

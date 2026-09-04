@@ -1,20 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import { RouteStatus } from '../../common/enums/field-execution.enums';
 import { TaskStatus } from '../../common/enums/task-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { Brigade, Route, RouteStop, Task, User } from '../../entities';
 import { CreateRouteDto } from './dto/create-route.dto';
-
-function businessDate(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: process.env.BUSINESS_TIME_ZONE || 'Asia/Oral',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
 
 @Injectable()
 export class RoutesService {
@@ -63,7 +55,7 @@ export class RoutesService {
   findMyToday(user: User) {
     if (!user.brigadeId) return null;
     return this.baseQuery()
-      .where('route.workDate = :date', { date: businessDate() })
+      .where('route.workDate = :date', { date: businessDateString() })
       .andWhere('route.brigadeId = :brigadeId', { brigadeId: user.brigadeId })
       .getOne();
   }

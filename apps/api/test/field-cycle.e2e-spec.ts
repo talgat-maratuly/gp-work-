@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { ProductSource } from '../src/common/enums/product-source.enum';
-import { Product, StockMovement } from '../src/entities';
+import { Product, StockMovement, WorkLog } from '../src/entities';
 
 const clientId = () => crypto.randomUUID();
 const businessDate = () => new Intl.DateTimeFormat('en-CA', {
@@ -107,9 +107,14 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .set(auth(workerToken))
       .attach('files', jpeg, { filename: name, contentType: 'image/jpeg' })
       .expect(201)).body[0] as string;
-    const faceUrl = await upload('face.jpg');
+    const faceUrls = await Promise.all([
+      upload('face-center.jpg'),
+      upload('face-left.jpg'),
+      upload('face-right.jpg'),
+    ]);
     const beforeUrl = await upload('before.jpg');
     const afterUrl = await upload('after.jpg');
+    const forgedFutureAfterUrl = await upload('after-forged-future.jpg');
 
     const arrivalBody = {
       clientOperationId: clientId(),
@@ -124,7 +129,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const repeatedArrival = (await request(app.getHttpServer()).post(`/api/field/tasks/${task.id}/arrive`).set(auth(workerToken)).send(arrivalBody).expect(201)).body;
     expect(repeatedArrival.id).toBe(execution.id);
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
-      clientOperationId: clientId(), selfieUrl: faceUrl, livenessEvidenceUrls: [faceUrl],
+      clientOperationId: clientId(), selfieUrl: faceUrls[0], livenessEvidenceUrls: faceUrls,
     }).expect(201)).body;
     const beforePhotoBody = {
       photos: [{ clientPhotoId: clientId(), phase: 'BEFORE', url: beforeUrl, capturedAt: new Date().toISOString(), latitude: 51.2301, longitude: 51.3701 }],
@@ -132,6 +137,26 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send(beforePhotoBody).expect(201)).body;
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send(beforePhotoBody).expect(201)).body;
     expect(execution.photos.filter((photo: { phase: string }) => photo.phase === 'BEFORE')).toHaveLength(1);
+    await request(app.getHttpServer()).post(`/api/field/face/${execution.faceVerifications[0].id}/review`).set(auth(adminToken)).send({
+      status: 'REJECTED',
+    }).expect(400);
+    execution = (await request(app.getHttpServer()).post(`/api/field/face/${execution.faceVerifications[0].id}/review`).set(auth(adminToken)).send({
+      status: 'REJECTED', reviewComment: 'Лицо закрыто головным убором',
+    }).expect(201)).body;
+    await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(),
+    }).expect(400);
+    await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), selfieUrl: faceUrls[0], livenessEvidenceUrls: faceUrls,
+    }).expect(400);
+    const repeatedFaceUrls = await Promise.all([
+      upload('face-repeat-center.jpg'),
+      upload('face-repeat-left.jpg'),
+      upload('face-repeat-right.jpg'),
+    ]);
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), selfieUrl: repeatedFaceUrls[0], livenessEvidenceUrls: repeatedFaceUrls,
+    }).expect(201)).body;
     const startBody = { clientOperationId: clientId(), occurredAt: new Date().toISOString() };
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send(startBody).expect(201)).body;
     expect(execution.status).toBe('STARTED');
@@ -176,20 +201,58 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       answers: execution.availableChecklist.map((item: { id: number }) => ({ itemId: item.id, isCompleted: true })),
     }).expect(201)).body;
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send({
-      photos: [{ clientPhotoId: clientId(), phase: 'AFTER', url: afterUrl, capturedAt: new Date().toISOString(), latitude: 51.2301, longitude: 51.3701 }],
+      photos: [
+        { clientPhotoId: clientId(), phase: 'AFTER', url: afterUrl, capturedAt: new Date().toISOString(), latitude: 51.2301, longitude: 51.3701 },
+        {
+          clientPhotoId: clientId(), phase: 'AFTER', url: forgedFutureAfterUrl,
+          capturedAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          latitude: 51.2301, longitude: 51.3701,
+        },
+      ],
     }).expect(201)).body;
+    await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/complete`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(),
+    }).expect(400);
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/complete`).set(auth(workerToken)).send({
-      clientOperationId: clientId(), occurredAt: new Date().toISOString(), comment: 'E2E работа завершена',
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(), percent: 100,
+      actualVolume: '250 м²', description: 'E2E работа завершена полностью',
     }).expect(201)).body;
     expect(execution.status).toBe('COMPLETED');
 
     execution = (await request(app.getHttpServer()).post(`/api/field/face/${execution.faceVerifications[0].id}/review`).set(auth(adminToken)).send({
       status: 'VERIFIED', reviewComment: 'E2E лицо подтверждено',
     }).expect(201)).body;
+    await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/review`).set(auth(adminToken)).send({
+      clientOperationId: clientId(), accepted: false,
+    }).expect(400);
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/review`).set(auth(adminToken)).send({
+      clientOperationId: clientId(), accepted: false, comment: 'Нужно исправить край участка',
+    }).expect(201)).body;
+    expect(execution.status).toBe('REJECTED');
+    expect((await dataSource.getRepository(WorkLog).findOneByOrFail({ executionId: execution.id })).reviewStatus).toBe('REJECTED');
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/start`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(),
+    }).expect(201)).body;
+    await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/complete`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(), percent: 100,
+      actualVolume: '260 м²', description: 'Край участка исправлен',
+    }).expect(400);
+    const reworkAfterUrl = await upload('after-rework.jpg');
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/photos`).set(auth(workerToken)).send({
+      photos: [{ clientPhotoId: clientId(), phase: 'AFTER', url: reworkAfterUrl, capturedAt: new Date().toISOString(), latitude: 51.2301, longitude: 51.3701 }],
+    }).expect(201)).body;
+    execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/complete`).set(auth(workerToken)).send({
+      clientOperationId: clientId(), occurredAt: new Date().toISOString(), percent: 100,
+      actualVolume: '260 м²', description: 'Край участка исправлен',
+    }).expect(201)).body;
+    expect(await dataSource.getRepository(WorkLog).findOneByOrFail({ executionId: execution.id })).toMatchObject({
+      reviewStatus: 'PENDING', workVolume: '260 м²', comment: 'Край участка исправлен',
+    });
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/review`).set(auth(adminToken)).send({
       clientOperationId: clientId(), accepted: true, comment: 'E2E принято',
     }).expect(201)).body;
     expect(execution.status).toBe('ACCEPTED');
+    expect((await dataSource.getRepository(WorkLog).findOneByOrFail({ executionId: execution.id })).reviewStatus).toBe('APPROVED');
 
     const finalRoute = (await request(app.getHttpServer()).get(`/api/routes/${route.id}`).set(auth(adminToken)).expect(200)).body;
     expect(finalRoute.status).toBe('COMPLETED');
@@ -202,7 +265,200 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const report = (await request(app.getHttpServer()).get(`/api/operations/reports/evidence?anchor=${businessDate()}&period=day`).set(auth(adminToken)).expect(200)).body;
     const reportRow = report.rows.find((row: { id: number }) => row.id === execution.id);
     expect(reportRow.face.status).toBe('VERIFIED');
-    expect(reportRow.photos.map((row: { phase: string }) => row.phase).sort()).toEqual(['AFTER', 'BEFORE']);
+    expect(reportRow.photos.map((row: { phase: string }) => row.phase).sort()).toEqual(['AFTER', 'AFTER', 'AFTER', 'BEFORE']);
     expect(reportRow.materials).toHaveLength(1);
+  });
+
+  it('persists a validated worker-day result and rejects forged or inconsistent evidence', async () => {
+    const suffix = Date.now();
+    const worker = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `E2E Смена ${suffix}`,
+      username: `e2e-day-${suffix}`,
+      password: 'worker-password',
+      role: 'WORKER',
+    }).expect(201)).body;
+    const object = (await request(app.getHttpServer()).post('/api/objects').set(auth(adminToken)).send({
+      name: `E2E Объект смены ${suffix}`,
+    }).expect(201)).body;
+    let section = (await request(app.getHttpServer()).post('/api/sections').set(auth(adminToken)).send({
+      objectId: object.id,
+      name: `E2E Участок смены ${suffix}`,
+    }).expect(201)).body;
+    section = (await request(app.getHttpServer()).patch(`/api/sections/${section.id}`).set(auth(adminToken)).send({
+      latitude: 51.2301,
+      longitude: 51.3701,
+      radiusMeters: 150,
+    }).expect(200)).body;
+    const workType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
+      name: `E2E Работа смены ${suffix}`,
+    }).expect(201)).body;
+    const task = (await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: workType.id,
+      assigneeUserId: worker.id,
+      dueDate: businessDate(),
+      description: 'Полив участка и уборка территории',
+    }).expect(201)).body;
+    const token = (await request(app.getHttpServer()).post('/api/auth/login').send({
+      username: worker.username,
+      password: 'worker-password',
+    }).expect(201)).body.accessToken as string;
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    const upload = async (name: string) => (await request(app.getHttpServer())
+      .post('/api/uploads/photos')
+      .set(auth(token))
+      .attach('files', jpeg, { filename: name, contentType: 'image/jpeg' })
+      .expect(201)).body[0] as string;
+    const startFaces = await Promise.all(['start-center.jpg', 'start-left.jpg', 'start-right.jpg'].map(upload));
+    const startPhoto = await upload('start-work.jpg');
+    const startBody = {
+      clientSessionId: clientId(),
+      sectionCode: section.code,
+      latitude: 51.2301,
+      longitude: 51.3701,
+      accuracy: 5,
+      selfieUrl: startFaces[0],
+      livenessEvidenceUrls: startFaces,
+      startPhotoUrl: startPhoto,
+    };
+    const session = (await request(app.getHttpServer())
+      .post('/api/field/work-days/start')
+      .set(auth(token))
+      .send(startBody)
+      .expect(201)).body;
+    const repeatedStart = (await request(app.getHttpServer())
+      .post('/api/field/work-days/start')
+      .set(auth(token))
+      .send(startBody)
+      .expect(201)).body;
+    expect(repeatedStart.id).toBe(session.id);
+    expect(session.taskScope).toEqual([{ taskId: task.id, description: task.description }]);
+    expect(session.startLivenessEvidenceUrls).toEqual(startFaces);
+
+    const endFaces = await Promise.all(['end-center.jpg', 'end-left.jpg', 'end-right.jpg'].map(upload));
+    const resultPhoto = await upload('result-work.jpg');
+    const validResult = {
+      taskId: task.id,
+      percent: 75,
+      actualVolume: '150 м²',
+      description: 'Полив выполнен, территория очищена частично',
+      incompleteReason: 'Не хватило воды для последней зоны',
+    };
+    const closeBody = {
+      sessionId: session.id,
+      sectionCode: section.code,
+      latitude: 51.2301,
+      longitude: 51.3701,
+      accuracy: 5,
+      selfieUrl: endFaces[0],
+      livenessEvidenceUrls: endFaces,
+      resultPhotoUrls: [resultPhoto],
+      results: [validResult],
+      summary: 'Смена завершена с подтверждённым частичным результатом',
+    };
+    await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({ ...closeBody, resultPhotoUrls: ['https://attacker.example/fake.jpg'] })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({ ...closeBody, results: [{ ...validResult, percent: 101 }] })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({ ...closeBody, results: [validResult, validResult] })
+      .expect(400);
+
+    const closed = (await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send(closeBody)
+      .expect(201)).body;
+    expect(closed).toMatchObject({ status: 'CLOSED', overallPercent: 75 });
+    expect(closed.endLivenessEvidenceUrls).toEqual(endFaces);
+    expect(closed.taskResults).toEqual([{
+      taskId: task.id,
+      description: task.description,
+      percent: 75,
+      actualVolume: '150 м²',
+      workDescription: validResult.description,
+      incompleteReason: validResult.incompleteReason,
+    }]);
+    const repeatedClose = (await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send(closeBody)
+      .expect(201)).body;
+    expect(repeatedClose.id).toBe(session.id);
+    await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({ ...closeBody, results: [{ ...validResult, percent: 80 }] })
+      .expect(400);
+
+    const listed = (await request(app.getHttpServer())
+      .get('/api/field/work-days')
+      .set(auth(adminToken))
+      .expect(200)).body as Array<{ id: number; taskResults: unknown[] }>;
+    expect(listed.find((row) => row.id === session.id)?.taskResults).toHaveLength(1);
+
+    await request(app.getHttpServer())
+      .post(`/api/field/work-days/${session.id}/review`)
+      .set(auth(adminToken))
+      .send({ accepted: false })
+      .expect(400);
+    const returned = (await request(app.getHttpServer())
+      .post(`/api/field/work-days/${session.id}/review`)
+      .set(auth(adminToken))
+      .send({ accepted: false, comment: 'Исправить незавершённую зону' })
+      .expect(201)).body;
+    expect(returned).toMatchObject({ status: 'RETURNED', reviewComment: 'Исправить незавершённую зону' });
+    const returnedState = (await request(app.getHttpServer())
+      .get(`/api/field/scan/${section.code}`)
+      .set(auth(token))
+      .expect(200)).body;
+    expect(returnedState).toMatchObject({
+      action: 'CORRECT_AND_CLOSE',
+      session: { id: session.id, status: 'RETURNED' },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({
+        ...closeBody,
+        results: [{ ...validResult, percent: 100, incompleteReason: '' }],
+        summary: 'Замечание устранено, работа выполнена полностью',
+      })
+      .expect(400);
+    const resubmittedFaces = await Promise.all(
+      ['resubmit-center.jpg', 'resubmit-left.jpg', 'resubmit-right.jpg'].map(upload),
+    );
+    const resubmittedPhoto = await upload('result-work-resubmitted.jpg');
+    const resubmitted = (await request(app.getHttpServer())
+      .post('/api/field/work-days/close')
+      .set(auth(token))
+      .send({
+        ...closeBody,
+        selfieUrl: resubmittedFaces[0],
+        livenessEvidenceUrls: resubmittedFaces,
+        resultPhotoUrls: [resultPhoto, resubmittedPhoto],
+        results: [{ ...validResult, percent: 100, incompleteReason: '' }],
+        summary: 'Замечание устранено, работа выполнена полностью',
+      })
+      .expect(201)).body;
+    expect(resubmitted).toMatchObject({ status: 'CLOSED', overallPercent: 100, reviewComment: null });
+    expect(resubmitted.endLivenessEvidenceUrls).toEqual(resubmittedFaces);
+    expect(resubmitted.resultPhotoUrls).toEqual([resultPhoto, resubmittedPhoto]);
+    expect(resubmitted.events.at(-1).type).toBe('RESUBMITTED');
+    const reviewed = (await request(app.getHttpServer())
+      .post(`/api/field/work-days/${session.id}/review`)
+      .set(auth(adminToken))
+      .send({ accepted: true, comment: 'Исправление принято' })
+      .expect(201)).body;
+    expect(reviewed.status).toBe('REVIEWED');
   });
 });

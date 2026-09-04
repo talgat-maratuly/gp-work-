@@ -8,10 +8,11 @@ import {
   type AdminAiRiskLevel,
   type AdminAiSummary,
 } from '@/api/adminAiApi'
-import { toUserMessage } from '@/api/client'
-
 const DISCLAIMER =
   'ИИ‑директор анализирует и рекомендует. Кадровые, финансовые и необратимые решения подтверждает владелец.'
+
+const AI_UNAVAILABLE_MESSAGE =
+  'ИИ‑директор временно недоступен. Ежедневная сводка продолжает работать без ИИ.'
 
 function riskClass(level: AdminAiRiskLevel): string {
   if (level === 'URGENT') return 'border-red-300 bg-red-50 text-red-900'
@@ -37,7 +38,7 @@ export function AdminAiAssistantPage() {
       })
       .catch((err) => {
         console.error('[admin-ai]', err)
-        setError(toUserMessage(err))
+        setError('Не удалось загрузить управленческую сводку. Повторите позже.')
       })
       .finally(() => setLoading(false))
   }, [])
@@ -52,7 +53,7 @@ export function AdminAiAssistantPage() {
       setAnswer(result.answer)
     } catch (err) {
       console.error('[admin-ai/question]', err)
-        setError(toUserMessage(err, 'Не удалось получить ответ ИИ‑директора'))
+      setError(AI_UNAVAILABLE_MESSAGE)
     } finally {
       setAsking(false)
     }

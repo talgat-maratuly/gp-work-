@@ -130,9 +130,18 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const inactiveWorkType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
       name: `E2E Архивная работа ${suffix}`,
     }).expect(201)).body;
-    await request(app.getHttpServer()).patch(`/api/work-types/${inactiveWorkType.id}`).set(auth(adminToken)).send({
-      isActive: false,
-    }).expect(200);
+    await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
+      name: `  ${workType.name.toLocaleLowerCase('ru')}  `,
+    }).expect(409);
+    await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
+      name: '   ',
+    }).expect(400);
+    expect((await request(app.getHttpServer())
+      .delete(`/api/work-types/${inactiveWorkType.id}`)
+      .set(auth(adminToken))
+      .expect(200)).body).toMatchObject({ id: inactiveWorkType.id, isActive: false });
+    expect((await request(app.getHttpServer()).get('/api/work-types').set(auth(adminToken)).expect(200)).body)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ id: inactiveWorkType.id, isActive: false })]));
     await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
       sectionId: section.id,
       workTypeId: inactiveWorkType.id,
@@ -171,6 +180,10 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       dueDate: businessDate(),
       description: 'Проверка отмены без удаления истории',
     }).expect(201)).body;
+    await request(app.getHttpServer()).patch(`/api/work-types/${workType.id}`).set(auth(adminToken)).send({
+      isActive: false,
+    }).expect(400);
+    await request(app.getHttpServer()).delete(`/api/work-types/${workType.id}`).set(auth(adminToken)).expect(400);
     await request(app.getHttpServer()).delete(`/api/sections/${section.id}`).set(auth(adminToken)).expect(400);
     await request(app.getHttpServer()).delete(`/api/objects/${object.id}`).set(auth(adminToken)).expect(400);
     const route = (await request(app.getHttpServer()).post('/api/routes').set(auth(adminToken)).send({

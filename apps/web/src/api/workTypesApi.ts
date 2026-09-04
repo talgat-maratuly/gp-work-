@@ -30,7 +30,3 @@ export async function updateWorkType(
   })
   return mapWorkType(data)
 }
-
-export async function deleteWorkType(id: number): Promise<void> {
-  await apiRequest(`/work-types/${id}`, { method: 'DELETE' })
-}

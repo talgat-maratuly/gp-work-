@@ -71,6 +71,7 @@ jobs:
             'apps/api/src/database/migrations/1731900000000-AddWorkDayLivenessEvidence.ts',
             'apps/api/src/database/migrations/1732000000000-AddObjectSectionLifecycle.ts',
             'apps/api/src/database/migrations/1732100000000-AddTaskLifecycleIntegrity.ts',
+            'apps/api/src/database/migrations/1732200000000-AddWorkTypeLifecycleIntegrity.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -95,6 +96,7 @@ jobs:
             'AddWorkDayLivenessEvidence1731900000000',
             'AddObjectSectionLifecycle1732000000000',
             'AddTaskLifecycleIntegrity1732100000000',
+            'AddWorkTypeLifecycleIntegrity1732200000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

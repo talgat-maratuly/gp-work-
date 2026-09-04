@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { parsePhotoUrls, serializePhotoUrls } from '../../common/photo-urls';
 import { RouteStatus, RouteStopStatus } from '../../common/enums/field-execution.enums';
 import { TaskCategory } from '../../common/enums/task-category.enum';
@@ -152,14 +152,22 @@ export class TasksService {
   private async validateAssignment(
     values: { sectionId: number; workTypeId: number; assigneeUserId: number; brigadeId?: number },
     actor: User,
+    manager?: EntityManager,
   ) {
+    const sectionRepo = manager?.getRepository(Section) ?? this.sectionRepo;
+    const workTypeRepo = manager?.getRepository(WorkType) ?? this.workTypeRepo;
+    const userRepo = manager?.getRepository(User) ?? this.userRepo;
+    const brigadeRepo = manager?.getRepository(Brigade) ?? this.brigadeRepo;
     const [section, workType, assignee] = await Promise.all([
-      this.sectionRepo.findOne({
+      sectionRepo.findOne({
         where: { id: values.sectionId, isActive: true, object: { isActive: true } },
         relations: { object: true },
       }),
-      this.workTypeRepo.findOne({ where: { id: values.workTypeId, isActive: true } }),
-      this.userRepo.findOne({ where: { id: values.assigneeUserId, isActive: true } }),
+      workTypeRepo.findOne({
+        where: { id: values.workTypeId, isActive: true },
+        lock: manager ? { mode: 'pessimistic_read' } : undefined,
+      }),
+      userRepo.findOne({ where: { id: values.assigneeUserId, isActive: true } }),
     ]);
     if (!section) throw new BadRequestException('Активный участок не найден');
     if (!workType) throw new BadRequestException('Активный вид работы не найден');
@@ -169,7 +177,7 @@ export class TasksService {
 
     const brigadeId = values.brigadeId ?? assignee.brigadeId ?? null;
     if (brigadeId) {
-      const brigade = await this.brigadeRepo.findOne({ where: { id: brigadeId, isActive: true } });
+      const brigade = await brigadeRepo.findOne({ where: { id: brigadeId, isActive: true } });
       if (!brigade) throw new BadRequestException('Активная бригада не найдена');
       if (assignee.brigadeId !== brigadeId) {
         throw new BadRequestException('Исполнитель не входит в выбранную бригаду');
@@ -291,43 +299,36 @@ export class TasksService {
   }
 
   async create(dto: CreateTaskDto, createdBy: User) {
-    const assignment = await this.validateAssignment(dto, createdBy);
-
-    const category =
-      createdBy.role === UserRole.AGRONOMIST
-        ? TaskCategory.AGRO
-        : createdBy.role === UserRole.BRIGADIER
-          ? TaskCategory.WORK
-          : dto.category ?? TaskCategory.WORK;
-
-    const row = this.taskRepo.create({
-      sectionId: dto.sectionId,
-      workTypeId: dto.workTypeId,
-      assigneeUserId: dto.assigneeUserId,
-      brigadeId: assignment.brigadeId,
-      dueDate: dto.dueDate,
-      priority: dto.priority,
-      description: dto.description.trim(),
-      status: TaskStatus.ASSIGNED,
-      category,
-      createdById: createdBy.id,
+    const savedId = await this.dataSource.transaction(async (manager) => {
+      const assignment = await this.validateAssignment(dto, createdBy, manager);
+      const category =
+        createdBy.role === UserRole.AGRONOMIST
+          ? TaskCategory.AGRO
+          : createdBy.role === UserRole.BRIGADIER
+            ? TaskCategory.WORK
+            : dto.category ?? TaskCategory.WORK;
+      const repo = manager.getRepository(Task);
+      const row = repo.create({
+        sectionId: dto.sectionId,
+        workTypeId: dto.workTypeId,
+        assigneeUserId: dto.assigneeUserId,
+        brigadeId: assignment.brigadeId,
+        dueDate: dto.dueDate,
+        priority: dto.priority,
+        description: dto.description.trim(),
+        status: TaskStatus.ASSIGNED,
+        category,
+        createdById: createdBy.id,
+      });
+      return (await repo.save(row)).id;
     });
-    const saved = await this.taskRepo.save(row);
-    return this.findOne(saved.id);
+    return this.findOne(savedId);
   }
 
   async update(id: number, dto: UpdateTaskDto, actor: User) {
     await this.dataSource.transaction(async (manager) => {
       const row = await manager.getRepository(Task).findOne({
         where: { id },
-        relations: {
-          section: { object: true },
-          workType: true,
-          assignee: true,
-          brigade: true,
-          createdBy: true,
-          reviewedBy: true,
-        },
         lock: { mode: 'pessimistic_write' },
       });
       if (!row) throw new NotFoundException('Задача не найдена');
@@ -347,7 +348,7 @@ export class TasksService {
         workTypeId,
         assigneeUserId,
         brigadeId: dto.brigadeId ?? (dto.assigneeUserId === undefined ? row.brigadeId ?? undefined : undefined),
-      }, actor);
+      }, actor, manager);
 
       row.sectionId = sectionId;
       row.workTypeId = workTypeId;

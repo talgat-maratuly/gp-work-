@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import {
   createWorkType,
-  deleteWorkType,
   fetchAllWorkTypes,
   toggleWorkTypeActive,
   updateWorkType,
@@ -36,9 +35,15 @@ export function WorkTypesPage() {
 
   async function reload() {
     setLoading(true)
-    const list = await fetchAllWorkTypes()
-    setTypes(list)
-    setLoading(false)
+    try {
+      const list = await fetchAllWorkTypes()
+      setTypes(list)
+    } catch (err) {
+      console.error('fetchAllWorkTypes failed:', err)
+      setError('Не удалось загрузить виды работ. Проверьте подключение к серверу.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -94,26 +99,14 @@ export function WorkTypesPage() {
   }
 
   async function handleToggle(t: WorkType) {
+    setError(null)
     const { error: err } = await toggleWorkTypeActive(t.id, t.is_active)
     if (err) {
       console.error('toggleWorkTypeActive failed:', err)
-      setError('Не удалось сохранить вид работы. Проверьте подключение к базе данных.')
+      setError(err)
       return
     }
-    setToast(t.is_active ? 'Вид работы отключён' : 'Вид работы включён')
-    await reload()
-  }
-
-  async function handleDelete(id: number) {
-    if (!confirm('Удалить вид работы? Он исчезнет из формы рабочего.')) return
-    const { error: err } = await deleteWorkType(id)
-    if (err) {
-      console.error('deleteWorkType failed:', err)
-      setError('Не удалось сохранить вид работы. Проверьте подключение к базе данных.')
-      return
-    }
-    setEditingId(null)
-    setToast('Вид работы удалён')
+    setToast(t.is_active ? 'Вид работы перемещён в архив' : 'Вид работы активирован')
     await reload()
   }
 
@@ -201,7 +194,7 @@ export function WorkTypesPage() {
                             : 'bg-slate-100 text-slate-600'
                         }`}
                       >
-                        {t.is_active ? 'Активен' : 'Неактивен'}
+                        {t.is_active ? 'Активен' : 'В архиве'}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-slate-500 text-xs">
@@ -243,14 +236,7 @@ export function WorkTypesPage() {
                               onClick={() => void handleToggle(t)}
                               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              {t.is_active ? 'Отключить' : 'Включить'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(t.id)}
-                              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
-                            >
-                              Удалить
+                              {t.is_active ? 'В архив' : 'Активировать'}
                             </button>
                           </>
                         )}

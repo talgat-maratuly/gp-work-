@@ -18,7 +18,14 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
   let adminUserId: number;
   let workerToken: string;
 
-  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+  const tokenIps = new Map<string, string>();
+  const auth = (token: string) => {
+    if (!tokenIps.has(token)) tokenIps.set(token, `10.20.0.${tokenIps.size + 10}`);
+    return {
+      Authorization: `Bearer ${token}`,
+      'X-Forwarded-For': tokenIps.get(token)!,
+    };
+  };
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -32,6 +39,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const { AppModule } = await import('../src/app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    app.getHttpAdapter().getInstance().set('trust proxy', true);
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
@@ -81,6 +89,16 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'brigadier-password',
       role: 'BRIGADIER',
     }).expect(201)).body;
+    const outsiderBrigadier = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `E2E Бригадир без бригады ${suffix}`,
+      username: `e2e-unassigned-brigadier-${suffix}`,
+      password: 'brigadier-password',
+      role: 'BRIGADIER',
+    }).expect(201)).body;
+    const outsiderBrigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+      username: outsiderBrigadier.username,
+      password: 'brigadier-password',
+    }).expect(201)).body.accessToken as string;
     const assignees = (await request(app.getHttpServer()).get('/api/users/assignees').set(auth(adminToken)).expect(200)).body;
     expect(assignees.some((row: { id: number }) => row.id === worker.id)).toBe(true);
     expect(assignees.some((row: { id: number }) => row.id === controlUser.id)).toBe(false);
@@ -356,6 +374,15 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       clientOperationId: clientId(), occurredAt: new Date().toISOString(), percent: 100,
       actualVolume: '250 м²', description: 'E2E работа завершена полностью',
     }).expect(201)).body;
+    const outsiderQueue = (await request(app.getHttpServer())
+      .get('/api/field/executions/review-queue')
+      .set(auth(outsiderBrigadierToken))
+      .expect(200)).body as Array<{ id: number }>;
+    expect(outsiderQueue.some((row) => row.id === execution.id)).toBe(false);
+    await request(app.getHttpServer())
+      .get(`/api/field/executions/${execution.id}`)
+      .set(auth(outsiderBrigadierToken))
+      .expect(403);
     expect(execution.status).toBe('COMPLETED');
     const pendingReviewToday = (await request(app.getHttpServer()).get('/api/field/today').set(auth(workerToken)).expect(200)).body;
     expect(pendingReviewToday.tasks.some((row: { id: number }) => row.id === task.id)).toBe(false);

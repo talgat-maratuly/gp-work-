@@ -120,8 +120,10 @@ export class FieldExecutionsService {
   async findOneForUser(id: number, user: User) {
     const execution = await this.baseQuery().where('execution.id = :id', { id }).getOne();
     if (!execution) throw new NotFoundException('Выполнение работы не найдено');
-    const management = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.AGRONOMIST].includes(user.role);
-    if (!management && !this.canExecute(execution.task, user)) throw new ForbiddenException('Нет доступа к этой работе');
+    const management = [UserRole.ADMIN, UserRole.DIRECTOR].includes(user.role);
+    if (!management && !this.canExecute(execution.task, user) && !this.canReview(execution, user)) {
+      throw new ForbiddenException('Нет доступа к этой работе');
+    }
     return this.detailed(id);
   }
 
@@ -147,11 +149,18 @@ export class FieldExecutionsService {
     return { date, tasks: await qb.getMany() };
   }
 
-  reviewQueue() {
-    return this.baseQuery()
+  reviewQueue(user: User) {
+    const query = this.baseQuery()
       .where('execution.status = :status', { status: ExecutionStatus.COMPLETED })
-      .orderBy('execution.completedAt', 'ASC')
-      .getMany();
+      .orderBy('execution.completedAt', 'ASC');
+    if (user.role === UserRole.BRIGADIER) {
+      query.andWhere(user.brigadeId ? 'execution.brigadeId = :brigadeId' : '1 = 0', {
+        brigadeId: user.brigadeId ?? -1,
+      });
+    } else if (user.role === UserRole.AGRONOMIST) {
+      query.andWhere('task.createdById = :userId', { userId: user.id });
+    }
+    return query.getMany();
   }
 
   private async duplicateEvent(

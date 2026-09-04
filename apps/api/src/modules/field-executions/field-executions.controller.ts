@@ -54,8 +54,8 @@ export class FieldExecutionsController {
 
   @Get('executions/review-queue')
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  reviewQueue() {
-    return this.service.reviewQueue();
+  reviewQueue(@CurrentUser() user: User) {
+    return this.service.reviewQueue(user);
   }
 
   @Get('executions/:id')

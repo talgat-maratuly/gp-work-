@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { endOfDay, format, startOfDay, subDays } from 'date-fns';
@@ -47,6 +47,8 @@ function parsePhotoUrls(raw: string): string[] {
 
 @Injectable()
 export class AdminAiService {
+  private readonly logger = new Logger(AdminAiService.name);
+
   constructor(
     private readonly configService: ConfigService,
     @InjectRepository(WorkLog)
@@ -405,7 +407,12 @@ export class AdminAiService {
   async answerWorkerQuestion(dto: AdminAiQuestionDto, user: User) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
-      throw new BadRequestException('ИИ-ассистент не настроен. Укажите OPENAI_API_KEY на backend.');
+      const brief = await this.getWorkerBrief(user);
+      return {
+        answer: this.buildWorkerFallbackAnswer(dto.question, brief),
+        model: 'gp-work-rules',
+        fallback: true,
+      };
     }
 
     const model = this.configService.get<string>('OPENAI_WORKER_MODEL', 'gpt-4o-mini');
@@ -430,7 +437,13 @@ export class AdminAiService {
       }),
     });
     if (!response.ok) {
-      throw new BadRequestException(`ИИ-ассистент не смог ответить: ${await response.text()}`);
+      const providerError = await response.text();
+      this.logger.warn(`OpenAI worker request failed (${response.status}): ${providerError.slice(0, 500)}`);
+      return {
+        answer: this.buildWorkerFallbackAnswer(dto.question, brief),
+        model: 'gp-work-rules',
+        fallback: true,
+      };
     }
     const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
     const answer = body.choices?.[0]?.message?.content?.trim();
@@ -440,10 +453,6 @@ export class AdminAiService {
 
   async answerQuestion(dto: AdminAiQuestionDto) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new BadRequestException('ИИ-директор не настроен. Укажите OPENAI_API_KEY на backend.');
-    }
-
     const model = this.configService.get<string>('OPENAI_ADMIN_MODEL', 'gpt-4o-mini');
     const [todayLogs, attendance, overdueTasks, staleSections, lowProducts, risks, summary] = await Promise.all([
       this.getTodayWorkLogs(),
@@ -488,6 +497,14 @@ export class AdminAiService {
       risks: risks.slice(0, 20),
     };
 
+    if (!apiKey) {
+      return {
+        answer: this.buildAdminFallbackAnswer(dto.question, context),
+        model: 'gp-work-rules',
+        fallback: true,
+      };
+    }
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -512,8 +529,13 @@ export class AdminAiService {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new BadRequestException(`ИИ-директор не смог выполнить запрос: ${text}`);
+      const providerError = await response.text();
+      this.logger.warn(`OpenAI admin request failed (${response.status}): ${providerError.slice(0, 500)}`);
+      return {
+        answer: this.buildAdminFallbackAnswer(dto.question, context),
+        model: 'gp-work-rules',
+        fallback: true,
+      };
     }
 
     const body = (await response.json()) as {
@@ -528,5 +550,60 @@ export class AdminAiService {
       answer,
       model,
     };
+  }
+
+  private buildWorkerFallbackAnswer(question: string, brief: Awaited<ReturnType<AdminAiService['getWorkerBrief']>>) {
+    const normalized = question.toLowerCase();
+    if (normalized.includes('задач')) {
+      if (brief.tasks.length === 0) return 'На сегодня назначенных задач нет. Уточните план у руководителя.';
+      return brief.tasks
+        .slice(0, 5)
+        .map((task, index) => `${index + 1}. ${task.title} — ${task.objectName}, ${task.sectionCode}. ${task.nextAction}`)
+        .join('\n');
+    }
+    return [brief.summary, ...brief.recommendations].join('\n');
+  }
+
+  private buildAdminFallbackAnswer(
+    question: string,
+    context: {
+      summary: Awaited<ReturnType<AdminAiService['getSummary']>>;
+      currentMetrics: {
+        employeesWithoutCheckout: string[];
+        overdueTasks: { id: number; title: string; dueDate: string | null }[];
+        staleSections: { code: string; object: string | null }[];
+        lowStockProducts: { name: string; currentQuantity: number; unit: string | null }[];
+      };
+      risks: RiskItem[];
+    },
+  ): string {
+    const normalized = question.toLowerCase();
+    const metrics = context.currentMetrics;
+
+    if (normalized.includes('не ушел') || normalized.includes('не отметил')) {
+      return metrics.employeesWithoutCheckout.length
+        ? `Не отметили уход: ${metrics.employeesWithoutCheckout.join(', ')}.`
+        : 'Все вышедшие сотрудники отметили уход.';
+    }
+    if (normalized.includes('просроч')) {
+      return metrics.overdueTasks.length
+        ? metrics.overdueTasks.map((task) => `#${task.id} ${task.title} — срок ${task.dueDate ?? 'не указан'}`).join('\n')
+        : 'Просроченных задач нет.';
+    }
+    if (normalized.includes('участ') || normalized.includes('обслуж')) {
+      return metrics.staleSections.length
+        ? metrics.staleSections.map((row) => `${row.object ?? 'Объект'} / ${row.code}`).join('\n')
+        : 'Участков без обслуживания более 7 дней нет.';
+    }
+    if (normalized.includes('товар') || normalized.includes('склад') || normalized.includes('остат')) {
+      return metrics.lowStockProducts.length
+        ? metrics.lowStockProducts
+            .map((product) => `${product.name}: ${product.currentQuantity} ${product.unit ?? ''}`.trim())
+            .join('\n')
+        : 'Товаров с низким остатком нет.';
+    }
+
+    const priorities = context.risks.slice(0, 5).map((risk, index) => `${index + 1}. ${risk.title}: ${risk.recommendation}`);
+    return [context.summary.summary, priorities.length ? `\nПриоритеты:\n${priorities.join('\n')}` : ''].join('');
   }
 }

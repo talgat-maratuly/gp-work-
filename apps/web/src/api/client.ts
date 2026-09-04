@@ -54,7 +54,15 @@ export function toUserMessage(err: unknown, fallback = 'Не удалось со
       }
       return err.message
     }
-    return err.message || fallback
+    const lowerMessage = err.message.toLowerCase()
+    const containsInternalProviderDetails = [
+      'insufficient_quota',
+      'credit_balance_exhausted',
+      'openai.com/settings',
+      'openai_api_key',
+      '"error"',
+    ].some((marker) => lowerMessage.includes(marker))
+    return containsInternalProviderDetails ? fallback : err.message || fallback
   }
   if (isNetworkError(err)) {
     return 'Backend не запущен. Проверьте подключение к серверу'

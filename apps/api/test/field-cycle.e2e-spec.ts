@@ -124,6 +124,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       workVolume: '100%',
       photoUrls: [],
     }).expect(404);
+    await request(app.getHttpServer()).get('/api/attendance').expect(401);
+    await request(app.getHttpServer()).get('/api/attendance/active-today').expect(404);
+    await request(app.getHttpServer()).post('/api/attendance/check-out').send({
+      workerFullName: worker.fullName,
+    }).expect(404);
     const workType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
       name: `E2E Работа ${suffix}`,
     }).expect(201)).body;
@@ -537,6 +542,17 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(repeatedStart.id).toBe(session.id);
     expect(session.taskScope).toEqual([{ taskId: task.id, description: task.description }]);
     expect(session.startLivenessEvidenceUrls).toEqual(startFaces);
+    const openAttendance = (await request(app.getHttpServer())
+      .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
+      .set(auth(adminToken))
+      .expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
+    expect(openAttendance).toMatchObject({
+      userId: worker.id,
+      workerFullName: worker.fullName,
+      status: 'ON_DUTY',
+      checkOutTime: null,
+      reportCount: 0,
+    });
 
     const [endCenter, endLeft, endRight, resultPhoto] = await uploadMany([
       'end-center.jpg', 'end-left.jpg', 'end-right.jpg', 'result-work.jpg',
@@ -598,6 +614,14 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .send(closeBody)
       .expect(201)).body;
     expect(repeatedClose.id).toBe(session.id);
+    const closedAttendance = (await request(app.getHttpServer())
+      .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
+      .set(auth(adminToken))
+      .expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
+    expect(closedAttendance).toMatchObject({ userId: worker.id, status: 'COMPLETED' });
+    expect(closedAttendance.checkOutTime).toBeTruthy();
+    expect(closedAttendance.checkOutLatitude).toBeCloseTo(51.2301);
+    expect(closedAttendance.checkOutLongitude).toBeCloseTo(51.3701);
     await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))

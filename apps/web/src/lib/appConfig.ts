@@ -28,18 +28,10 @@ export function buildWorkFormUrl(objectId: number, sectionId: number): string {
   return `${getAppBaseUrl()}/work-form?objectId=${objectId}&sectionId=${sectionId}`
 }
 
-export function buildCheckOutUrl(): string {
-  return `${getAppBaseUrl()}/attendance/check-out`
-}
-
 export function buildMapLink(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }
 
 export function buildQrImageUrl(sectionCode: string): string {
   return `${getApiOrigin()}/api/qr/${encodeURIComponent(sectionCode)}`
-}
-
-export function buildCheckOutQrImageUrl(): string {
-  return `${getApiOrigin()}/api/attendance/check-out/qr.png`
 }

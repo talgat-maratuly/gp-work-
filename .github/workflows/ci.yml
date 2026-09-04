@@ -72,6 +72,7 @@ jobs:
             'apps/api/src/database/migrations/1732000000000-AddObjectSectionLifecycle.ts',
             'apps/api/src/database/migrations/1732100000000-AddTaskLifecycleIntegrity.ts',
             'apps/api/src/database/migrations/1732200000000-AddWorkTypeLifecycleIntegrity.ts',
+            'apps/api/src/database/migrations/1732300000000-LinkAttendanceToUsers.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -97,6 +98,7 @@ jobs:
             'AddObjectSectionLifecycle1732000000000',
             'AddTaskLifecycleIntegrity1732100000000',
             'AddWorkTypeLifecycleIntegrity1732200000000',
+            'LinkAttendanceToUsers1732300000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

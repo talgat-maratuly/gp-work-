@@ -19,7 +19,6 @@ const PhotosPage = lazy(() => import('@/pages/admin/PhotosPage').then((m) => ({ 
 const QrPage = lazy(() => import('@/pages/admin/QrPage').then((m) => ({ default: m.QrPage })))
 const WorkTypesPage = lazy(() => import('@/pages/admin/WorkTypesPage').then((m) => ({ default: m.WorkTypesPage })))
 const LegacyWorkFormRedirect = lazy(() => import('@/pages/LegacyWorkFormRedirect').then((m) => ({ default: m.LegacyWorkFormRedirect })))
-const CheckOutPage = lazy(() => import('@/pages/CheckOutPage').then((m) => ({ default: m.CheckOutPage })))
 const FormSettingsPage = lazy(() => import('@/pages/admin/FormSettingsPage').then((m) => ({ default: m.FormSettingsPage })))
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
@@ -73,7 +72,6 @@ export default function App() {
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
             <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
-            <Route path="/attendance/check-out" element={<CheckOutPage />} />
             <Route path="/field/scan/:sectionCode" element={<ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}><FieldScanPage /></ProtectedRoute>} />
             <Route
               path="/field"

@@ -6,7 +6,7 @@ import { Toast } from '@/components/Toast'
 import { Button } from '@/components/ui/Button'
 import { fetchSections } from '@/api/sectionsApi'
 import { API_ORIGIN, toUserMessage } from '@/api/client'
-import { buildCheckOutUrl, buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
+import { buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
 import { downloadQrPrintCardPng } from '@/lib/downloadQrCard'
 import { onSectionsChanged } from '@/lib/sectionEvents'
 import type { Section } from '@/lib/types'
@@ -16,7 +16,6 @@ export function QrPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [printSectionCode, setPrintSectionCode] = useState<string | null>(null)
-  const [printCheckOut, setPrintCheckOut] = useState(false)
   const [autoPrint, setAutoPrint] = useState(false)
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -45,7 +44,6 @@ export function QrPage() {
   const printSection = printSectionCode
     ? sections.find((s) => s.code === printSectionCode) ?? null
     : null
-  const checkOutUrl = buildCheckOutUrl()
 
   async function downloadQrPng(section: Section) {
     const key = `section-${section.code}`
@@ -80,71 +78,12 @@ export function QrPage() {
 
   function closePrint() {
     setPrintSectionCode(null)
-    setPrintCheckOut(false)
     setAutoPrint(false)
-  }
-
-  function openCheckOutPrint() {
-    setPrintCheckOut(true)
-    setAutoPrint(true)
-  }
-
-  async function downloadCheckOutQr() {
-    setDownloadingKey('checkout')
-    try {
-      await downloadQrPrintCardPng({
-        objectName: 'Общий QR для отметки ухода',
-        formUrl: checkOutUrl,
-        title: 'QR «Уход»',
-        description: (
-          <>
-            <span style={{ fontWeight: 700, color: '#000000' }}>Отсканируйте QR-код</span> и отметьте уход в
-            конце смены.
-          </>
-        ),
-        filename: 'QR_Уход_карточка.png',
-      })
-    } catch (err) {
-      console.error('[qr/check-out-download]', err)
-      setError('Не удалось скачать карточку QR. Попробуйте еще раз.')
-    } finally {
-      setDownloadingKey(null)
-    }
   }
 
   return (
     <div className="no-print space-y-6">
       <h1 className="text-2xl font-bold">QR-коды</h1>
-
-      <section className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-        <h2 className="text-lg font-semibold text-blue-900">QR «Уход» (общий)</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Один QR для отметки ухода в конце смены. Приход фиксируется автоматически первым отчётом с участка.
-        </p>
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="rounded-lg border bg-white p-1">
-            <QrCanvas value={checkOutUrl} className="h-[120px] w-[120px]" size={120} />
-          </div>
-          <div className="space-y-2 text-sm">
-            <a href={checkOutUrl} target="_blank" rel="noreferrer" className="block break-all text-blue-700 underline">
-              {checkOutUrl}
-            </a>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                disabled={downloadingKey === 'checkout'}
-                onClick={() => void downloadCheckOutQr()}
-              >
-                {downloadingKey === 'checkout' ? 'Скачивание…' : 'Скачать PNG'}
-              </Button>
-              <Button variant="ghost" onClick={openCheckOutPrint}>
-                Печать
-              </Button>
-              <Button onClick={() => window.open(checkOutUrl, '_blank')}>Открыть форму ухода</Button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <p className="text-sm text-slate-500">QR участков: {API_ORIGIN}/api/qr/&#123;код&#125;</p>
 
@@ -216,19 +155,6 @@ export function QrPage() {
         section={printSection}
         objectName={printSection?.objects?.name ?? '—'}
         formUrl={printSection ? buildWorkFormUrlBySectionCode(printSection.code) : ''}
-        onClose={closePrint}
-        autoPrint={autoPrint}
-      />
-
-      <QrPrintModal
-        objectName="Общий QR для отметки ухода"
-        formUrl={printCheckOut ? checkOutUrl : ''}
-        title={printCheckOut ? 'QR «Уход»' : undefined}
-        description={
-          <>
-            <strong>Отсканируйте QR-код</strong> и отметьте уход в конце смены.
-          </>
-        }
         onClose={closePrint}
         autoPrint={autoPrint}
       />

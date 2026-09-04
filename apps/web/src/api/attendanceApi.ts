@@ -2,14 +2,9 @@ import { apiRequest } from './client'
 
 export type AttendanceStatus = 'ON_DUTY' | 'COMPLETED'
 
-export type ActiveWorker = {
-  id: number
-  workerFullName: string
-  checkInTime: string
-}
-
 export type AttendanceRecord = {
   id: number
+  userId: number | null
   workDate: string
   workerFullName: string
   checkInTime: string
@@ -30,24 +25,6 @@ export type AttendanceRecord = {
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   ON_DUTY: 'На работе',
   COMPLETED: 'Завершено',
-}
-
-export async function fetchActiveWorkersToday(): Promise<ActiveWorker[]> {
-  return apiRequest<ActiveWorker[]>('/attendance/active-today')
-}
-
-export async function checkOut(payload: {
-  attendanceId?: number
-  workerFullName?: string
-  latitude?: number
-  longitude?: number
-  locationAccuracy?: number
-  locationAllowed?: boolean
-}): Promise<AttendanceRecord> {
-  return apiRequest<AttendanceRecord>('/attendance/check-out', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
 }
 
 export async function fetchAttendance(query?: {

@@ -10,13 +10,6 @@ import { QrService } from './qr.service';
 export class QrController {
   constructor(private readonly qrService: QrService) {}
 
-  @Get('checkout')
-  @Header('Content-Type', 'image/png')
-  async getCheckOutQr(@Res() res: Response) {
-    const buffer = await this.qrService.generateCheckOutPng();
-    res.send(buffer);
-  }
-
   @Get(':sectionCode')
   @Header('Content-Type', 'image/png')
   async getQr(@Param('sectionCode') sectionCode: string, @Res() res: Response) {

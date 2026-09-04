@@ -1,28 +1,19 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { format, parseISO, startOfDay } from 'date-fns';
-import { Repository } from 'typeorm';
-import { businessDateString, businessDayUtcRange } from '../../common/business-date';
+import { EntityManager, Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { AttendanceRecord } from '../../entities/attendance-record.entity';
 import { User } from '../../entities/user.entity';
 import { WorkLog } from '../../entities/work-log.entity';
+import { WorkDaySession } from '../../entities/work-day-session.entity';
 import { UsersService } from '../users/users.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
-import { CheckOutDto } from './dto/check-out.dto';
 
 function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ');
-}
-
-function todayDateString(): string {
-  return businessDateString();
 }
 
 function calcWorkedHours(checkIn: Date, checkOut: Date): number {
@@ -35,8 +26,6 @@ export class AttendanceService {
   constructor(
     @InjectRepository(AttendanceRecord)
     private readonly attendanceRepo: Repository<AttendanceRecord>,
-    @InjectRepository(WorkLog)
-    private readonly workLogRepo: Repository<WorkLog>,
     private readonly usersService: UsersService,
   ) {}
 
@@ -47,6 +36,7 @@ export class AttendanceService {
       id: row.id,
       workDate: row.workDate,
       workerFullName: row.workerFullName,
+      userId: row.userId,
       checkInTime: row.checkInTime,
       checkOutTime: row.checkOutTime,
       lastActivityTime: row.lastActivityTime,
@@ -69,13 +59,16 @@ export class AttendanceService {
     const submittedAt = workLog.submittedAt;
 
     let row = await this.attendanceRepo.findOne({
-      where: { workDate, workerFullName },
+      where: workLog.userId
+        ? { workDate, userId: workLog.userId }
+        : { workDate, workerFullName },
     });
 
     if (!row) {
       row = this.attendanceRepo.create({
         workDate,
         workerFullName,
+        userId: workLog.userId,
         checkInTime: submittedAt,
         lastActivityTime: submittedAt,
         checkInLatitude: workLog.latitude,
@@ -93,124 +86,74 @@ export class AttendanceService {
 
     row.reportCount += 1;
     row.lastActivityTime = submittedAt;
+    if (!row.firstWorkLogId) row.firstWorkLogId = workLog.id;
     return this.mapRecord(await this.attendanceRepo.save(row));
   }
 
-  async findActiveForToday() {
-    const workDate = todayDateString();
-    const rows = await this.attendanceRepo.find({
-      where: { workDate, status: AttendanceStatus.ON_DUTY },
-      order: { workerFullName: 'ASC' },
-    });
-    return rows
-      .filter((r) => r.checkOutTime == null)
-      .map((r) => ({
-        id: r.id,
-        workerFullName: r.workerFullName,
-        checkInTime: r.checkInTime,
-      }));
-  }
-
-  private async findTodayAttendanceByName(workerFullName: string) {
-    const normalized = normalizeName(workerFullName);
-    const workDate = todayDateString();
-    return this.attendanceRepo.findOne({
-      where: { workDate, workerFullName: normalized },
-    });
-  }
-
-  private async ensureAttendanceFromWorkLogs(workerFullName: string) {
-    const normalized = normalizeName(workerFullName);
-    const { start: todayStart, end: todayEnd } = businessDayUtcRange();
-
-    const logs = await this.workLogRepo
-      .createQueryBuilder('workLog')
-      .where('workLog.workerFullName ILIKE :name', { name: normalized })
-      .andWhere('workLog.submittedAt >= :todayStart', { todayStart })
-      .andWhere('workLog.submittedAt <= :todayEnd', { todayEnd })
-      .orderBy('workLog.submittedAt', 'ASC')
-      .getMany();
-
-    if (!logs.length) return null;
-
-    const first = logs[0];
-    const last = logs[logs.length - 1];
-    const workDate = todayDateString();
-
-    const row = this.attendanceRepo.create({
-      workDate,
-      workerFullName: normalized,
-      checkInTime: first.submittedAt,
-      lastActivityTime: last.submittedAt,
-      checkInLatitude: first.latitude,
-      checkInLongitude: first.longitude,
+  async syncOnWorkDayStarted(session: WorkDaySession, user: User, manager?: EntityManager) {
+    const repo = manager?.getRepository(AttendanceRecord) ?? this.attendanceRepo;
+    let row = await repo.findOne({ where: { workDate: session.shiftDate, userId: user.id } });
+    if (row) return this.mapRecord(row);
+    row = repo.create({
+      workDate: session.shiftDate,
+      userId: user.id,
+      workerFullName: normalizeName(user.fullName),
+      checkInTime: session.startedAt,
+      lastActivityTime: session.startedAt,
+      checkInLatitude: session.startLatitude,
+      checkInLongitude: session.startLongitude,
+      checkOutTime: null,
+      checkOutLatitude: null,
+      checkOutLongitude: null,
+      workedHours: null,
       status: AttendanceStatus.ON_DUTY,
-      reportCount: logs.length,
-      firstWorkLogId: first.id,
+      reportCount: 0,
+      firstWorkLogId: null,
     });
-
-    return this.attendanceRepo.save(row);
+    return this.mapRecord(await repo.save(row));
   }
 
-  async checkOut(dto: CheckOutDto) {
-    let row: AttendanceRecord | null = null;
-
-    if (dto.attendanceId) {
-      row = await this.attendanceRepo.findOne({ where: { id: dto.attendanceId } });
-      if (!row) throw new NotFoundException('Запись табеля не найдена');
-    } else if (dto.workerFullName?.trim()) {
-      row = await this.findTodayAttendanceByName(dto.workerFullName);
-      if (!row) {
-        row = await this.ensureAttendanceFromWorkLogs(dto.workerFullName);
-      }
-      if (!row) {
-        throw new NotFoundException(
-          'Сотрудник не найден в табеле за сегодня. Сначала отправьте отчёт с участка.',
-        );
-      }
-    } else {
-      throw new BadRequestException('Укажите сотрудника для отметки ухода');
+  async syncOnWorkDayClosed(session: WorkDaySession, user: User, manager?: EntityManager) {
+    const repo = manager?.getRepository(AttendanceRecord) ?? this.attendanceRepo;
+    let row = await repo.findOne({ where: { workDate: session.shiftDate, userId: user.id } });
+    if (!row) {
+      await this.syncOnWorkDayStarted(session, user, manager);
+      row = await repo.findOneOrFail({ where: { workDate: session.shiftDate, userId: user.id } });
     }
-
-    if (row.workDate !== todayDateString()) {
-      throw new BadRequestException('Отметка ухода доступна только за сегодня');
-    }
-
-    if (row.status === AttendanceStatus.COMPLETED || row.checkOutTime) {
-      throw new ConflictException('Уход уже отмечен');
-    }
-
-    const checkOutTime = new Date();
-    const hasCoords = dto.latitude != null && dto.longitude != null;
-
+    if (row.status === AttendanceStatus.COMPLETED && row.checkOutTime) return this.mapRecord(row);
+    const checkOutTime = session.closedAt ?? new Date();
     row.checkOutTime = checkOutTime;
-    row.checkOutLatitude = dto.latitude ?? null;
-    row.checkOutLongitude = dto.longitude ?? null;
+    row.lastActivityTime = checkOutTime;
+    row.checkOutLatitude = session.endLatitude;
+    row.checkOutLongitude = session.endLongitude;
     row.workedHours = String(calcWorkedHours(row.checkInTime, checkOutTime));
     row.status = AttendanceStatus.COMPLETED;
-
-    if (!hasCoords && dto.locationAllowed === false) {
-      // still allow checkout without geo
-    }
-
-    const saved = await this.attendanceRepo.save(row);
-    return this.mapRecord(saved);
+    return this.mapRecord(await repo.save(row));
   }
 
   private async applyRoleFilter(
     qb: ReturnType<Repository<AttendanceRecord>['createQueryBuilder']>,
     user?: User,
   ) {
-    if (!user || user.role === UserRole.ADMIN || user.role === UserRole.AGRONOMIST) {
+    if (
+      !user ||
+      user.role === UserRole.ADMIN ||
+      user.role === UserRole.DIRECTOR ||
+      user.role === UserRole.AGRONOMIST
+    ) {
       return qb;
     }
-    if (user.role === UserRole.BRIGADIER && user.brigadeId) {
-      const names = await this.usersService.getBrigadeWorkerNames(user.brigadeId);
-      if (!names.length) {
+    if (user.role === UserRole.BRIGADIER) {
+      if (!user.brigadeId) {
         qb.andWhere('1 = 0');
         return qb;
       }
-      qb.andWhere('attendance.workerFullName IN (:...names)', { names });
+      const userIds = await this.usersService.getBrigadeWorkerIds(user.brigadeId);
+      if (!userIds.length) {
+        qb.andWhere('1 = 0');
+        return qb;
+      }
+      qb.andWhere('attendance.userId IN (:...userIds)', { userIds });
     }
     return qb;
   }

@@ -7,6 +7,7 @@ import { UserRole } from '../../common/enums/user-role.enum';
 import { Section, Task, User, WorkDaySession, WorkDayStatus, WorkExecution } from '../../entities';
 import type { WorkDayTaskResult } from '../../entities/work-day-session.entity';
 import { UploadsService } from '../uploads/uploads.service';
+import { AttendanceService } from '../attendance/attendance.service';
 import { assertFreshLivenessEvidence, distanceMeters } from './field-execution.rules';
 import { CloseWorkDayDto, ReviewWorkDayDto, StartWorkDayDto } from './dto/work-day.dto';
 
@@ -18,6 +19,7 @@ export class WorkDaysService {
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
     @InjectRepository(WorkExecution) private readonly executions: Repository<WorkExecution>,
     private readonly uploadsService: UploadsService,
+    private readonly attendanceService: AttendanceService,
   ) {}
 
   private assignedTasks(sectionId: number, user: User, includeExecution = false) {
@@ -123,6 +125,7 @@ export class WorkDaysService {
       ) {
         throw new BadRequestException('Идентификатор смены уже использован для других данных');
       }
+      await this.attendanceService.syncOnWorkDayStarted(duplicate, user);
       return duplicate;
     }
     if (await this.sessions.exist({ where: { userId: user.id, status: In([WorkDayStatus.OPEN, WorkDayStatus.RETURNED]) } })) throw new BadRequestException('У работника уже есть открытая или возвращённая смена');
@@ -137,7 +140,11 @@ export class WorkDaysService {
       throw new BadRequestException('На этом участке вам не назначена ни одна активная задача');
     }
     const now = new Date();
-    return this.sessions.save(this.sessions.create({ clientSessionId: dto.clientSessionId, userId: user.id, sectionId: section.id, shiftDate: businessDateString(), status: WorkDayStatus.OPEN, startedAt: now, closedAt: null, startQr: section.code, endQr: null, startLatitude: dto.latitude, startLongitude: dto.longitude, startAccuracy: dto.accuracy ?? null, startDistanceMeters: distance, endLatitude: null, endLongitude: null, endAccuracy: null, endDistanceMeters: null, startSelfieUrl: dto.selfieUrl, endSelfieUrl: null, startLivenessEvidenceUrls: dto.livenessEvidenceUrls, endLivenessEvidenceUrls: [], startPhotoUrl: dto.startPhotoUrl, resultPhotoUrls: [], taskScope: assignedTasks.map((task) => ({ taskId: task.id, description: task.description })), taskResults: [], overallPercent: 0, summary: null, incompleteReasons: {}, events: [{ type: 'STARTED', at: now.toISOString(), selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, startPhotoUrl: dto.startPhotoUrl }], reviewedById: null, reviewedAt: null, reviewComment: null }));
+    return this.sessions.manager.transaction(async (manager) => {
+      const saved = await manager.getRepository(WorkDaySession).save(manager.getRepository(WorkDaySession).create({ clientSessionId: dto.clientSessionId, userId: user.id, sectionId: section.id, shiftDate: businessDateString(), status: WorkDayStatus.OPEN, startedAt: now, closedAt: null, startQr: section.code, endQr: null, startLatitude: dto.latitude, startLongitude: dto.longitude, startAccuracy: dto.accuracy ?? null, startDistanceMeters: distance, endLatitude: null, endLongitude: null, endAccuracy: null, endDistanceMeters: null, startSelfieUrl: dto.selfieUrl, endSelfieUrl: null, startLivenessEvidenceUrls: dto.livenessEvidenceUrls, endLivenessEvidenceUrls: [], startPhotoUrl: dto.startPhotoUrl, resultPhotoUrls: [], taskScope: assignedTasks.map((task) => ({ taskId: task.id, description: task.description })), taskResults: [], overallPercent: 0, summary: null, incompleteReasons: {}, events: [{ type: 'STARTED', at: now.toISOString(), selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, startPhotoUrl: dto.startPhotoUrl }], reviewedById: null, reviewedAt: null, reviewComment: null }));
+      await this.attendanceService.syncOnWorkDayStarted(saved, user, manager);
+      return saved;
+    });
   }
 
   async close(dto: CloseWorkDayDto, user: User) {
@@ -161,6 +168,7 @@ export class WorkDaysService {
       ) {
         throw new BadRequestException('Смена уже закрыта с другими итоговыми данными');
       }
+      await this.attendanceService.syncOnWorkDayClosed(session, user);
       return session;
     }
     const previousEndLiveness = session.endLivenessEvidenceUrls ?? [];
@@ -227,7 +235,11 @@ export class WorkDaysService {
     const now = new Date();
     const closingEvent = session.status === WorkDayStatus.RETURNED ? 'RESUBMITTED' : 'CLOSED';
     Object.assign(session, { status: WorkDayStatus.CLOSED, closedAt: now, endQr: dto.sectionCode.trim(), endLatitude: dto.latitude, endLongitude: dto.longitude, endAccuracy: dto.accuracy ?? null, endDistanceMeters: distance, endSelfieUrl: dto.selfieUrl, endLivenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls, taskResults, overallPercent: overall, summary: dto.summary?.trim() || null, incompleteReasons: Object.fromEntries(taskResults.filter(r => r.percent < 100).map(r => [String(r.taskId), r.incompleteReason!])), reviewedById: null, reviewedAt: null, reviewComment: null, events: [...session.events, { type: closingEvent, at: now.toISOString(), results: taskResults, selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls }] });
-    return this.sessions.save(session);
+    return this.sessions.manager.transaction(async (manager) => {
+      const saved = await manager.getRepository(WorkDaySession).save(session);
+      await this.attendanceService.syncOnWorkDayClosed(saved, user, manager);
+      return saved;
+    });
   }
 
   list() { return this.sessions.find({ relations: { user: true, section: { object: true } }, order: { startedAt: 'DESC' } }); }

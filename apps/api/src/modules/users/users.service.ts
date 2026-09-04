@@ -165,4 +165,12 @@ export class UsersService {
     });
     return users.map((u) => u.fullName);
   }
+
+  async getBrigadeWorkerIds(brigadeId: number): Promise<number[]> {
+    const users = await this.userRepo.find({
+      select: { id: true },
+      where: { brigadeId, role: UserRole.WORKER, isActive: true },
+    });
+    return users.map((user) => user.id);
+  }
 }

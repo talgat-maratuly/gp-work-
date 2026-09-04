@@ -59,7 +59,7 @@ export function AttendancePage() {
       <div>
         <h1 className="text-2xl font-bold">Табель</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Приход фиксируется первым QR-отчётом за день. Уход — через общий QR «Уход».
+          Приход и уход фиксируются доказанным открытием и закрытием рабочего дня на участке.
         </p>
       </div>
 

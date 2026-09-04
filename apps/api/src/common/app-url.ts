@@ -13,16 +13,8 @@ export function buildFormUrl(sectionCode: string): string {
   return `${getFrontendUrl()}/field/scan/${encodeURIComponent(sectionCode)}`;
 }
 
-export function buildCheckOutUrl(): string {
-  return `${getFrontendUrl()}/attendance/check-out`;
-}
-
 export function buildQrApiUrl(sectionCode: string): string {
   return `${getApiPublicUrl()}/api/qr/${encodeURIComponent(sectionCode)}`;
-}
-
-export function buildCheckOutQrApiUrl(): string {
-  return `${getApiPublicUrl()}/api/qr/checkout`;
 }
 
 export function buildMapLink(lat: number, lng: number): string {

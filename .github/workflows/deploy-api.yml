@@ -1,3 +1,4 @@
+# Release trigger: deploy GP Work API and Web from one commit.
 name: Deploy API
 
 on:

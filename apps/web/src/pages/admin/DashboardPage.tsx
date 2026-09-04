@@ -9,6 +9,7 @@ import {
 } from '@/api/dashboardApi'
 import { fetchDispatcher, type DispatcherData } from '@/api/operationsApi'
 import { DispatcherMap } from '@/components/operations/DispatcherMap'
+import { businessDateString } from '@/lib/businessDate'
 
 type Period = 'day' | 'week' | 'month'
 
@@ -62,6 +63,7 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
 export function DashboardPage() {
   const navigate = useNavigate()
   const [period, setPeriod] = useState<Period>('day')
+  const [date, setDate] = useState(businessDateString())
   const [data, setData] = useState<DashboardSummary | null>(null)
   const [dispatcher, setDispatcher] = useState<DispatcherData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,7 +75,7 @@ export function DashboardPage() {
     setError(null)
     setWarning(null)
     try {
-      const params: DashboardParams = { period }
+      const params: DashboardParams = { period, date }
       const [summaryResult, operationsResult] = await Promise.allSettled([
         fetchDashboardSummary(params),
         fetchDispatcher(),
@@ -91,7 +93,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [period])
+  }, [date, period])
 
   useEffect(() => {
     load()
@@ -112,6 +114,14 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="sr-only" htmlFor="dashboard-date">Дата сводки</label>
+          <input
+            id="dashboard-date"
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700"
+          />
           <div className="flex rounded-lg border border-slate-300 bg-white p-0.5">
             {PERIODS.map((p) => (
               <button
@@ -158,7 +168,7 @@ export function DashboardPage() {
             <KpiCard label="Водовозов" value={c.waterCarriers} tone="blue" onClick={go('/admin/watering')} />
             <KpiCard label="Активные бригады" value={c.activeBrigades} onClick={go('/admin/brigades')} />
             <KpiCard label="% выполнения работ" value={`${c.workCompletionPercent}%`} tone="green" onClick={go('/admin/schedule')} />
-            <KpiCard label="% прохождения проверки" value={`${c.reviewPassPercent}%`} tone="green" onClick={go('/admin/management?period=day')} />
+            <KpiCard label="% прохождения проверки" value={`${c.reviewPassPercent}%`} tone="green" onClick={go(`/admin/management?period=${period}&date=${date}`)} />
             <KpiCard label="Объекты без полива" value={c.objectsWithoutConfirmedWatering} tone="amber" onClick={go('/admin/watering?status=NEEDS_REVIEW')} />
           </div>
 

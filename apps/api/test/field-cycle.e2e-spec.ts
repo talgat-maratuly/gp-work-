@@ -18,6 +18,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
   let adminUserId: number;
   let workerToken: string;
 
+  const clientIps = new Map<string, string>();
+  const client = (identity: string) => {
+    if (!clientIps.has(identity)) clientIps.set(identity, `10.10.0.${clientIps.size + 10}`);
+    return { 'X-Forwarded-For': clientIps.get(identity)! };
+  };
   const tokenIps = new Map<string, string>();
   const auth = (token: string) => {
     if (!tokenIps.has(token)) tokenIps.set(token, `10.20.0.${tokenIps.size + 10}`);
@@ -47,6 +52,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
 
     const login = await request(app.getHttpServer())
       .post('/api/auth/login')
+      .set(client(process.env.ADMIN_USERNAME!))
       .send({ username: process.env.ADMIN_USERNAME, password: process.env.ADMIN_PASSWORD })
       .expect(201);
     adminToken = login.body.accessToken;
@@ -95,7 +101,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'brigadier-password',
       role: 'BRIGADIER',
     }).expect(201)).body;
-    const outsiderBrigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+    const outsiderBrigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').set(client(outsiderBrigadier.username)).send({
       username: outsiderBrigadier.username,
       password: 'brigadier-password',
     }).expect(201)).body.accessToken as string;
@@ -203,6 +209,36 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       dueDate: businessDate(),
       description: 'Проверка отмены без удаления истории',
     }).expect(201)).body;
+    await request(app.getHttpServer())
+      .get('/api/dashboard/summary?date=2026-02-31')
+      .set(auth(adminToken))
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/dashboard/summary?objectId=not-a-number')
+      .set(auth(adminToken))
+      .expect(400);
+    const filteredDashboard = (await request(app.getHttpServer())
+      .get(`/api/dashboard/summary?date=${businessDate()}&period=day&objectId=${object.id}&brigadeId=${brigade.id}`)
+      .set(auth(adminToken))
+      .expect(200)).body;
+    expect(filteredDashboard.filters).toMatchObject({
+      date: businessDate(),
+      period: 'day',
+      objectId: object.id,
+      brigadeId: brigade.id,
+    });
+    expect(filteredDashboard.cards.objectsTotal).toBe(1);
+    expect(filteredDashboard.tasksTodayList).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: task.id }),
+      expect.objectContaining({ id: cancellableTask.id }),
+    ]));
+    const emptyDashboard = (await request(app.getHttpServer())
+      .get(`/api/dashboard/summary?date=${businessDate()}&objectId=2147483647`)
+      .set(auth(adminToken))
+      .expect(200)).body;
+    expect(emptyDashboard.cards.objectsTotal).toBe(0);
+    expect(emptyDashboard.cards.tasksToday).toBe(0);
+    expect(emptyDashboard.tasksTodayList).toEqual([]);
     await request(app.getHttpServer()).patch(`/api/work-types/${workType.id}`).set(auth(adminToken)).send({
       isActive: false,
     }).expect(400);
@@ -233,7 +269,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       stops: [{ taskId: cancellableTask.id }],
     }).expect(400);
 
-    const brigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+    const brigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').set(client(brigadier.username)).send({
       username: brigadier.username,
       password: 'brigadier-password',
     }).expect(201)).body.accessToken;
@@ -250,7 +286,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       status: 'VERIFIED',
     }).expect(400);
 
-    workerToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+    workerToken = (await request(app.getHttpServer()).post('/api/auth/login').set(client(worker.username)).send({
       username: worker.username,
       password: 'worker-password',
     }).expect(201)).body.accessToken;
@@ -447,7 +483,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await request(app.getHttpServer()).delete(`/api/users/${disposable.id}`).set(auth(adminToken)).expect(204);
     expect((await request(app.getHttpServer()).get(`/api/users/${disposable.id}`).set(auth(adminToken)).expect(200)).body)
       .toMatchObject({ id: disposable.id, isActive: false });
-    await request(app.getHttpServer()).post('/api/auth/login').send({
+    await request(app.getHttpServer()).post('/api/auth/login').set(client(disposable.username)).send({
       username: disposable.username,
       password: 'disabled-password',
     }).expect(403);
@@ -514,7 +550,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'brigadier-password',
       role: 'BRIGADIER',
     }).expect(201)).body;
-    const outsiderToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+    const outsiderToken = (await request(app.getHttpServer()).post('/api/auth/login').set(client(outsiderBrigadier.username)).send({
       username: outsiderBrigadier.username,
       password: 'brigadier-password',
     }).expect(201)).body.accessToken as string;
@@ -540,7 +576,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       dueDate: businessDate(),
       description: 'Полив участка и уборка территории',
     }).expect(201)).body;
-    const token = (await request(app.getHttpServer()).post('/api/auth/login').send({
+    const token = (await request(app.getHttpServer()).post('/api/auth/login').set(client(worker.username)).send({
       username: worker.username,
       password: 'worker-password',
     }).expect(201)).body.accessToken as string;

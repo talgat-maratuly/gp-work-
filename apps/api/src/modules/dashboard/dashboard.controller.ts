@@ -2,8 +2,8 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
-import { WateringShift } from '../../common/enums/watering.enums';
 import { DashboardService } from './dashboard.service';
+import { DashboardQueryDto } from './dto/dashboard-query.dto';
 
 const VIEW_ROLES = [
   UserRole.DIRECTOR,
@@ -21,19 +21,7 @@ export class DashboardController {
 
   @Get('summary')
   @Roles(...VIEW_ROLES)
-  summary(
-    @Query('date') date?: string,
-    @Query('period') period?: string,
-    @Query('objectId') objectId?: string,
-    @Query('brigadeId') brigadeId?: string,
-    @Query('shift') shift?: WateringShift,
-  ) {
-    return this.dashboardService.summary({
-      date,
-      period,
-      objectId: objectId ? Number(objectId) : undefined,
-      brigadeId: brigadeId ? Number(brigadeId) : undefined,
-      shift,
-    });
+  summary(@Query() query: DashboardQueryDto) {
+    return this.dashboardService.summary(query);
   }
 }

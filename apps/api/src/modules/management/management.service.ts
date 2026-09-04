@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   businessDateString,
   businessPeriodRange,
@@ -13,7 +13,7 @@ import {
 } from '../../common/enums/decision.enums';
 import { ScheduleStatus } from '../../common/enums/schedule-status.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
-import { WateringStatus } from '../../common/enums/watering.enums';
+import { WateringShift, WateringStatus } from '../../common/enums/watering.enums';
 import { ManagementDecision } from '../../entities/management-decision.entity';
 import { ScheduleEntry } from '../../entities/schedule-entry.entity';
 import { Task } from '../../entities/task.entity';
@@ -41,6 +41,12 @@ function pct(part: number, whole: number): number {
 }
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.VERIFIED];
+
+export interface OverviewFilters {
+  objectId?: number;
+  brigadeId?: number;
+  shift?: WateringShift;
+}
 
 @Injectable()
 export class ManagementService {
@@ -180,12 +186,12 @@ export class ManagementService {
     }
   }
 
-  async overview(period = 'day', dateStr?: string) {
+  async overview(period = 'day', dateStr?: string, filters: OverviewFilters = {}) {
     const range = this.computeRange(period, dateStr);
     const today = businessDateString();
 
     // Задачи периода с деталями
-    const tasks = await this.taskRepo
+    const taskQuery = this.taskRepo
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.section', 'section')
       .leftJoinAndSelect('section.object', 'object')
@@ -196,9 +202,14 @@ export class ManagementService {
         from: range.from,
         to: range.to,
       })
-      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED })
-      .orderBy('task.due_date', 'DESC')
-      .getMany();
+      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED });
+    if (filters.objectId) {
+      taskQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.brigadeId) {
+      taskQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    const tasks = await taskQuery.orderBy('task.due_date', 'DESC').getMany();
 
     const isClosed = (s: TaskStatus) => CLOSED.includes(s);
     const tasksTotal = tasks.length;
@@ -221,9 +232,16 @@ export class ManagementService {
     const withoutPhoto = completedTasks.length - withPhoto;
 
     // Полив периода
-    const watering = await this.wateringRepo.find({
-      where: { workDate: Between(range.from, range.to) },
-    });
+    const wateringQuery = this.wateringRepo
+      .createQueryBuilder('watering')
+      .where('watering.work_date BETWEEN :from AND :to', { from: range.from, to: range.to });
+    if (filters.objectId) {
+      wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.shift) {
+      wateringQuery.andWhere('watering.shift = :shift', { shift: filters.shift });
+    }
+    const watering = await wateringQuery.getMany();
     const wPlanned = watering.reduce((s, w) => s + (w.plannedLiters ?? 0), 0);
     const wActual = watering.reduce((s, w) => s + (w.actualLiters ?? 0), 0);
     const wDone = watering.filter((w) => w.status === WateringStatus.DONE).length;
@@ -239,9 +257,16 @@ export class ManagementService {
     );
 
     // График периода
-    const schedule = await this.scheduleRepo.find({
-      where: { plannedDate: Between(range.from, range.to) },
-    });
+    const scheduleQuery = this.scheduleRepo
+      .createQueryBuilder('schedule')
+      .where('schedule.planned_date BETWEEN :from AND :to', { from: range.from, to: range.to });
+    if (filters.objectId) {
+      scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.brigadeId) {
+      scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    const schedule = await scheduleQuery.getMany();
     const sTotal = schedule.length;
     const sDone = schedule.filter((s) => s.status === ScheduleStatus.DONE).length;
 

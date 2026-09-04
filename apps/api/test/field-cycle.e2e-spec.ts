@@ -15,6 +15,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
+  let adminUserId: number;
   let workerToken: string;
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -41,6 +42,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .send({ username: process.env.ADMIN_USERNAME, password: process.env.ADMIN_PASSWORD })
       .expect(201);
     adminToken = login.body.accessToken;
+    adminUserId = login.body.user.id;
   });
 
   afterAll(async () => {
@@ -55,6 +57,18 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: '1234',
       role: 'WORKER',
     }).expect(400);
+    await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: '   ',
+      username: `blank-name-${suffix}`,
+      password: 'valid-password',
+      role: 'WORKER',
+    }).expect(400);
+    const controlUser = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `E2E Антикор ${suffix}`,
+      username: `e2e-control-${suffix}`,
+      password: 'control-password',
+      role: 'ANTICOR',
+    }).expect(201)).body;
     const worker = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
       fullName: `E2E Рабочий ${suffix}`,
       username: `e2e-worker-${suffix}`,
@@ -67,6 +81,9 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'brigadier-password',
       role: 'BRIGADIER',
     }).expect(201)).body;
+    const assignees = (await request(app.getHttpServer()).get('/api/users/assignees').set(auth(adminToken)).expect(200)).body;
+    expect(assignees.some((row: { id: number }) => row.id === worker.id)).toBe(true);
+    expect(assignees.some((row: { id: number }) => row.id === controlUser.id)).toBe(false);
     const brigade = (await request(app.getHttpServer()).post('/api/brigades').set(auth(adminToken)).send({
       name: `E2E Бригада ${suffix}`,
       brigadierId: brigadier.id,
@@ -273,6 +290,20 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(execution.worker).not.toHaveProperty('passwordHash');
     const users = (await request(app.getHttpServer()).get('/api/users').set(auth(adminToken)).expect(200)).body;
     expect(users.every((row: Record<string, unknown>) => !('passwordHash' in row))).toBe(true);
+    const disposable = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `E2E Отключение ${suffix}`,
+      username: `e2e-disabled-${suffix}`,
+      password: 'disabled-password',
+      role: 'WORKER',
+    }).expect(201)).body;
+    await request(app.getHttpServer()).delete(`/api/users/${disposable.id}`).set(auth(adminToken)).expect(204);
+    expect((await request(app.getHttpServer()).get(`/api/users/${disposable.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: disposable.id, isActive: false });
+    await request(app.getHttpServer()).post('/api/auth/login').send({
+      username: disposable.username,
+      password: 'disabled-password',
+    }).expect(403);
+    await request(app.getHttpServer()).delete(`/api/users/${adminUserId}`).set(auth(adminToken)).expect(400);
   });
 
   it('persists a validated worker-day result and rejects forged or inconsistent evidence', async () => {

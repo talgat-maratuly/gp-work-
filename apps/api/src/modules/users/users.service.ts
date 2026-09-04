@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { User } from '../../entities/user.entity';
 import { AuthService } from '../auth/auth.service';
@@ -25,12 +26,13 @@ export class UsersService {
   }
 
   findActiveAssignees() {
-    return this.userRepo
-      .find({
-        where: { isActive: true },
-        order: { fullName: 'ASC' },
-      })
-      .then((rows) => rows.filter((u) => u.role !== UserRole.ADMIN));
+    return this.userRepo.find({
+      where: {
+        isActive: true,
+        role: In([UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.BRIGADIER, UserRole.AGRONOMIST]),
+      },
+      order: { fullName: 'ASC' },
+    });
   }
 
   async findOne(id: number) {
@@ -57,8 +59,34 @@ export class UsersService {
     return this.authService.toPublicUser(saved);
   }
 
-  async update(id: number, dto: UpdateUserDto) {
+  private isPrivileged(role: UserRole) {
+    return [UserRole.ADMIN, UserRole.DIRECTOR].includes(role);
+  }
+
+  private async assertPrivilegedAccountRemains(row: User, nextRole: UserRole, nextActive: boolean) {
+    if (!row.isActive || !this.isPrivileged(row.role) || (nextActive && this.isPrivileged(nextRole))) return;
+    const activePrivileged = await this.userRepo.count({
+      where: { isActive: true, role: In([UserRole.ADMIN, UserRole.DIRECTOR]) },
+    });
+    if (activePrivileged <= 1) {
+      throw new BadRequestException('Нельзя отключить или понизить последнего администратора');
+    }
+  }
+
+  async update(id: number, dto: UpdateUserDto, actor: User) {
     const row = await this.findOne(id);
+
+    if (actor.id === row.id && dto.isActive === false) {
+      throw new BadRequestException('Нельзя заблокировать собственную учётную запись');
+    }
+    if (actor.id === row.id && dto.role !== undefined && dto.role !== row.role) {
+      throw new BadRequestException('Нельзя изменить собственную роль');
+    }
+    await this.assertPrivilegedAccountRemains(
+      row,
+      dto.role ?? row.role,
+      dto.isActive ?? row.isActive,
+    );
 
     if (dto.username && dto.username.trim() !== row.username) {
       const existing = await this.userRepo.findOne({ where: { username: dto.username.trim() } });
@@ -82,9 +110,12 @@ export class UsersService {
     return this.authService.toPublicUser(saved);
   }
 
-  async remove(id: number) {
+  async deactivate(id: number, actor: User) {
     const row = await this.findOne(id);
-    await this.userRepo.remove(row);
+    if (actor.id === row.id) throw new BadRequestException('Нельзя отключить собственную учётную запись');
+    await this.assertPrivilegedAccountRemains(row, row.role, false);
+    row.isActive = false;
+    await this.userRepo.save(row);
   }
 
   async findOnePublic(id: number) {

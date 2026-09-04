@@ -56,7 +56,3 @@ export async function changeUserPassword(id: number, password: string): Promise<
     body: JSON.stringify({ password }),
   })
 }
-
-export async function deleteUser(id: number): Promise<void> {
-  await apiRequest(`/users/${id}`, { method: 'DELETE' })
-}

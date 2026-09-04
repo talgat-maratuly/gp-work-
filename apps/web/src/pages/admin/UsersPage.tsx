@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useState } from 'react'
 import {
   changeUserPassword,
   createUser,
-  deleteUser,
   fetchUsers,
   updateUser,
   type ApiUser,
@@ -128,21 +127,6 @@ export function UsersPage() {
       await reload()
     } catch (err) {
       console.error('[users/block]', err)
-      setError(toUserMessage(err))
-    }
-  }
-
-  async function handleDelete(user: ApiUser) {
-    if (!window.confirm(`Удалить пользователя «${user.fullName}»?`)) return
-    setError(null)
-    setSuccess(null)
-    try {
-      await deleteUser(user.id)
-      if (editingId === user.id) cancelEdit()
-      setSuccess('Пользователь удален.')
-      await reload()
-    } catch (err) {
-      console.error('[users/delete]', err)
       setError(toUserMessage(err))
     }
   }
@@ -362,13 +346,6 @@ export function UsersPage() {
                       onClick={() => void toggleBlock(u)}
                     >
                       {u.isActive ? 'Заблокировать' : 'Разблокировать'}
-                    </button>
-                    <button
-                      type="button"
-                      className="text-xs text-red-600 underline"
-                      onClick={() => void handleDelete(u)}
-                    >
-                      Удалить
                     </button>
                   </div>
                 </td>

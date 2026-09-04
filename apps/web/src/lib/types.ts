@@ -2,6 +2,7 @@ export interface NurseryObject {
   id: number
   name: string
   description: string | null
+  is_active: boolean
   created_at: string
 }
 
@@ -14,6 +15,7 @@ export interface Section {
   culture: string | null
   description: string | null
   qr_code_url: string | null
+  is_active: boolean
   created_at: string
   objects?: NurseryObject
 }

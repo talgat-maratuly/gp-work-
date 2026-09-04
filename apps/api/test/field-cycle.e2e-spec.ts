@@ -107,6 +107,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       objectId: object.id,
       name: `E2E Участок ${suffix}`,
     }).expect(201)).body;
+    await request(app.getHttpServer()).patch(`/api/sections/${section.id}`).set(auth(adminToken)).send({
+      latitude: 91,
+      longitude: 51.3701,
+      radiusMeters: 5,
+    }).expect(400);
     section = (await request(app.getHttpServer()).patch(`/api/sections/${section.id}`).set(auth(adminToken)).send({
       latitude: 51.2301,
       longitude: 51.3701,
@@ -327,6 +332,40 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .toMatchObject({ id: brigade.id, isActive: false });
     expect((await request(app.getHttpServer()).get(`/api/tasks/${task.id}`).set(auth(adminToken)).expect(200)).body)
       .toMatchObject({ id: task.id, brigadeId: brigade.id });
+
+    await request(app.getHttpServer()).delete(`/api/objects/${object.id}`).set(auth(adminToken)).expect(200);
+    const archivedObject = (await request(app.getHttpServer())
+      .get(`/api/objects/${object.id}`)
+      .set(auth(adminToken))
+      .expect(200)).body;
+    expect(archivedObject).toMatchObject({ id: object.id, isActive: false });
+    expect(archivedObject.sections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: section.id, isActive: false }),
+    ]));
+    expect((await request(app.getHttpServer()).get(`/api/tasks/${task.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: task.id, sectionId: section.id });
+    await request(app.getHttpServer()).get(`/api/field/scan/${section.code}`).set(auth(workerToken)).expect(404);
+    await request(app.getHttpServer()).get(`/api/qr/${section.code}`).expect(404);
+    await request(app.getHttpServer()).post('/api/sections').set(auth(adminToken)).send({
+      objectId: object.id,
+      name: `E2E Участок архивного объекта ${suffix}`,
+    }).expect(400);
+
+    await request(app.getHttpServer()).patch(`/api/objects/${object.id}`).set(auth(adminToken)).send({
+      isActive: true,
+    }).expect(200);
+    expect((await request(app.getHttpServer()).get(`/api/sections/${section.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: section.id, isActive: false });
+    await request(app.getHttpServer()).patch(`/api/sections/${section.id}`).set(auth(adminToken)).send({
+      isActive: true,
+    }).expect(200);
+    await request(app.getHttpServer()).get(`/api/qr/${section.code}`).expect(200).expect('Content-Type', /image\/png/);
+    await request(app.getHttpServer()).delete(`/api/sections/${section.id}`).set(auth(adminToken)).expect(204);
+    expect((await request(app.getHttpServer()).get(`/api/sections/${section.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: section.id, isActive: false });
+    expect((await request(app.getHttpServer()).get(`/api/tasks/${task.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: task.id, sectionId: section.id });
+    await request(app.getHttpServer()).get(`/api/field/scan/${section.code}`).set(auth(workerToken)).expect(404);
   });
 
   it('persists a validated worker-day result and rejects forged or inconsistent evidence', async () => {

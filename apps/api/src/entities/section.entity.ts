@@ -58,6 +58,9 @@ export class Section {
   @Column({ name: 'care_recommendation', type: 'text', nullable: true })
   careRecommendation!: string | null;
 
+  @Column({ name: 'is_active', default: true })
+  isActive!: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

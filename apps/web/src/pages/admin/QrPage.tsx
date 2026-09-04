@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { QrPrintModal } from '@/components/QrPrintModal'
 import { QrCanvas } from '@/components/QrCanvas'
-import { DeleteSectionDialog } from '@/components/DeleteSectionDialog'
+import { ArchiveSectionDialog } from '@/components/DeleteSectionDialog'
 import { Toast } from '@/components/Toast'
 import { Button } from '@/components/ui/Button'
 import { fetchSections } from '@/api/sectionsApi'
@@ -65,12 +65,12 @@ export function QrPage() {
     }
   }
 
-  function handleSectionDeleted(id: number) {
+  function handleSectionArchived(id: number) {
     setSections((prev) => prev.filter((s) => s.id !== id))
     if (sectionToDelete?.id === id && printSectionCode === sectionToDelete.code) {
       setPrintSectionCode(null)
     }
-    setToast('Участок успешно удален.')
+    setToast('Участок перемещён в архив, история сохранена')
   }
 
   function openPrint(section: Section) {
@@ -151,8 +151,8 @@ export function QrPage() {
       {error && <p className="text-red-600">{error}</p>}
       {loading ? (
         <p className="text-slate-600">Загрузка…</p>
-      ) : sections.length === 0 ? (
-        <p className="text-slate-600">Участков пока нет</p>
+      ) : sections.every((section) => !section.is_active) ? (
+        <p className="text-slate-600">Активных участков пока нет</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full text-left text-sm">
@@ -167,7 +167,7 @@ export function QrPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sections.map((s) => {
+              {sections.filter((section) => section.is_active).map((s) => {
                 const formUrl = buildWorkFormUrlBySectionCode(s.code)
                 return (
                   <tr key={s.id} className="hover:bg-slate-50">
@@ -200,7 +200,7 @@ export function QrPage() {
                           onClick={() => setSectionToDelete(s)}
                           className="text-red-600 hover:bg-red-50"
                         >
-                          Удалить
+                          В архив
                         </Button>
                       </div>
                     </td>
@@ -233,10 +233,10 @@ export function QrPage() {
         autoPrint={autoPrint}
       />
 
-      <DeleteSectionDialog
+      <ArchiveSectionDialog
         section={sectionToDelete}
         onClose={() => setSectionToDelete(null)}
-        onSuccess={handleSectionDeleted}
+        onSuccess={handleSectionArchived}
       />
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

@@ -1,11 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { nextSectionCode } from '../../common/section-code';
 import { buildFormUrl, buildQrApiUrl } from '../../common/app-url';
 import { NurseryObject } from '../../entities/nursery-object.entity';
 import { Section } from '../../entities/section.entity';
-import { WorkLog } from '../../entities/work-log.entity';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 
@@ -46,7 +45,7 @@ export class SectionsService {
 
   async create(dto: CreateSectionDto) {
     const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
-    if (!object) throw new NotFoundException('Объект не найден');
+    if (!object || !object.isActive) throw new BadRequestException('Активный объект не найден');
 
     const code = await nextSectionCode(this.dataSource);
     const formUrl = buildFormUrl(code);
@@ -61,6 +60,7 @@ export class SectionsService {
       customText: dto.customText?.trim() || null,
       formUrl,
       qrCodeUrl,
+      isActive: dto.isActive ?? true,
     });
     const saved = await this.sectionRepo.save(row);
     return this.findOne(saved.id);
@@ -68,10 +68,12 @@ export class SectionsService {
 
   async update(id: number, dto: UpdateSectionDto) {
     const row = await this.findOne(id);
+    let targetObject = row.object;
     if (dto.objectId !== undefined) {
       const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
-      if (!object) throw new NotFoundException('Объект не найден');
+      if (!object || !object.isActive) throw new BadRequestException('Активный объект не найден');
       row.objectId = dto.objectId;
+      targetObject = object;
     }
     if (dto.name !== undefined) row.name = dto.name.trim();
     if (dto.area !== undefined) row.area = dto.area?.trim() || null;
@@ -80,22 +82,19 @@ export class SectionsService {
     if (dto.latitude !== undefined) row.latitude = dto.latitude;
     if (dto.longitude !== undefined) row.longitude = dto.longitude;
     if (dto.radiusMeters !== undefined) row.radiusMeters = dto.radiusMeters;
+    if (dto.isActive !== undefined) {
+      if (dto.isActive && !targetObject.isActive) {
+        throw new BadRequestException('Нельзя активировать участок архивного объекта');
+      }
+      row.isActive = dto.isActive;
+    }
     await this.sectionRepo.save(row);
     return this.findOne(id);
   }
 
   async remove(id: number): Promise<void> {
     const row = await this.findOne(id);
-    const workLogCount = await this.dataSource.getRepository(WorkLog).count({
-      where: { sectionId: id },
-    });
-
-    if (workLogCount > 0) {
-      throw new ConflictException(
-        'По данному участку существуют отчеты. Удаление невозможно. Сначала удалите журнал работ или перенесите участок в архив.',
-      );
-    }
-
-    await this.sectionRepo.remove(row);
+    row.isActive = false;
+    await this.sectionRepo.save(row);
   }
 }

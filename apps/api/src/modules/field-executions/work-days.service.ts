@@ -63,7 +63,10 @@ export class WorkDaysService {
   }
 
   private async sectionAndDistance(code: string, lat: number, lon: number, accuracy?: number) {
-    const section = await this.sections.findOne({ where: { code: code.trim() }, relations: { object: true } });
+    const section = await this.sections.findOne({
+      where: { code: code.trim(), isActive: true, object: { isActive: true } },
+      relations: { object: true },
+    });
     if (!section) throw new NotFoundException('QR участка не найден');
     let distance: number | null = null;
     if (section.latitude != null && section.longitude != null) {
@@ -74,7 +77,10 @@ export class WorkDaysService {
   }
 
   async state(sectionCode: string, user: User) {
-    const section = await this.sections.findOne({ where: { code: sectionCode }, relations: { object: true } });
+    const section = await this.sections.findOne({
+      where: { code: sectionCode.trim(), isActive: true, object: { isActive: true } },
+      relations: { object: true },
+    });
     if (!section) throw new NotFoundException('QR участка не найден');
     const session = await this.sessions.findOne({
       where: { userId: user.id, status: In([WorkDayStatus.OPEN, WorkDayStatus.RETURNED]) },

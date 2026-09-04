@@ -13,7 +13,10 @@ export class QrService {
   ) {}
 
   async getFormUrlBySectionCode(sectionCode: string): Promise<string> {
-    const section = await this.sectionRepo.findOne({ where: { code: sectionCode } });
+    const section = await this.sectionRepo.findOne({
+      where: { code: sectionCode.trim(), isActive: true, object: { isActive: true } },
+      relations: { object: true },
+    });
     if (!section) throw new NotFoundException('Участок не найден');
     return section.formUrl ?? buildFormUrl(sectionCode);
   }

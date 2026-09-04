@@ -224,8 +224,14 @@ export class FieldExecutionsService {
   }
 
   async arrive(taskId: number, dto: ArriveExecutionDto, user: User) {
-    const task = await this.taskRepo.findOne({ where: { id: taskId }, relations: { section: true } });
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId },
+      relations: { section: { object: true } },
+    });
     if (!task) throw new NotFoundException('Задача не найдена');
+    if (!task.section.isActive || !task.section.object.isActive) {
+      throw new BadRequestException('Участок задачи находится в архиве');
+    }
     if (!this.canExecute(task, user)) throw new ForbiddenException('Задача назначена другому сотруднику или бригаде');
     const duplicate = await this.duplicateEvent(dto.clientOperationId, user, 'ARRIVED', { taskId });
     if (duplicate) return this.detailed(duplicate.id);

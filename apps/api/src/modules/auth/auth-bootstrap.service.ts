@@ -16,35 +16,30 @@ export class AuthBootstrapService implements OnModuleInit {
     const username = (process.env.ADMIN_USERNAME ?? 'admin').trim();
     const configuredPassword = process.env.ADMIN_PASSWORD?.trim();
 
-    let admin =
+    const admin =
       (await this.userRepo.findOne({ where: { username } })) ??
       (await this.userRepo.findOne({ where: { role: UserRole.ADMIN } }));
 
-    if (!admin) {
-      if (process.env.NODE_ENV === 'production' && !configuredPassword) {
-        throw new Error('ADMIN_PASSWORD обязателен при первом production-запуске');
-      }
-      const password = configuredPassword || 'admin123';
-      await this.userRepo.save(
-        this.userRepo.create({
-          fullName: 'Администратор',
-          username,
-          passwordHash: await bcrypt.hash(password, 10),
-          role: UserRole.ADMIN,
-          isActive: true,
-        }),
-      );
-      console.log(`[auth] Создан администратор: логин "${username}"`);
-      return;
+    // Bootstrap создаёт первую учётную запись только один раз. Существующего
+    // администратора нельзя переименовывать, разблокировать или сбрасывать на
+    // env-пароль при каждом рестарте приложения.
+    if (admin) return;
+    if (process.env.NODE_ENV === 'production' && !configuredPassword) {
+      throw new Error('ADMIN_PASSWORD обязателен при первом production-запуске');
     }
-
-    if (!configuredPassword) return;
-
-    admin.username = username;
-    admin.passwordHash = await bcrypt.hash(configuredPassword, 10);
-    admin.role = UserRole.ADMIN;
-    admin.isActive = true;
-    await this.userRepo.save(admin);
-    console.log(`[auth] Пароль администратора синхронизирован из ADMIN_PASSWORD (логин "${username}")`);
+    const password = configuredPassword || 'admin123';
+    if (password.length < 8) {
+      throw new Error('ADMIN_PASSWORD должен содержать минимум 8 символов');
+    }
+    await this.userRepo.save(
+      this.userRepo.create({
+        fullName: 'Администратор',
+        username,
+        passwordHash: await bcrypt.hash(password, 10),
+        role: UserRole.ADMIN,
+        isActive: true,
+      }),
+    );
+    console.log(`[auth] Создан администратор: логин "${username}"`);
   }
 }

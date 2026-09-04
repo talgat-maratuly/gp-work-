@@ -497,7 +497,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await request(app.getHttpServer()).post('/api/auth/login').set(client(disposable.username)).send({
       username: disposable.username,
       password: 'disabled-password',
-    }).expect(403);
+    }).expect(401);
     await request(app.getHttpServer()).delete(`/api/users/${adminUserId}`).set(auth(adminToken)).expect(400);
     await request(app.getHttpServer()).delete(`/api/brigades/${brigade.id}`).set(auth(adminToken)).expect(204);
     expect((await request(app.getHttpServer()).get(`/api/brigades/${brigade.id}`).set(auth(adminToken)).expect(200)).body)

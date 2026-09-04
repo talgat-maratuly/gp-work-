@@ -28,7 +28,7 @@ export class AuthService {
       throw new UnauthorizedException('Неверный логин или пароль');
     }
     if (!user.isActive) {
-      throw new ForbiddenException('Пользователь заблокирован');
+      throw new UnauthorizedException('Неверный логин или пароль');
     }
     if (!user.passwordHash) {
       throw new UnauthorizedException('Неверный логин или пароль');
@@ -60,13 +60,17 @@ export class AuthService {
     }
     const password = process.env.ADMIN_PASSWORD?.trim();
     if (!password) throw new ForbiddenException('ADMIN_PASSWORD не настроен');
+    if (password.length < 8) {
+      throw new ForbiddenException('ADMIN_PASSWORD должен содержать минимум 8 символов');
+    }
     const passwordHash = await bcrypt.hash(password, 10);
-    let admin = await this.userRepo.findOne({ where: { username: 'admin' } });
+    const username = (process.env.ADMIN_USERNAME ?? 'admin').trim();
+    let admin = await this.userRepo.findOne({ where: { username } });
 
     if (!admin) {
       admin = this.userRepo.create({
         fullName: 'Администратор',
-        username: 'admin',
+        username,
       });
     }
 

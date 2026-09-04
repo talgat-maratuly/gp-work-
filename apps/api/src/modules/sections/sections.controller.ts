@@ -10,7 +10,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { SectionsService } from './sections.service';
@@ -40,14 +39,14 @@ export class SectionsController {
     return this.sectionsService.create(dto);
   }
 
-  @Public()
   @Get('code/:code')
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
   findByCode(@Param('code') code: string) {
     return this.sectionsService.findByCode(code);
   }
 
-  @Public()
   @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.sectionsService.findOne(id);
   }

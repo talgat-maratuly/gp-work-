@@ -163,3 +163,11 @@
 - Исправление: DELETE/кнопка выполняют деактивацию, история и связи остаются; UI показывает статус, loading/error/empty/success и позволяет восстановить бригаду.
 - Regression: PostgreSQL E2E проверяет `isActive=false` после DELETE при сохранении задачи и состава.
 - Статус: ожидает E2E.
+
+### QA-021 — legacy WorkForm позволял анонимно создавать недоказанные work logs
+
+- Симптом: публичный `POST /work-logs` принимал произвольные ФИО, участок, процент, GPS-флаг и URL фото без login, назначения, geofence, Face, checklist или stored-file validation.
+- Первопричина: старая QR-форма осталась параллельным write-flow после появления evidence execution.
+- Исправление: анонимный/manual write endpoint и неиспользуемый `tasks/open` удалены; legacy URL после авторизации перенаправляется в единственный `/field/scan/:sectionCode` flow.
+- Regression: PostgreSQL E2E доказывает `404` для удалённого `POST /work-logs` и `401` для анонимного чтения участка; production build доказывает защищённый legacy redirect.
+- Статус: ожидает E2E и browser smoke.

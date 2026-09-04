@@ -8,11 +8,9 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { User } from '../../entities/user.entity';
@@ -66,12 +64,6 @@ export class TasksController {
     @CurrentUser() user: User,
   ) {
     return this.tasksService.completeTask(id, user, dto);
-  }
-
-  @Public()
-  @Get('open')
-  findOpen(@Query('sectionId', ParseIntPipe) sectionId: number) {
-    return this.tasksService.findOpenForSection(sectionId);
   }
 
   @Post()

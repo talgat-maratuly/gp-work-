@@ -19,27 +19,6 @@ export async function fetchWorkLogs(filters: WorkLogFilters = {}): Promise<WorkL
   return data.map(mapWorkLog)
 }
 
-export async function createWorkLog(payload: {
-  sectionId: number
-  workerFullName: string
-  workTypeId?: number
-  taskId?: number
-  customWorkType?: string | null
-  workVolume: string
-  comment?: string
-  photoUrls: string[]
-  latitude?: number | null
-  longitude?: number | null
-  locationAccuracy?: number | null
-  locationAllowed?: boolean
-}): Promise<WorkLog> {
-  const data = await apiRequest<ApiWorkLog>('/work-logs', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-  return mapWorkLog(data)
-}
-
 export async function deleteWorkLog(id: number): Promise<void> {
   await apiRequest(`/work-logs/${id}`, { method: 'DELETE' })
 }

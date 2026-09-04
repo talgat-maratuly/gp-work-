@@ -112,6 +112,13 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       longitude: 51.3701,
       radiusMeters: 150,
     }).expect(200)).body;
+    await request(app.getHttpServer()).get(`/api/sections/${section.id}`).expect(401);
+    await request(app.getHttpServer()).post('/api/work-logs').send({
+      sectionId: section.id,
+      workerFullName: 'Аноним',
+      workVolume: '100%',
+      photoUrls: [],
+    }).expect(404);
     const workType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
       name: `E2E Работа ${suffix}`,
     }).expect(201)).body;

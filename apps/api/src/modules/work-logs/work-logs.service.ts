@@ -2,7 +2,6 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { endOfDay, isValid, parseISO, startOfDay, startOfMonth, subDays } from 'date-fns';
 import { Repository } from 'typeorm';
-import { serializePhotoUrls } from '../../common/photo-urls';
 import { mapWorkLogsWithPhotos, withPhotoUrlsArray } from '../../common/work-log-response';
 import { ReviewStatus } from '../../common/enums/review-status.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
@@ -11,10 +10,7 @@ import { Section } from '../../entities/section.entity';
 import { Task } from '../../entities/task.entity';
 import { User } from '../../entities/user.entity';
 import { WorkLog } from '../../entities/work-log.entity';
-import { WorkType } from '../../entities/work-type.entity';
 import { UsersService } from '../users/users.service';
-import { AttendanceService } from '../attendance/attendance.service';
-import { CreateWorkLogDto } from './dto/create-work-log.dto';
 import { ReviewWorkLogDto } from './dto/review-work-log.dto';
 import { WorkLogQueryDto } from './dto/work-log-query.dto';
 
@@ -25,12 +21,9 @@ export class WorkLogsService {
     private readonly workLogRepo: Repository<WorkLog>,
     @InjectRepository(Section)
     private readonly sectionRepo: Repository<Section>,
-    @InjectRepository(WorkType)
-    private readonly workTypeRepo: Repository<WorkType>,
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
     private readonly usersService: UsersService,
-    private readonly attendanceService: AttendanceService,
   ) {}
 
   private parseQueryDateOrThrow(value: string, field: 'dateFrom' | 'dateTo'): Date {
@@ -115,59 +108,6 @@ export class WorkLogsService {
     const row = await this.baseQuery().where('workLog.id = :id', { id }).getOne();
     if (!row) throw new NotFoundException('Запись не найдена');
     return withPhotoUrlsArray(row);
-  }
-
-  async create(dto: CreateWorkLogDto, user?: User) {
-    const section = await this.sectionRepo.findOne({ where: { id: dto.sectionId } });
-    if (!section) throw new NotFoundException('Участок не найден');
-
-    if (dto.workTypeId) {
-      const wt = await this.workTypeRepo.findOne({ where: { id: dto.workTypeId } });
-      if (!wt) throw new NotFoundException('Вид работы не найден');
-    }
-
-    if (dto.taskId) {
-      const task = await this.taskRepo.findOne({ where: { id: dto.taskId } });
-      if (!task) throw new NotFoundException('Задача не найдена');
-      if (task.sectionId !== dto.sectionId) {
-        throw new NotFoundException('Задача не относится к этому участку');
-      }
-    }
-
-    const hasCoords = dto.latitude != null && dto.longitude != null;
-    const workerFullName = (user?.fullName || dto.workerFullName || '').trim().replace(/\s+/g, ' ');
-    if (!workerFullName) {
-      throw new BadRequestException('Укажите ФИО работника');
-    }
-
-    const row = this.workLogRepo.create({
-      sectionId: dto.sectionId,
-      workerFullName,
-      workTypeId: dto.workTypeId ?? null,
-      taskId: dto.taskId ?? null,
-      customWorkType: dto.customWorkType?.trim() || null,
-      workVolume: dto.workVolume.trim(),
-      comment: dto.comment?.trim() ?? '',
-      photoUrls: serializePhotoUrls(dto.photoUrls ?? []),
-      latitude: dto.latitude ?? null,
-      longitude: dto.longitude ?? null,
-      locationAccuracy: dto.locationAccuracy ?? null,
-      locationAllowed: dto.locationAllowed ?? hasCoords,
-      submittedAt: new Date(),
-    });
-    const saved = await this.workLogRepo.save(row);
-
-    await this.attendanceService.syncOnWorkLogCreated(saved);
-
-    if (dto.taskId) {
-      const task = await this.taskRepo.findOne({ where: { id: dto.taskId } });
-      if (task && (task.status === TaskStatus.ASSIGNED || task.status === TaskStatus.ACCEPTED)) {
-        task.status = TaskStatus.IN_PROGRESS;
-        await this.taskRepo.save(task);
-      }
-    }
-
-    return this.findOne(saved.id);
   }
 
   async review(id: number, dto: ReviewWorkLogDto, reviewer: User) {

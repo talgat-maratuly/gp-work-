@@ -219,17 +219,6 @@ export class TasksService {
     return task;
   }
 
-  async findOpenForSection(sectionId: number) {
-    const rows = await this.baseQuery()
-      .where('task.sectionId = :sectionId', { sectionId })
-      .andWhere('task.status IN (:...statuses)', {
-        statuses: [TaskStatus.ASSIGNED, TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS],
-      })
-      .orderBy('task.dueDate', 'ASC', 'NULLS LAST')
-      .getMany();
-    return rows.map((r) => this.mapTask(r));
-  }
-
   async findOne(id: number) {
     const row = await this.baseQuery().where('task.id = :id', { id }).getOne();
     if (!row) throw new NotFoundException('Задача не найдена');
@@ -295,4 +284,3 @@ export class TasksService {
     await this.taskRepo.remove(row);
   }
 }
-

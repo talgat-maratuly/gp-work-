@@ -9,7 +9,6 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { WorkTypesService } from './work-types.service';
@@ -33,7 +32,6 @@ export class WorkTypesController {
     return this.workTypesService.findAll();
   }
 
-  @Public()
   @Get('active')
   findActive() {
     return this.workTypesService.findActive();

@@ -242,10 +242,29 @@ export class WorkDaysService {
     });
   }
 
-  list() { return this.sessions.find({ relations: { user: true, section: { object: true } }, order: { startedAt: 'DESC' } }); }
+  list(user: User) {
+    const query = this.sessions
+      .createQueryBuilder('session')
+      .leftJoinAndSelect('session.user', 'worker')
+      .leftJoinAndSelect('session.section', 'section')
+      .leftJoinAndSelect('section.object', 'object')
+      .orderBy('session.startedAt', 'DESC');
+    if (user.role === UserRole.BRIGADIER) {
+      query.andWhere(user.brigadeId ? 'worker.brigadeId = :brigadeId' : '1 = 0', {
+        brigadeId: user.brigadeId ?? -1,
+      });
+    }
+    return query.getMany();
+  }
   async review(id: number, dto: ReviewWorkDayDto, reviewer: User) {
-    const row = await this.sessions.findOne({ where: { id } }); if (!row) throw new NotFoundException('Смена не найдена');
+    const row = await this.sessions.findOne({ where: { id }, relations: { user: true } }); if (!row) throw new NotFoundException('Смена не найдена');
     if (![UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRIGADIER, UserRole.AGRONOMIST].includes(reviewer.role)) throw new ForbiddenException();
+    if (
+      reviewer.role === UserRole.BRIGADIER &&
+      (!reviewer.brigadeId || row.user.brigadeId !== reviewer.brigadeId)
+    ) {
+      throw new ForbiddenException('Бригадир может проверять рабочие дни только своей бригады');
+    }
     if (row.status !== WorkDayStatus.CLOSED) throw new BadRequestException('Можно проверить только завершённую смену');
     if (!dto.accepted && !dto.comment?.trim()) throw new BadRequestException('При возврате обязательно укажите причину');
     row.status = dto.accepted ? WorkDayStatus.REVIEWED : WorkDayStatus.RETURNED; row.reviewedById = reviewer.id; row.reviewedAt = new Date(); row.reviewComment = dto.comment?.trim() || null;

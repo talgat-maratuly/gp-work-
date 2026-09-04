@@ -40,7 +40,7 @@ export class FieldExecutionsController {
 
   @Get('work-days')
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  workDayList() { return this.workDays.list(); }
+  workDayList(@CurrentUser() user: User) { return this.workDays.list(user); }
 
   @Post('work-days/:id/review')
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRIGADIER, UserRole.AGRONOMIST)

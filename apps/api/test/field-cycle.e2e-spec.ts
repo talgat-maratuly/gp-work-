@@ -481,6 +481,16 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'worker-password',
       role: 'WORKER',
     }).expect(201)).body;
+    const outsiderBrigadier = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `E2E Чужой бригадир ${suffix}`,
+      username: `e2e-outsider-brigadier-${suffix}`,
+      password: 'brigadier-password',
+      role: 'BRIGADIER',
+    }).expect(201)).body;
+    const outsiderToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+      username: outsiderBrigadier.username,
+      password: 'brigadier-password',
+    }).expect(201)).body.accessToken as string;
     const object = (await request(app.getHttpServer()).post('/api/objects').set(auth(adminToken)).send({
       name: `E2E Объект смены ${suffix}`,
     }).expect(201)).body;
@@ -542,6 +552,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(repeatedStart.id).toBe(session.id);
     expect(session.taskScope).toEqual([{ taskId: task.id, description: task.description }]);
     expect(session.startLivenessEvidenceUrls).toEqual(startFaces);
+    const outsiderDays = (await request(app.getHttpServer())
+      .get('/api/field/work-days')
+      .set(auth(outsiderToken))
+      .expect(200)).body as Array<{ id: number }>;
+    expect(outsiderDays.some((row) => row.id === session.id)).toBe(false);
     const openAttendance = (await request(app.getHttpServer())
       .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
       .set(auth(adminToken))
@@ -622,6 +637,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(closedAttendance.checkOutTime).toBeTruthy();
     expect(closedAttendance.checkOutLatitude).toBeCloseTo(51.2301);
     expect(closedAttendance.checkOutLongitude).toBeCloseTo(51.3701);
+    await request(app.getHttpServer())
+      .post(`/api/field/work-days/${session.id}/review`)
+      .set(auth(outsiderToken))
+      .send({ accepted: true })
+      .expect(403);
     await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))

@@ -239,6 +239,17 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(emptyDashboard.cards.objectsTotal).toBe(0);
     expect(emptyDashboard.cards.tasksToday).toBe(0);
     expect(emptyDashboard.tasksTodayList).toEqual([]);
+    const unassignedBrigadierDashboard = (await request(app.getHttpServer())
+      .get(`/api/dashboard/summary?date=${businessDate()}`)
+      .set(auth(outsiderBrigadierToken))
+      .expect(200)).body;
+    expect(unassignedBrigadierDashboard.cards.activeBrigades).toBe(0);
+    expect(unassignedBrigadierDashboard.cards.tasksToday).toBe(0);
+    expect(unassignedBrigadierDashboard.tasksTodayList).toEqual([]);
+    await request(app.getHttpServer())
+      .get(`/api/dashboard/summary?brigadeId=${brigade.id}`)
+      .set(auth(outsiderBrigadierToken))
+      .expect(403);
     await request(app.getHttpServer()).patch(`/api/work-types/${workType.id}`).set(auth(adminToken)).send({
       isActive: false,
     }).expect(400);

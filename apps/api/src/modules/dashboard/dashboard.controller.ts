@@ -1,7 +1,9 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { User } from '../../entities/user.entity';
 import { DashboardService } from './dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 
@@ -21,7 +23,7 @@ export class DashboardController {
 
   @Get('summary')
   @Roles(...VIEW_ROLES)
-  summary(@Query() query: DashboardQueryDto) {
-    return this.dashboardService.summary(query);
+  summary(@Query() query: DashboardQueryDto, @CurrentUser() user: User) {
+    return this.dashboardService.summary(query, user);
   }
 }

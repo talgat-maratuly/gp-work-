@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { businessDateString } from '../../common/business-date';
@@ -33,6 +33,7 @@ export interface DashboardFilters {
   objectId?: number;
   brigadeId?: number;
   shift?: WateringShift;
+  createdById?: number;
 }
 
 @Injectable()
@@ -55,7 +56,21 @@ export class DashboardService {
     private readonly managementService: ManagementService,
   ) {}
 
-  async summary(filters: DashboardFilters = {}) {
+  private scopeFilters(filters: DashboardFilters, user: User): DashboardFilters {
+    if (user.role === UserRole.BRIGADIER) {
+      if (filters.brigadeId !== undefined && filters.brigadeId !== user.brigadeId) {
+        throw new ForbiddenException('Бригадир может просматривать только свою бригаду');
+      }
+      return { ...filters, brigadeId: user.brigadeId ?? 0 };
+    }
+    if (user.role === UserRole.AGRONOMIST) {
+      return { ...filters, createdById: user.id };
+    }
+    return filters;
+  }
+
+  async summary(requestedFilters: DashboardFilters = {}, user: User) {
+    const filters = this.scopeFilters(requestedFilters, user);
     const date = filters.date || businessDateString();
     const today = businessDateString();
     const period = filters.period || 'day';
@@ -67,13 +82,13 @@ export class DashboardService {
     const objectQuery = this.objectRepo
       .createQueryBuilder('object')
       .where('object.is_active = true');
-    if (filters.objectId) objectQuery.andWhere('object.id = :objectId', { objectId: filters.objectId });
+    if (filters.objectId !== undefined) objectQuery.andWhere('object.id = :objectId', { objectId: filters.objectId });
     const objectsTotal = await objectQuery.getCount();
 
     const brigadeQuery = this.brigadeRepo
       .createQueryBuilder('brigade')
       .where('brigade.is_active = true');
-    if (filters.brigadeId) brigadeQuery.andWhere('brigade.id = :brigadeId', { brigadeId: filters.brigadeId });
+    if (filters.brigadeId !== undefined) brigadeQuery.andWhere('brigade.id = :brigadeId', { brigadeId: filters.brigadeId });
     const activeBrigades = await brigadeQuery.getCount();
 
     const waterCarriers = await this.userRepo.count({
@@ -85,7 +100,7 @@ export class DashboardService {
       .innerJoinAndSelect('section.object', 'object')
       .where('section.is_active = true')
       .andWhere('object.is_active = true');
-    if (filters.objectId) sectionQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.objectId !== undefined) sectionQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
     const sections = await sectionQuery.getMany();
     const totalAreaM2 = sections.reduce((s, sec) => s + parseArea(sec.area), 0);
 
@@ -97,11 +112,14 @@ export class DashboardService {
       .leftJoinAndSelect('task.assignee', 'assignee')
       .where('task.due_date = :date', { date })
       .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED });
-    if (filters.objectId) {
+    if (filters.objectId !== undefined) {
       tasksTodayQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
     }
-    if (filters.brigadeId) {
+    if (filters.brigadeId !== undefined) {
       tasksTodayQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    if (filters.createdById !== undefined) {
+      tasksTodayQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
     }
     const tasksTodayRows = await tasksTodayQuery.orderBy('task.id', 'DESC').getMany();
 
@@ -120,15 +138,16 @@ export class DashboardService {
       .andWhere('task.status NOT IN (:...closed)', {
         closed: [...CLOSED, TaskStatus.CANCELLED],
       });
-    if (filters.objectId) overdueQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
-    if (filters.brigadeId) overdueQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    if (filters.objectId !== undefined) overdueQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.brigadeId !== undefined) overdueQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    if (filters.createdById !== undefined) overdueQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
     const tasksOverdue = await overdueQuery.getCount();
 
     // Полив за дату
     const wateringQuery = this.wateringRepo
       .createQueryBuilder('watering')
       .where('watering.work_date = :date', { date });
-    if (filters.objectId) wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.objectId !== undefined) wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
     if (filters.shift) wateringQuery.andWhere('watering.shift = :shift', { shift: filters.shift });
     const wateringToday = await wateringQuery.getMany();
     const wateringPlannedLiters = wateringToday.reduce(
@@ -173,8 +192,8 @@ export class DashboardService {
     const scheduleQuery = this.scheduleRepo
       .createQueryBuilder('schedule')
       .where('schedule.planned_date = :date', { date });
-    if (filters.objectId) scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
-    if (filters.brigadeId) scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    if (filters.objectId !== undefined) scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.brigadeId !== undefined) scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
     const scheduleToday = await scheduleQuery.getMany();
     const productionPlan = {
       total: scheduleToday.length,

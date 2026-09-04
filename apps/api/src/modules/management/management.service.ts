@@ -46,6 +46,7 @@ export interface OverviewFilters {
   objectId?: number;
   brigadeId?: number;
   shift?: WateringShift;
+  createdById?: number;
 }
 
 @Injectable()
@@ -203,11 +204,14 @@ export class ManagementService {
         to: range.to,
       })
       .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED });
-    if (filters.objectId) {
+    if (filters.objectId !== undefined) {
       taskQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
     }
-    if (filters.brigadeId) {
+    if (filters.brigadeId !== undefined) {
       taskQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    if (filters.createdById !== undefined) {
+      taskQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
     }
     const tasks = await taskQuery.orderBy('task.due_date', 'DESC').getMany();
 
@@ -235,7 +239,7 @@ export class ManagementService {
     const wateringQuery = this.wateringRepo
       .createQueryBuilder('watering')
       .where('watering.work_date BETWEEN :from AND :to', { from: range.from, to: range.to });
-    if (filters.objectId) {
+    if (filters.objectId !== undefined) {
       wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
     }
     if (filters.shift) {
@@ -260,10 +264,10 @@ export class ManagementService {
     const scheduleQuery = this.scheduleRepo
       .createQueryBuilder('schedule')
       .where('schedule.planned_date BETWEEN :from AND :to', { from: range.from, to: range.to });
-    if (filters.objectId) {
+    if (filters.objectId !== undefined) {
       scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
     }
-    if (filters.brigadeId) {
+    if (filters.brigadeId !== undefined) {
       scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
     }
     const schedule = await scheduleQuery.getMany();

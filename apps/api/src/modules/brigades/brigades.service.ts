@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { BrigadeMember } from '../../entities/brigade-member.entity';
 import { Brigade } from '../../entities/brigade.entity';
 import { User } from '../../entities/user.entity';
@@ -19,9 +20,9 @@ export class BrigadesService {
   ) {}
 
   private async toResponse(brigade: Brigade) {
-    const members = await this.memberRepo.find({
+    const members = await this.userRepo.find({
       where: { brigadeId: brigade.id },
-      relations: { user: true },
+      order: { fullName: 'ASC' },
     });
     return {
       id: brigade.id,
@@ -31,11 +32,11 @@ export class BrigadesService {
       isActive: brigade.isActive,
       createdAt: brigade.createdAt,
       updatedAt: brigade.updatedAt,
-      workerIds: members.map((m) => m.userId),
-      workers: members.map((m) => ({
-        id: m.user.id,
-        fullName: m.user.fullName,
-        username: m.user.username,
+      workerIds: members.map((member) => member.id),
+      workers: members.map((member) => ({
+        id: member.id,
+        fullName: member.fullName,
+        username: member.username,
       })),
     };
   }
@@ -51,31 +52,51 @@ export class BrigadesService {
     return this.toResponse(row);
   }
 
-  private async syncMembers(brigadeId: number, workerIds: number[]) {
-    await this.memberRepo.delete({ brigadeId });
-    if (!workerIds.length) return;
-
-    const users = await this.userRepo.find({ where: { id: In(workerIds) } });
-    const members = users.map((user) =>
-      this.memberRepo.create({ brigadeId, userId: user.id }),
-    );
-    await this.memberRepo.save(members);
-
-    for (const user of users) {
-      user.brigadeId = brigadeId;
-      await this.userRepo.save(user);
+  private async validateMembers(workerIds: number[], brigadierId: number | null, brigadeId?: number) {
+    const memberIds = [...new Set([...workerIds, ...(brigadierId == null ? [] : [brigadierId])])];
+    if (!memberIds.length) return memberIds;
+    const users = await this.userRepo.find({ where: { id: In(memberIds) } });
+    if (users.length !== memberIds.length) throw new BadRequestException('Один из участников бригады не найден');
+    const fieldRoles = [UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.BRIGADIER, UserRole.AGRONOMIST];
+    if (users.some((user) => !user.isActive || !fieldRoles.includes(user.role))) {
+      throw new BadRequestException('В бригаду можно добавить только активного сотрудника полевой роли');
     }
+    if (brigadierId != null && users.find((user) => user.id === brigadierId)?.role !== UserRole.BRIGADIER) {
+      throw new BadRequestException('Бригадир должен иметь роль BRIGADIER');
+    }
+    const otherLeadership = await this.brigadeRepo.find({ where: { brigadierId: In(memberIds) } });
+    if (otherLeadership.some((brigade) => brigade.id !== brigadeId)) {
+      throw new BadRequestException('Бригадир другой бригады не может быть переведён как обычный участник');
+    }
+    return memberIds;
+  }
+
+  private async syncMembers(manager: EntityManager, brigadeId: number, memberIds: number[]) {
+    const users = manager.getRepository(User);
+    const memberships = manager.getRepository(BrigadeMember);
+    await users.update({ brigadeId }, { brigadeId: null });
+    await memberships.delete({ brigadeId });
+    if (!memberIds.length) return;
+    await memberships.delete({ userId: In(memberIds) });
+    await users.update({ id: In(memberIds) }, { brigadeId });
+    await memberships.save(memberIds.map((userId) => memberships.create({ brigadeId, userId })));
   }
 
   async create(dto: CreateBrigadeDto) {
-    const row = this.brigadeRepo.create({
-      name: dto.name.trim(),
-      brigadierId: dto.brigadierId ?? null,
-      description: dto.description?.trim() || null,
-      isActive: dto.isActive ?? true,
+    const brigadierId = dto.brigadierId ?? null;
+    const memberIds = await this.validateMembers(dto.workerIds ?? [], brigadierId);
+    const saved = await this.brigadeRepo.manager.transaction(async (manager) => {
+      const brigades = manager.getRepository(Brigade);
+      const row = brigades.create({
+        name: dto.name,
+        brigadierId,
+        description: dto.description?.trim() || null,
+        isActive: dto.isActive ?? true,
+      });
+      const brigade = await brigades.save(row);
+      await this.syncMembers(manager, brigade.id, memberIds);
+      return brigade;
     });
-    const saved = await this.brigadeRepo.save(row);
-    await this.syncMembers(saved.id, dto.workerIds ?? []);
     return this.findOne(saved.id);
   }
 
@@ -83,15 +104,20 @@ export class BrigadesService {
     const row = await this.brigadeRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Бригада не найдена');
 
-    if (dto.name !== undefined) row.name = dto.name.trim();
+    const currentMembers = await this.userRepo.find({ where: { brigadeId: id } });
+    const brigadierId = dto.brigadierId !== undefined ? dto.brigadierId : row.brigadierId;
+    const requestedMembers = dto.workerIds ?? currentMembers.map((member) => member.id);
+    const memberIds = await this.validateMembers(requestedMembers, brigadierId, id);
+    if (dto.name !== undefined) row.name = dto.name;
     if (dto.brigadierId !== undefined) row.brigadierId = dto.brigadierId;
     if (dto.description !== undefined) row.description = dto.description?.trim() || null;
     if (dto.isActive !== undefined) row.isActive = dto.isActive;
-    await this.brigadeRepo.save(row);
-
-    if (dto.workerIds !== undefined) {
-      await this.syncMembers(id, dto.workerIds);
-    }
+    await this.brigadeRepo.manager.transaction(async (manager) => {
+      await manager.getRepository(Brigade).save(row);
+      if (dto.workerIds !== undefined || dto.brigadierId !== undefined) {
+        await this.syncMembers(manager, id, memberIds);
+      }
+    });
 
     return this.findOne(id);
   }
@@ -99,6 +125,7 @@ export class BrigadesService {
   async remove(id: number) {
     const row = await this.brigadeRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Бригада не найдена');
-    await this.brigadeRepo.remove(row);
+    row.isActive = false;
+    await this.brigadeRepo.save(row);
   }
 }

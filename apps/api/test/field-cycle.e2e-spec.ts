@@ -84,11 +84,22 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const assignees = (await request(app.getHttpServer()).get('/api/users/assignees').set(auth(adminToken)).expect(200)).body;
     expect(assignees.some((row: { id: number }) => row.id === worker.id)).toBe(true);
     expect(assignees.some((row: { id: number }) => row.id === controlUser.id)).toBe(false);
+    await request(app.getHttpServer()).post('/api/brigades').set(auth(adminToken)).send({
+      name: '   ',
+      brigadierId: controlUser.id,
+      workerIds: [controlUser.id],
+    }).expect(400);
+    await request(app.getHttpServer()).post('/api/brigades').set(auth(adminToken)).send({
+      name: `E2E Недопустимый бригадир ${suffix}`,
+      brigadierId: controlUser.id,
+      workerIds: [controlUser.id],
+    }).expect(400);
     const brigade = (await request(app.getHttpServer()).post('/api/brigades').set(auth(adminToken)).send({
       name: `E2E Бригада ${suffix}`,
       brigadierId: brigadier.id,
       workerIds: [worker.id, brigadier.id],
     }).expect(201)).body;
+    expect(new Set(brigade.workerIds)).toEqual(new Set([worker.id, brigadier.id]));
     const object = (await request(app.getHttpServer()).post('/api/objects').set(auth(adminToken)).send({
       name: `E2E Объект ${suffix}`,
     }).expect(201)).body;
@@ -304,6 +315,11 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'disabled-password',
     }).expect(403);
     await request(app.getHttpServer()).delete(`/api/users/${adminUserId}`).set(auth(adminToken)).expect(400);
+    await request(app.getHttpServer()).delete(`/api/brigades/${brigade.id}`).set(auth(adminToken)).expect(204);
+    expect((await request(app.getHttpServer()).get(`/api/brigades/${brigade.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: brigade.id, isActive: false });
+    expect((await request(app.getHttpServer()).get(`/api/tasks/${task.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: task.id, brigadeId: brigade.id });
   });
 
   it('persists a validated worker-day result and rejects forged or inconsistent evidence', async () => {

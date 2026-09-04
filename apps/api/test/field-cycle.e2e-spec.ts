@@ -49,6 +49,12 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
 
   it('runs object → task → route → QR/GPS/Face → evidence → materials → acceptance → KPI/report', async () => {
     const suffix = Date.now();
+    await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      fullName: `Слабый пароль ${suffix}`,
+      username: `weak-password-${suffix}`,
+      password: '1234',
+      role: 'WORKER',
+    }).expect(400);
     const worker = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
       fullName: `E2E Рабочий ${suffix}`,
       username: `e2e-worker-${suffix}`,
@@ -102,19 +108,18 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await request(app.getHttpServer()).post(`/api/routes/${route.id}/start`).set(auth(workerToken)).expect(201);
 
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
-    const upload = async (name: string) => (await request(app.getHttpServer())
-      .post('/api/uploads/photos')
-      .set(auth(workerToken))
-      .attach('files', jpeg, { filename: name, contentType: 'image/jpeg' })
-      .expect(201)).body[0] as string;
-    const faceUrls = await Promise.all([
-      upload('face-center.jpg'),
-      upload('face-left.jpg'),
-      upload('face-right.jpg'),
+    const uploadMany = async (names: string[]) => {
+      let uploadRequest = request(app.getHttpServer()).post('/api/uploads/photos').set(auth(workerToken));
+      for (const name of names) {
+        uploadRequest = uploadRequest.attach('files', jpeg, { filename: name, contentType: 'image/jpeg' });
+      }
+      return (await uploadRequest.expect(201)).body as string[];
+    };
+    const upload = async (name: string) => (await uploadMany([name]))[0];
+    const [faceCenter, faceLeft, faceRight, beforeUrl, afterUrl, forgedFutureAfterUrl] = await uploadMany([
+      'face-center.jpg', 'face-left.jpg', 'face-right.jpg', 'before.jpg', 'after.jpg', 'after-forged-future.jpg',
     ]);
-    const beforeUrl = await upload('before.jpg');
-    const afterUrl = await upload('after.jpg');
-    const forgedFutureAfterUrl = await upload('after-forged-future.jpg');
+    const faceUrls = [faceCenter, faceLeft, faceRight];
 
     const arrivalBody = {
       clientOperationId: clientId(),
@@ -149,10 +154,8 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
       clientOperationId: clientId(), selfieUrl: faceUrls[0], livenessEvidenceUrls: faceUrls,
     }).expect(400);
-    const repeatedFaceUrls = await Promise.all([
-      upload('face-repeat-center.jpg'),
-      upload('face-repeat-left.jpg'),
-      upload('face-repeat-right.jpg'),
+    const repeatedFaceUrls = await uploadMany([
+      'face-repeat-center.jpg', 'face-repeat-left.jpg', 'face-repeat-right.jpg',
     ]);
     execution = (await request(app.getHttpServer()).post(`/api/field/executions/${execution.id}/face`).set(auth(workerToken)).send({
       clientOperationId: clientId(), selfieUrl: repeatedFaceUrls[0], livenessEvidenceUrls: repeatedFaceUrls,
@@ -267,6 +270,9 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(reportRow.face.status).toBe('VERIFIED');
     expect(reportRow.photos.map((row: { phase: string }) => row.phase).sort()).toEqual(['AFTER', 'AFTER', 'AFTER', 'BEFORE']);
     expect(reportRow.materials).toHaveLength(1);
+    expect(execution.worker).not.toHaveProperty('passwordHash');
+    const users = (await request(app.getHttpServer()).get('/api/users').set(auth(adminToken)).expect(200)).body;
+    expect(users.every((row: Record<string, unknown>) => !('passwordHash' in row))).toBe(true);
   });
 
   it('persists a validated worker-day result and rejects forged or inconsistent evidence', async () => {
@@ -304,13 +310,17 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       password: 'worker-password',
     }).expect(201)).body.accessToken as string;
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
-    const upload = async (name: string) => (await request(app.getHttpServer())
-      .post('/api/uploads/photos')
-      .set(auth(token))
-      .attach('files', jpeg, { filename: name, contentType: 'image/jpeg' })
-      .expect(201)).body[0] as string;
-    const startFaces = await Promise.all(['start-center.jpg', 'start-left.jpg', 'start-right.jpg'].map(upload));
-    const startPhoto = await upload('start-work.jpg');
+    const uploadMany = async (names: string[]) => {
+      let uploadRequest = request(app.getHttpServer()).post('/api/uploads/photos').set(auth(token));
+      for (const name of names) {
+        uploadRequest = uploadRequest.attach('files', jpeg, { filename: name, contentType: 'image/jpeg' });
+      }
+      return (await uploadRequest.expect(201)).body as string[];
+    };
+    const [startCenter, startLeft, startRight, startPhoto] = await uploadMany([
+      'start-center.jpg', 'start-left.jpg', 'start-right.jpg', 'start-work.jpg',
+    ]);
+    const startFaces = [startCenter, startLeft, startRight];
     const startBody = {
       clientSessionId: clientId(),
       sectionCode: section.code,
@@ -335,8 +345,10 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(session.taskScope).toEqual([{ taskId: task.id, description: task.description }]);
     expect(session.startLivenessEvidenceUrls).toEqual(startFaces);
 
-    const endFaces = await Promise.all(['end-center.jpg', 'end-left.jpg', 'end-right.jpg'].map(upload));
-    const resultPhoto = await upload('result-work.jpg');
+    const [endCenter, endLeft, endRight, resultPhoto] = await uploadMany([
+      'end-center.jpg', 'end-left.jpg', 'end-right.jpg', 'result-work.jpg',
+    ]);
+    const endFaces = [endCenter, endLeft, endRight];
     const validResult = {
       taskId: task.id,
       percent: 75,
@@ -434,10 +446,10 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
         summary: 'Замечание устранено, работа выполнена полностью',
       })
       .expect(400);
-    const resubmittedFaces = await Promise.all(
-      ['resubmit-center.jpg', 'resubmit-left.jpg', 'resubmit-right.jpg'].map(upload),
-    );
-    const resubmittedPhoto = await upload('result-work-resubmitted.jpg');
+    const [resubmitCenter, resubmitLeft, resubmitRight, resubmittedPhoto] = await uploadMany([
+      'resubmit-center.jpg', 'resubmit-left.jpg', 'resubmit-right.jpg', 'result-work-resubmitted.jpg',
+    ]);
+    const resubmittedFaces = [resubmitCenter, resubmitLeft, resubmitRight];
     const resubmitted = (await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))

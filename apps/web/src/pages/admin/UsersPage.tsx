@@ -222,7 +222,7 @@ export function UsersPage() {
             value={createForm.password}
             onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
             required
-            minLength={4}
+            minLength={8}
             autoComplete="new-password"
             name="new-user-password"
           />
@@ -277,6 +277,7 @@ export function UsersPage() {
               placeholder="Новый пароль (оставьте пустым, чтобы не менять)"
               value={editForm.password}
               onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+              minLength={8}
               autoComplete="new-password"
               name="edit-user-new-password"
             />
@@ -379,4 +380,3 @@ export function UsersPage() {
     </div>
   )
 }
-

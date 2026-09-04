@@ -19,7 +19,11 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, password: string): Promise<User> {
-    const user = await this.userRepo.findOne({ where: { username: username.trim() } });
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.username = :username', { username: username.trim() })
+      .getOne();
     if (!user) {
       throw new UnauthorizedException('Неверный логин или пароль');
     }

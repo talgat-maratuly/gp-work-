@@ -23,7 +23,7 @@ export class User {
   @Column({ unique: true })
   username!: string;
 
-  @Column({ name: 'password_hash', type: 'text', nullable: true })
+  @Column({ name: 'password_hash', type: 'text', nullable: true, select: false })
   passwordHash!: string | null;
 
   @Column({ type: 'varchar', length: 32, default: UserRole.WORKER })

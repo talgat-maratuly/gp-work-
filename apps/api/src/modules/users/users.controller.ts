@@ -42,8 +42,8 @@ export class UsersController {
 
   @Get('assignees')
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  findAssignees() {
-    return this.usersService.findActiveAssignees().then((rows) =>
+  findAssignees(@CurrentUser() actor: User) {
+    return this.usersService.findActiveAssignees(actor).then((rows) =>
       rows.map((u) => ({
         id: u.id,
         fullName: u.fullName,

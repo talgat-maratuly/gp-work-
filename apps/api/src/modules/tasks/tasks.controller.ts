@@ -90,14 +90,14 @@ export class TasksController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto) {
-    return this.tasksService.update(id, dto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto, @CurrentUser() user: User) {
+    return this.tasksService.update(id, dto, user);
   }
 
   @Delete(':id')
   @HttpCode(204)
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.tasksService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.tasksService.remove(id, user);
   }
 }

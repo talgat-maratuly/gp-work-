@@ -149,12 +149,15 @@ export class AdminReportsService {
       attendanceCount,
       wateringRows,
     ] = await Promise.all([
-      this.taskRepo.count({ where: { dueDate: date } }),
+      this.taskRepo.count({ where: { dueDate: date, status: Not(TaskStatus.CANCELLED) } }),
       this.taskRepo.count({ where: { dueDate: date, status: In(CLOSED_TASK_STATUSES) } }),
       this.taskRepo.count({ where: { dueDate: date, status: TaskStatus.IN_PROGRESS } }),
       this.taskRepo.count({ where: { dueDate: date, status: TaskStatus.COMPLETED } }),
       this.taskRepo.count({
-        where: { dueDate: LessThan(date), status: Not(In(CLOSED_TASK_STATUSES)) },
+        where: {
+          dueDate: LessThan(date),
+          status: Not(In([...CLOSED_TASK_STATUSES, TaskStatus.CANCELLED])),
+        },
       }),
       this.attendanceRepo.count({ where: { workDate: date } }),
       this.wateringRepo.find({ where: { workDate: date } }),

@@ -80,6 +80,7 @@ export class DashboardService {
       .leftJoinAndSelect('section.object', 'object')
       .leftJoinAndSelect('task.assignee', 'assignee')
       .where('task.due_date = :date', { date })
+      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED })
       .orderBy('task.id', 'DESC')
       .getMany();
 
@@ -94,7 +95,9 @@ export class DashboardService {
     const tasksOverdue = await this.taskRepo
       .createQueryBuilder('task')
       .where('task.due_date < :today', { today })
-      .andWhere('task.status NOT IN (:...closed)', { closed: CLOSED })
+      .andWhere('task.status NOT IN (:...closed)', {
+        closed: [...CLOSED, TaskStatus.CANCELLED],
+      })
       .getCount();
 
     // Полив за дату

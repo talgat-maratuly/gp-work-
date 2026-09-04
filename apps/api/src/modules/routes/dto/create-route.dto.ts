@@ -1,9 +1,10 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsDateString, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsInt, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class CreateRouteStopDto {
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   taskId!: number;
 
   @IsOptional()
@@ -17,6 +18,7 @@ export class CreateRouteDto {
 
   @Type(() => Number)
   @IsInt()
+  @Min(1)
   brigadeId!: number;
 
   @IsArray()
@@ -27,5 +29,6 @@ export class CreateRouteDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(4000)
   comment?: string;
 }

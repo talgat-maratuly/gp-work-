@@ -29,7 +29,9 @@ export class WorkDaysService {
         userId: user.id,
         brigadeId: user.brigadeId ?? -1,
       })
-      .andWhere('task.status != :verified', { verified: TaskStatus.VERIFIED })
+      .andWhere('task.status NOT IN (:...closed)', {
+        closed: [TaskStatus.COMPLETED, TaskStatus.VERIFIED, TaskStatus.CANCELLED],
+      })
       .orderBy('task.id', 'ASC');
     if (includeExecution) {
       query.leftJoinAndMapOne(

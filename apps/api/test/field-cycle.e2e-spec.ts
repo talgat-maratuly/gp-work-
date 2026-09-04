@@ -127,6 +127,34 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const workType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
       name: `E2E Работа ${suffix}`,
     }).expect(201)).body;
+    const inactiveWorkType = (await request(app.getHttpServer()).post('/api/work-types').set(auth(adminToken)).send({
+      name: `E2E Архивная работа ${suffix}`,
+    }).expect(201)).body;
+    await request(app.getHttpServer()).patch(`/api/work-types/${inactiveWorkType.id}`).set(auth(adminToken)).send({
+      isActive: false,
+    }).expect(200);
+    await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: inactiveWorkType.id,
+      assigneeUserId: worker.id,
+      dueDate: businessDate(),
+      description: 'Нельзя назначить архивный вид работы',
+    }).expect(400);
+    await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: workType.id,
+      assigneeUserId: controlUser.id,
+      dueDate: businessDate(),
+      description: 'Контрольная роль не является исполнителем',
+    }).expect(400);
+    await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: workType.id,
+      assigneeUserId: worker.id,
+      dueDate: businessDate(),
+      description: 'Клиент не управляет статусом создания',
+      status: 'VERIFIED',
+    }).expect(400);
     const task = (await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
       sectionId: section.id,
       workTypeId: workType.id,
@@ -135,17 +163,67 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       dueDate: businessDate(),
       description: 'Сквозной доказательный цикл E2E',
     }).expect(201)).body;
+    const cancellableTask = (await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: workType.id,
+      assigneeUserId: worker.id,
+      brigadeId: brigade.id,
+      dueDate: businessDate(),
+      description: 'Проверка отмены без удаления истории',
+    }).expect(201)).body;
+    await request(app.getHttpServer()).delete(`/api/sections/${section.id}`).set(auth(adminToken)).expect(400);
+    await request(app.getHttpServer()).delete(`/api/objects/${object.id}`).set(auth(adminToken)).expect(400);
     const route = (await request(app.getHttpServer()).post('/api/routes').set(auth(adminToken)).send({
       workDate: businessDate(),
       brigadeId: brigade.id,
-      stops: [{ taskId: task.id, plannedArrivalAt: new Date(Date.now() - 60_000).toISOString() }],
+      stops: [
+        { taskId: task.id, plannedArrivalAt: new Date(Date.now() - 60_000).toISOString() },
+        { taskId: cancellableTask.id, plannedArrivalAt: new Date().toISOString() },
+      ],
     }).expect(201)).body;
+    await request(app.getHttpServer()).post('/api/routes').set(auth(adminToken)).send({
+      workDate: businessDate(),
+      brigadeId: brigade.id,
+      stops: [{ taskId: task.id }],
+    }).expect(400);
+    await request(app.getHttpServer()).delete(`/api/tasks/${cancellableTask.id}`).set(auth(adminToken)).expect(204);
+    expect((await request(app.getHttpServer()).get(`/api/tasks/${cancellableTask.id}`).set(auth(adminToken)).expect(200)).body)
+      .toMatchObject({ id: cancellableTask.id, status: 'CANCELLED' });
+    expect((await request(app.getHttpServer()).get(`/api/routes/${route.id}`).set(auth(adminToken)).expect(200)).body.stops)
+      .toEqual(expect.arrayContaining([expect.objectContaining({ taskId: cancellableTask.id, status: 'SKIPPED' })]));
+    await request(app.getHttpServer()).post('/api/routes').set(auth(adminToken)).send({
+      workDate: businessDate(),
+      brigadeId: brigade.id,
+      stops: [{ taskId: cancellableTask.id }],
+    }).expect(400);
+
+    const brigadierToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
+      username: brigadier.username,
+      password: 'brigadier-password',
+    }).expect(201)).body.accessToken;
+    const brigadeAssignees = (await request(app.getHttpServer()).get('/api/users/assignees').set(auth(brigadierToken)).expect(200)).body;
+    expect(brigadeAssignees.some((row: { id: number }) => row.id === worker.id)).toBe(true);
+    expect(brigadeAssignees.some((row: { id: number }) => row.id === controlUser.id)).toBe(false);
+    await request(app.getHttpServer()).get(`/api/tasks/${task.id}`).set(auth(brigadierToken)).expect(200);
+    await request(app.getHttpServer()).post('/api/routes').set(auth(brigadierToken)).send({
+      workDate: businessDate(),
+      brigadeId: 999999,
+      stops: [{ taskId: task.id }],
+    }).expect(403);
+    await request(app.getHttpServer()).patch(`/api/tasks/${task.id}`).set(auth(adminToken)).send({
+      status: 'VERIFIED',
+    }).expect(400);
 
     workerToken = (await request(app.getHttpServer()).post('/api/auth/login').send({
       username: worker.username,
       password: 'worker-password',
     }).expect(201)).body.accessToken;
+    const fieldToday = (await request(app.getHttpServer()).get('/api/field/today').set(auth(workerToken)).expect(200)).body;
+    expect(fieldToday.tasks.some((row: { id: number }) => row.id === cancellableTask.id)).toBe(false);
     await request(app.getHttpServer()).post(`/api/routes/${route.id}/start`).set(auth(workerToken)).expect(201);
+    await request(app.getHttpServer()).patch(`/api/tasks/${task.id}`).set(auth(adminToken)).send({
+      description: 'Нельзя менять принятую задачу',
+    }).expect(400);
 
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
     const uploadMany = async (names: string[]) => {
@@ -261,6 +339,8 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       actualVolume: '250 м²', description: 'E2E работа завершена полностью',
     }).expect(201)).body;
     expect(execution.status).toBe('COMPLETED');
+    const pendingReviewToday = (await request(app.getHttpServer()).get('/api/field/today').set(auth(workerToken)).expect(200)).body;
+    expect(pendingReviewToday.tasks.some((row: { id: number }) => row.id === task.id)).toBe(false);
 
     execution = (await request(app.getHttpServer()).post(`/api/field/face/${execution.faceVerifications[0].id}/review`).set(auth(adminToken)).send({
       status: 'VERIFIED', reviewComment: 'E2E лицо подтверждено',
@@ -349,6 +429,13 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await request(app.getHttpServer()).post('/api/sections').set(auth(adminToken)).send({
       objectId: object.id,
       name: `E2E Участок архивного объекта ${suffix}`,
+    }).expect(400);
+    await request(app.getHttpServer()).post('/api/tasks').set(auth(adminToken)).send({
+      sectionId: section.id,
+      workTypeId: workType.id,
+      assigneeUserId: worker.id,
+      dueDate: businessDate(),
+      description: 'Нельзя назначить задачу на архивный участок',
     }).expect(400);
 
     await request(app.getHttpServer()).patch(`/api/objects/${object.id}`).set(auth(adminToken)).send({

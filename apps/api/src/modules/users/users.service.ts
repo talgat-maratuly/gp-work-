@@ -54,11 +54,12 @@ export class UsersService {
     return this.userRepo.find({ order: { fullName: 'ASC' } });
   }
 
-  findActiveAssignees() {
+  findActiveAssignees(actor?: User) {
     return this.userRepo.find({
       where: {
         isActive: true,
         role: In([UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.BRIGADIER, UserRole.AGRONOMIST]),
+        ...(actor?.role === UserRole.BRIGADIER ? { brigadeId: actor.brigadeId ?? -1 } : {}),
       },
       order: { fullName: 'ASC' },
     });

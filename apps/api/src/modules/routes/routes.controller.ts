@@ -14,8 +14,8 @@ export class RoutesController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  findAll(@Query('date') date?: string) {
-    return this.routesService.findAll(date);
+  findAll(@CurrentUser() user: User, @Query('date') date?: string) {
+    return this.routesService.findAllForUser(user, date);
   }
 
   @Get('my/today')

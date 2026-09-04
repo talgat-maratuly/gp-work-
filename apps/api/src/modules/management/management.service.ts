@@ -196,6 +196,7 @@ export class ManagementService {
         from: range.from,
         to: range.to,
       })
+      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED })
       .orderBy('task.due_date', 'DESC')
       .getMany();
 

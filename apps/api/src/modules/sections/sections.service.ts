@@ -5,6 +5,8 @@ import { nextSectionCode } from '../../common/section-code';
 import { buildFormUrl, buildQrApiUrl } from '../../common/app-url';
 import { NurseryObject } from '../../entities/nursery-object.entity';
 import { Section } from '../../entities/section.entity';
+import { Task } from '../../entities/task.entity';
+import { TaskStatus } from '../../common/enums/task-status.enum';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 
@@ -94,6 +96,16 @@ export class SectionsService {
 
   async remove(id: number): Promise<void> {
     const row = await this.findOne(id);
+    const activeTasks = await this.dataSource.getRepository(Task)
+      .createQueryBuilder('task')
+      .where('task.section_id = :sectionId', { sectionId: id })
+      .andWhere('task.status NOT IN (:...closed)', {
+        closed: [TaskStatus.COMPLETED, TaskStatus.VERIFIED, TaskStatus.CANCELLED],
+      })
+      .getCount();
+    if (activeTasks) {
+      throw new BadRequestException('Сначала завершите или отмените активные задачи участка');
+    }
     row.isActive = false;
     await this.sectionRepo.save(row);
   }

@@ -109,7 +109,7 @@ export class AdminAiService {
       .where('task.dueDate IS NOT NULL')
       .andWhere('task.dueDate < :today', { today })
       .andWhere('task.status NOT IN (:...done)', {
-        done: [TaskStatus.VERIFIED, TaskStatus.COMPLETED],
+        done: [TaskStatus.VERIFIED, TaskStatus.COMPLETED, TaskStatus.CANCELLED],
       })
       .orderBy('task.dueDate', 'ASC')
       .getMany();
@@ -335,7 +335,9 @@ export class AdminAiService {
         brigadeId: user.brigadeId ?? -1,
       })
       .andWhere('(task.due_date IS NULL OR task.due_date <= :today)', { today })
-      .andWhere('task.status NOT IN (:...done)', { done: [TaskStatus.VERIFIED] })
+      .andWhere('task.status NOT IN (:...done)', {
+        done: [TaskStatus.COMPLETED, TaskStatus.VERIFIED, TaskStatus.CANCELLED],
+      })
       .orderBy('task.due_date', 'ASC', 'NULLS LAST')
       .addOrderBy('task.id', 'ASC')
       .getMany();

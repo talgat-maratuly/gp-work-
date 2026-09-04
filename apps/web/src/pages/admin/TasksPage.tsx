@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   createTask,
-  deleteTask,
+  cancelTask,
   fetchTask,
   fetchTasks,
   getTaskReviewLabel,
@@ -56,6 +56,8 @@ function statusBadgeClass(status: TaskStatus): string {
       return 'bg-emerald-700 text-white'
     case 'REJECTED':
       return 'bg-red-100 text-red-800'
+    case 'CANCELLED':
+      return 'bg-slate-200 text-slate-600'
     default:
       return 'bg-slate-100 text-slate-700'
   }
@@ -137,7 +139,7 @@ export function TasksPage() {
   )
 
   const objectSections = useMemo(
-    () => selectedObject?.sections ?? [],
+    () => selectedObject?.sections.filter((section) => section.is_active) ?? [],
     [selectedObject],
   )
 
@@ -150,7 +152,7 @@ export function TasksPage() {
     ])
     setTasks(t)
     setObjects(o)
-    setWorkTypes(w.map((x) => ({ id: x.id, name: x.name })))
+    setWorkTypes(w.filter((x) => x.is_active).map((x) => ({ id: x.id, name: x.name })))
     setAssignees(a)
   }
 
@@ -223,6 +225,19 @@ export function TasksPage() {
     }
   }
 
+  async function handleCancel(task: ApiTask) {
+    if (!confirm(`Отменить задачу #${task.id}? История задачи сохранится.`)) return
+    setError(null)
+    try {
+      await cancelTask(task.id)
+      if (selectedTaskId === task.id) setSelectedTaskId(null)
+      await reload()
+    } catch (err) {
+      console.error('[tasks/cancel]', err)
+      setError(toUserMessage(err))
+    }
+  }
+
   const canCreateTask = Boolean(
     objectId &&
       sectionId &&
@@ -277,13 +292,13 @@ export function TasksPage() {
             required
           >
             <option value="">— выберите объект —</option>
-            {objects.map((o) => (
+            {objects.filter((o) => o.is_active).map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
             ))}
           </select>
-          {objects.length === 0 && (
+          {objects.every((object) => !object.is_active) && (
             <p className="mt-2 text-sm text-amber-700">
               Объекты ещё не созданы. Администратор должен добавить их в разделе «Объекты и участки».
             </p>
@@ -495,13 +510,13 @@ export function TasksPage() {
                       >
                         Подробнее
                       </button>
-                      <button
+                      {!['IN_PROGRESS', 'COMPLETED', 'VERIFIED', 'CANCELLED'].includes(t.status) && <button
                         type="button"
                         className="text-xs text-red-600"
-                        onClick={() => void deleteTask(t.id).then(reload)}
+                        onClick={() => void handleCancel(t)}
                       >
-                        Удалить
-                      </button>
+                        Отменить
+                      </button>}
                     </div>
                   </td>
                 </tr>

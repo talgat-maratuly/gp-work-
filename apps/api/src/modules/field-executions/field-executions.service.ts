@@ -139,7 +139,9 @@ export class FieldExecutionsService {
         brigadeId: user.brigadeId ?? -1,
       })
       .andWhere('(task.due_date IS NULL OR task.due_date <= :date)', { date })
-      .andWhere('task.status NOT IN (:...done)', { done: [TaskStatus.VERIFIED] })
+      .andWhere('task.status NOT IN (:...done)', {
+        done: [TaskStatus.COMPLETED, TaskStatus.VERIFIED, TaskStatus.CANCELLED],
+      })
       .orderBy('task.due_date', 'ASC', 'NULLS LAST')
       .addOrderBy('task.id', 'ASC');
     return { date, tasks: await qb.getMany() };

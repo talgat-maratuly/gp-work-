@@ -47,6 +47,7 @@ export function getStoredUser(): AuthUser | null {
 }
 
 export function clearAuth() {
+  if ('caches' in globalThis) void caches.delete('gp-work-photos').catch(() => undefined)
   for (const key of AUTH_STORAGE_KEYS) {
     localStorage.removeItem(key)
     try {

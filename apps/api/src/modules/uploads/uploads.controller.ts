@@ -10,6 +10,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UploadsService } from './uploads.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../../entities';
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -33,10 +35,10 @@ export class UploadsController {
       },
     }),
   )
-  async uploadPhotos(@UploadedFiles() files: Express.Multer.File[]) {
+  async uploadPhotos(@UploadedFiles() files: Express.Multer.File[], @CurrentUser() user: User) {
     if (!files?.length) {
       throw new BadRequestException('Загрузите хотя бы одно фото');
     }
-    return this.uploadsService.saveValidatedPhotos(files);
+    return this.uploadsService.saveValidatedPhotos(files, user.id);
   }
 }

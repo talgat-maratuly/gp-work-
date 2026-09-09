@@ -7,3 +7,9 @@ dist
 *.log
 .DS_Store
 .gp-pids
+
+playwright-report/
+test-results/
+apps/api/uploads/photos/*
+!apps/api/uploads/photos/.gitkeep
+/uploads/

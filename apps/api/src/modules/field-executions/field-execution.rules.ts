@@ -56,3 +56,29 @@ export function assertFreshLivenessEvidence(
     throw new BadRequestException('Для новой Face verification сделайте три новых кадра');
   }
 }
+
+// GPS is supporting evidence, not proof against a modified client. Never let a
+// client-supplied accuracy expand the site's configured acceptance radius.
+export const MAX_GPS_ACCURACY_METERS = 50;
+
+export function assertInsideGeofence(
+  section: { latitude: number | null; longitude: number | null; radiusMeters: number | null },
+  latitude: number,
+  longitude: number,
+  accuracy?: number | null,
+): number {
+  if (section.latitude == null || section.longitude == null) {
+    throw new BadRequestException('У участка не настроена геозона. Обратитесь к руководителю');
+  }
+  if (accuracy == null || !Number.isFinite(accuracy) || accuracy < 0 || accuracy > MAX_GPS_ACCURACY_METERS) {
+    throw new BadRequestException('Нужна точная геолокация: погрешность не более 50 м. Выйдите на открытое место и повторите');
+  }
+  if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180) {
+    throw new BadRequestException('Некорректные координаты');
+  }
+  const distance = distanceMeters(latitude, longitude, section.latitude, section.longitude);
+  if (distance > (section.radiusMeters ?? 150)) {
+    throw new BadRequestException(`Вы вне геозоны участка (${Math.round(distance)} м). Подойдите ближе и повторите`);
+  }
+  return distance;
+}

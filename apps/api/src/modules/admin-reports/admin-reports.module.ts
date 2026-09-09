@@ -1,3 +1,4 @@
+import { UploadsModule } from '../uploads/uploads.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminDailyReport } from '../../entities/admin-daily-report.entity';
@@ -9,6 +10,7 @@ import { AdminReportsService } from './admin-reports.service';
 
 @Module({
   imports: [
+    UploadsModule,
     TypeOrmModule.forFeature([
       AdminDailyReport,
       Task,

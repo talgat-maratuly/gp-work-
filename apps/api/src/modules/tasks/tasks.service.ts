@@ -1,3 +1,4 @@
+import { UploadsService } from '../uploads/uploads.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -23,6 +24,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 @Injectable()
 export class TasksService {
   constructor(
+    private readonly uploadsService: UploadsService,
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
     @InjectRepository(Section)
@@ -245,6 +247,7 @@ export class TasksService {
       throw new BadRequestException('Для завершения задачи обязательно прикрепите фото');
     }
 
+    await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls, user);
     row.status = TaskStatus.COMPLETED;
     row.completedAt = new Date();
     row.completionPhotoUrls = serializePhotoUrls(dto.photoUrls);

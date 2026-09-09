@@ -43,7 +43,7 @@ import {
   ReviewFaceDto,
   SaveChecklistDto,
 } from './dto/field-execution.dto';
-import { assertFreshLivenessEvidence, assertTransition, distanceMeters } from './field-execution.rules';
+import { assertFreshLivenessEvidence, assertTransition, assertInsideGeofence } from './field-execution.rules';
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
@@ -248,15 +248,7 @@ export class FieldExecutionsService {
     if (duplicate) return this.detailed(duplicate.id);
     if (task.section.code !== dto.sectionCode.trim()) throw new BadRequestException('QR-код не относится к объекту задачи');
 
-    let measuredDistance: number | null = null;
-    if (task.section.latitude != null && task.section.longitude != null) {
-      measuredDistance = distanceMeters(dto.latitude, dto.longitude, task.section.latitude, task.section.longitude);
-      const allowed = task.section.radiusMeters ?? 150;
-      const tolerance = Math.max(dto.accuracy ?? 0, 20);
-      if (measuredDistance > allowed + tolerance) {
-        throw new BadRequestException(`Вы находитесь вне допустимого радиуса объекта (${Math.round(measuredDistance)} м)`);
-      }
-    }
+    const measuredDistance = assertInsideGeofence(task.section, dto.latitude, dto.longitude, dto.accuracy);
 
     let stop: RouteStop | null = null;
     if (dto.routeStopId) {
@@ -335,10 +327,10 @@ export class FieldExecutionsService {
         dto.livenessEvidenceUrls,
         previous.flatMap((verification) => verification.livenessEvidenceUrls),
       );
-      await this.uploadsService.assertStoredPhotoUrls([
+      await this.uploadsService.assertOwnedPhotoUrls([
         dto.selfieUrl,
         ...dto.livenessEvidenceUrls,
-      ]);
+      ], user);
       try {
         await this.faceRepo.save(this.faceRepo.create({
           clientOperationId: dto.clientOperationId,
@@ -397,7 +389,7 @@ export class FieldExecutionsService {
 
   async addPhotos(id: number, dto: AddWorkPhotosDto, user: User) {
     const execution = await this.owned(id, user);
-    await this.uploadsService.assertStoredPhotoUrls(dto.photos.map((photo) => photo.url));
+    await this.uploadsService.assertOwnedPhotoUrls(dto.photos.map((photo) => photo.url), user);
     for (const photo of dto.photos) {
       await this.duplicateEvent(photo.clientPhotoId, user, `PHOTO_${photo.phase}`, { executionId: id });
       const existing = await this.photoRepo.findOne({ where: { clientPhotoId: photo.clientPhotoId } });

@@ -8,7 +8,7 @@ import { Section, Task, User, WorkDaySession, WorkDayStatus, WorkExecution } fro
 import type { WorkDayTaskResult } from '../../entities/work-day-session.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { AttendanceService } from '../attendance/attendance.service';
-import { assertFreshLivenessEvidence, distanceMeters } from './field-execution.rules';
+import { assertFreshLivenessEvidence, assertInsideGeofence } from './field-execution.rules';
 import { CloseWorkDayDto, ReviewWorkDayDto, StartWorkDayDto } from './dto/work-day.dto';
 
 @Injectable()
@@ -72,11 +72,7 @@ export class WorkDaysService {
       relations: { object: true },
     });
     if (!section) throw new NotFoundException('QR участка не найден');
-    let distance: number | null = null;
-    if (section.latitude != null && section.longitude != null) {
-      distance = distanceMeters(lat, lon, section.latitude, section.longitude);
-      if (distance > (section.radiusMeters ?? 150) + Math.max(accuracy ?? 0, 20)) throw new BadRequestException(`Вы вне геозоны участка (${Math.round(distance)} м)`);
-    }
+    const distance = assertInsideGeofence(section, lat, lon, accuracy);
     return { section, distance };
   }
 
@@ -130,11 +126,11 @@ export class WorkDaysService {
     }
     if (await this.sessions.exist({ where: { userId: user.id, status: In([WorkDayStatus.OPEN, WorkDayStatus.RETURNED]) } })) throw new BadRequestException('У работника уже есть открытая или возвращённая смена');
     const { section, distance } = await this.sectionAndDistance(dto.sectionCode, dto.latitude, dto.longitude, dto.accuracy);
-    await this.uploadsService.assertStoredPhotoUrls([
+    await this.uploadsService.assertOwnedPhotoUrls([
       dto.selfieUrl,
       ...dto.livenessEvidenceUrls,
       dto.startPhotoUrl,
-    ]);
+    ], user);
     const assignedTasks = await this.assignedTasks(section.id, user);
     if (!assignedTasks.length) {
       throw new BadRequestException('На этом участке вам не назначена ни одна активная задача');
@@ -186,11 +182,11 @@ export class WorkDaysService {
     }
     if (session.section.code !== dto.sectionCode.trim()) throw new BadRequestException('Для закрытия отсканируйте QR текущего участка');
     const { distance } = await this.sectionAndDistance(dto.sectionCode, dto.latitude, dto.longitude, dto.accuracy);
-    await this.uploadsService.assertStoredPhotoUrls([
+    await this.uploadsService.assertOwnedPhotoUrls([
       dto.selfieUrl,
       ...dto.livenessEvidenceUrls,
       ...dto.resultPhotoUrls,
-    ]);
+    ], user);
     const active = await this.executions.createQueryBuilder('e').where('e.worker_user_id = :userId', { userId: user.id }).andWhere('e.section_id = :sectionId', { sectionId: session.sectionId }).andWhere('e.status IN (:...s)', { s: ['STARTED', 'IN_PROGRESS', 'REJECTED'] }).getMany();
     const currentTasks = await this.sessionTasks(session, user);
     const taskScope = session.taskScope?.length

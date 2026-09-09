@@ -90,8 +90,8 @@ export class WateringController {
 
   @Patch(':id')
   @Roles(...EDIT_ROLES)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateWateringDto) {
-    return this.wateringService.update(id, dto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateWateringDto, @CurrentUser() user: User) {
+    return this.wateringService.update(id, dto, user);
   }
 
   @Delete(':id')

@@ -40,8 +40,7 @@ export default defineConfig({
           },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/uploads/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'gp-work-photos', expiration: { maxEntries: 120, maxAgeSeconds: 604800 } },
+            handler: 'NetworkOnly',
           },
         ],
       },

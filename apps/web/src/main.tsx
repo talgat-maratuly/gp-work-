@@ -11,3 +11,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>
 )
+
+// Remove photographs cached by earlier PWA versions, including after upgrades.
+if ('caches' in globalThis) void caches.delete('gp-work-photos').catch(() => undefined)

@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { setMediaCookie, clearMediaCookie } from './media-cookie';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
@@ -15,8 +17,10 @@ export class AuthController {
   @Public()
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 60_000 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto);
+    setMediaCookie(res, result.accessToken);
+    return result;
   }
 
   @Public()
@@ -27,7 +31,15 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@CurrentUser() user: User) {
+  me(@CurrentUser() user: User, @Headers('authorization') authorization: string, @Res({ passthrough: true }) res: Response) {
+    setMediaCookie(res, authorization.replace(/^Bearer\s+/i, ''));
     return this.authService.toPublicUser(user);
+  }
+
+  @Public()
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    clearMediaCookie(res);
+    return { ok: true };
   }
 }

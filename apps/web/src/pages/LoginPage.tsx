@@ -61,23 +61,25 @@ export function LoginPage() {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Логин</label>
+            <label htmlFor="username" className="mb-1 block text-sm font-medium">Логин</label>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              id="username"
               autoComplete="username"
               required
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Пароль</label>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium">Пароль</label>
             <div className="flex gap-2">
               <input
                 type={showPassword ? 'text' : 'password'}
                 className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                id="password"
                 autoComplete="current-password"
                 required
               />

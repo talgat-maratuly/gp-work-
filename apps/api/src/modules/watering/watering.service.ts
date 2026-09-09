@@ -1,3 +1,4 @@
+import { UploadsService } from '../uploads/uploads.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
@@ -22,6 +23,7 @@ function mapUser(user: User | null) {
 @Injectable()
 export class WateringService {
   constructor(
+    private readonly uploadsService: UploadsService,
     @InjectRepository(WateringRecord)
     private readonly wateringRepo: Repository<WateringRecord>,
   ) {}
@@ -194,6 +196,7 @@ export class WateringService {
   }
 
   async create(dto: CreateWateringDto, user: User) {
+    await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls ?? [], user);
     const isCarrier = dto.type === WateringType.WATER_CARRIER;
     const row = this.wateringRepo.create({
       workDate: dto.workDate,
@@ -219,7 +222,7 @@ export class WateringService {
     return this.findOne(saved.id);
   }
 
-  async update(id: number, dto: UpdateWateringDto) {
+  async update(id: number, dto: UpdateWateringDto, user: User) {
     const row = await this.wateringRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Запись полива не найдена');
 
@@ -239,8 +242,11 @@ export class WateringService {
     if (dto.startTime !== undefined) row.startTime = dto.startTime?.trim() || null;
     if (dto.endTime !== undefined) row.endTime = dto.endTime?.trim() || null;
     if (dto.comment !== undefined) row.comment = dto.comment?.trim() || null;
-    if (dto.photoUrls !== undefined)
+    if (dto.photoUrls !== undefined) {
+      const existing = parsePhotoUrls(row.photoUrls);
+      await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls.filter((url) => !existing.includes(url)), user);
       row.photoUrls = serializePhotoUrls(dto.photoUrls);
+    }
     if (dto.latitude !== undefined) row.latitude = dto.latitude;
     if (dto.longitude !== undefined) row.longitude = dto.longitude;
     if (dto.qrConfirmed !== undefined) row.qrConfirmed = dto.qrConfirmed;

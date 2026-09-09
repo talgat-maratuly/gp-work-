@@ -1,15 +1,14 @@
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
-import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', 'loopback');
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: [{ path: 'uploads/photos/:filename', method: RequestMethod.GET }] });
   const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
@@ -28,14 +27,13 @@ async function bootstrap() {
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=()');
-    if (req.path.startsWith('/api')) {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads/')) {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
     }
     next();
   });
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

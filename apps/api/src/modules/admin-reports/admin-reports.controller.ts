@@ -63,8 +63,8 @@ export class AdminReportsController {
 
   @Patch(':id')
   @Roles(...EDIT_ROLES)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAdminReportDto) {
-    return this.reportsService.update(id, dto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateAdminReportDto, @CurrentUser() user: User) {
+    return this.reportsService.update(id, dto, user);
   }
 
   @Post(':id/submit')

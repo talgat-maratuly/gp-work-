@@ -56,6 +56,7 @@ export type FaceVerification = {
   id: number
   status: 'PENDING' | 'VERIFIED' | 'REJECTED'
   selfieUrl: string
+  livenessEvidenceUrls: string[]
   reviewComment: string | null
 }
 

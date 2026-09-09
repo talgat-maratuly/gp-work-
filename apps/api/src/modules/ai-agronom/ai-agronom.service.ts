@@ -1,3 +1,4 @@
+import { UploadsService } from '../uploads/uploads.service';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -104,6 +105,7 @@ function mimeFromPath(path: string): string {
 @Injectable()
 export class AiAgronomService {
   constructor(
+    private readonly uploadsService: UploadsService,
     @InjectRepository(AiAgronomAnalysis)
     private readonly analysisRepo: Repository<AiAgronomAnalysis>,
     @InjectRepository(NurseryObject)
@@ -280,6 +282,7 @@ export class AiAgronomService {
   }
 
   async create(dto: CreateAiAnalysisDto, user: User) {
+    await this.uploadsService.assertOwnedPhotoUrls([dto.photoUrl], user);
     const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
     if (!object) throw new NotFoundException('Объект не найден');
 

@@ -24,5 +24,6 @@ export async function fetchMe(): Promise<AuthUser> {
 }
 
 export function logout() {
+  void apiRequest('/auth/logout', { method: 'POST' }).catch(() => undefined)
   clearAuth()
 }

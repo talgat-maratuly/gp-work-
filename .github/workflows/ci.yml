@@ -73,6 +73,7 @@ jobs:
             'apps/api/src/database/migrations/1732100000000-AddTaskLifecycleIntegrity.ts',
             'apps/api/src/database/migrations/1732200000000-AddWorkTypeLifecycleIntegrity.ts',
             'apps/api/src/database/migrations/1732300000000-LinkAttendanceToUsers.ts',
+            'apps/api/src/database/migrations/1732400000000-AddPhotoOwnership.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -99,6 +100,7 @@ jobs:
             'AddTaskLifecycleIntegrity1732100000000',
             'AddWorkTypeLifecycleIntegrity1732200000000',
             'LinkAttendanceToUsers1732300000000',
+            'AddPhotoOwnership1732400000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,
@@ -125,3 +127,16 @@ jobs:
             });
           NODE
       - run: npm run test:e2e -w @gp-work/api
+      - name: Install browser for real UI regression tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser worker-day regression (real API and PostgreSQL)
+        run: npm run test:browser
+      - name: Preserve browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regression-${{ github.sha }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

@@ -40,7 +40,7 @@ function isNetworkError(err: unknown): boolean {
 export function toUserMessage(err: unknown, fallback = 'Не удалось сохранить данные'): string {
   if (err instanceof ApiError) {
     if (err.status === 0 || isNetworkError(err.cause)) {
-      return 'Backend не запущен. Запустите: npm run dev:api'
+      return 'Не удалось связаться с сервером. Проверьте интернет и повторите'
     }
     if (err.status === 401) {
       if (!err.message || err.message === 'Unauthorized') {
@@ -65,7 +65,7 @@ export function toUserMessage(err: unknown, fallback = 'Не удалось со
     return containsInternalProviderDetails ? fallback : err.message || fallback
   }
   if (isNetworkError(err)) {
-    return 'Backend не запущен. Проверьте подключение к серверу'
+    return 'Не удалось связаться с сервером. Проверьте интернет и повторите'
   }
   if (err instanceof Error && err.message) return err.message
   return fallback
@@ -102,6 +102,7 @@ export async function apiRequest<T>(
     res = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
       // Никогда не берём ответы API из HTTP-кэша: иначе после перезагрузки
       // мог показаться профиль другого пользователя (кэш /auth/me по URL).
       cache: 'no-store',

@@ -21,9 +21,16 @@
     "test:web:actions": "node --test scripts/ui-actions.test.cjs",
     "migration:run": "npm run migration:run -w @gp-work/api",
     "migration:revert": "npm run migration:revert -w @gp-work/api",
-    "seed": "npm run seed -w @gp-work/api"
+    "seed": "npm run seed -w @gp-work/api",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "playwright": "1.62.1"
+  },
+  "overrides": {
+    "@nestjs/platform-express": {
+      "multer": "2.3.0"
+    }
   }
 }

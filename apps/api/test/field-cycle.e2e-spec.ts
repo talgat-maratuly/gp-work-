@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -45,7 +45,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.getHttpAdapter().getInstance().set('trust proxy', true);
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix('api', { exclude: [{ path: 'uploads/photos/:filename', method: RequestMethod.GET }] });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
     await app.init();
     dataSource = app.get(DataSource);
@@ -613,6 +613,25 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       livenessEvidenceUrls: startFaces,
       startPhotoUrl: startPhoto,
     };
+    // A valid authenticated upload remains unreadable to anonymous and unrelated users.
+    await request(app.getHttpServer()).get(startPhoto).expect(401);
+    await request(app.getHttpServer()).get(startPhoto).set(auth(token)).expect(200).expect('Cache-Control', /no-store/);
+    await request(app.getHttpServer()).get(startPhoto).set(auth(outsiderToken)).expect(404);
+    await request(app.getHttpServer()).get(startPhoto).set(auth(adminToken)).expect(200);
+    await request(app.getHttpServer()).post('/api/uploads/photos').attach('files', jpeg, 'anonymous.jpg').expect(401);
+    const foreign = (await request(app.getHttpServer()).post('/api/uploads/photos').set(auth(adminToken))
+      .attach('files', jpeg, { filename: 'foreign.jpg', contentType: 'image/jpeg' }).expect(201)).body[0];
+    await request(app.getHttpServer()).post('/api/field/work-days/start').set(auth(token))
+      .send({ ...startBody, startPhotoUrl: foreign }).expect(403);
+    for (const accuracy of [null, 51, 1000000]) {
+      await request(app.getHttpServer()).post('/api/field/work-days/start').set(auth(token))
+        .send({ ...startBody, accuracy }).expect(400);
+    }
+    await request(app.getHttpServer()).post('/api/field/work-days/start').set(auth(token))
+      .send({ ...startBody, latitude: 51.2316, accuracy: 50 }).expect(400);
+    await dataSource.query('UPDATE sections SET latitude = NULL WHERE id = $1', [section.id]);
+    await request(app.getHttpServer()).post('/api/field/work-days/start').set(auth(token)).send(startBody).expect(400);
+    await dataSource.query('UPDATE sections SET latitude = $1 WHERE id = $2', [51.2301, section.id]);
     const session = (await request(app.getHttpServer())
       .post('/api/field/work-days/start')
       .set(auth(token))
@@ -631,6 +650,13 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .set(auth(outsiderToken))
       .expect(200)).body as Array<{ id: number }>;
     expect(outsiderDays.some((row) => row.id === session.id)).toBe(false);
+    const me = await request(app.getHttpServer()).get('/api/auth/me').set(auth(token)).expect(200);
+    const cookie = String(me.headers['set-cookie'][0]).split(';')[0];
+    await request(app.getHttpServer()).get(startPhoto).set('Cookie', cookie).expect(200);
+    await request(app.getHttpServer()).get('/api/users').set('Cookie', cookie).expect(401);
+    const logout = await request(app.getHttpServer()).post('/api/auth/logout').expect(201);
+    expect(String(logout.headers['set-cookie'][0])).toContain('gp_work_media=;');
+    // Brigade access comes from a related shift, not from possession of its URL.
     const openAttendance = (await request(app.getHttpServer())
       .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
       .set(auth(adminToken))
@@ -682,6 +708,8 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .send({ ...closeBody, results: [validResult, validResult] })
       .expect(400);
 
+    await request(app.getHttpServer()).post('/api/field/work-days/close').set(auth(token))
+      .send({ ...closeBody, accuracy: 1000000 }).expect(400);
     const closed = (await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))
@@ -784,4 +812,36 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .expect(201)).body;
     expect(reviewed.status).toBe('REVIEWED');
   });
+  it('backfills only unambiguous legacy photo owners without changing evidence', async () => {
+    const suffix = Date.now();
+    const make = async (path: string, body: unknown) => (await request(app.getHttpServer())
+      .post(`/api/${path}`).set(auth(adminToken)).send(body as Record<string, unknown>).expect(201)).body;
+    const first = await make('users', { fullName: 'Legacy A', username: `legacy-a-${suffix}`, password: 'legacy-test-password', role: 'WORKER' });
+    const second = await make('users', { fullName: 'Legacy B', username: `legacy-b-${suffix}`, password: 'legacy-test-password', role: 'WORKER' });
+    const object = await make('objects', { name: `Legacy migration ${suffix}` });
+    const section = await make('sections', { objectId: object.id, name: 'Legacy section' });
+    const a = `${suffix}-${clientId()}.jpg`;
+    const b = `${suffix}-${clientId()}.jpg`;
+    const ambiguous = `${suffix}-${clientId()}.jpg`;
+    for (const [userId, filename] of [[first.id, a], [second.id, b]]) {
+      await dataSource.query(`INSERT INTO work_day_sessions
+        (client_session_id, user_id, section_id, shift_date, status, start_qr, start_latitude, start_longitude, start_selfie_url, start_photo_url)
+        VALUES ($1, $2, $3, CURRENT_DATE, 'CLOSED', $4, 51.23, 51.37, $5, $6)`,
+        [clientId(), userId, section.id, section.code, `/uploads/photos/${filename}`, `/uploads/photos/${ambiguous}`]);
+    }
+    const before = await dataSource.query('SELECT * FROM work_day_sessions WHERE section_id = $1 ORDER BY id', [section.id]);
+    const { AddPhotoOwnership1732400000000 } = await import('../src/database/migrations/1732400000000-AddPhotoOwnership');
+    const runner = dataSource.createQueryRunner();
+    try {
+      await new AddPhotoOwnership1732400000000().up(runner);
+      await new AddPhotoOwnership1732400000000().up(runner);
+    } finally { await runner.release(); }
+    const owners = await dataSource.query('SELECT filename, owner_user_id FROM uploaded_photos WHERE filename = ANY($1::text[])', [[a, b, ambiguous]]);
+    expect(owners).toHaveLength(2);
+    expect(owners).toEqual(expect.arrayContaining([
+      { filename: a, owner_user_id: first.id }, { filename: b, owner_user_id: second.id },
+    ]));
+    expect(await dataSource.query('SELECT * FROM work_day_sessions WHERE section_id = $1 ORDER BY id', [section.id])).toEqual(before);
+  });
+
 });

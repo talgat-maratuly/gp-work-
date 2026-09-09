@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ExecutionStatus } from '../../common/enums/field-execution.enums';
-import { assertFreshLivenessEvidence, assertTransition, canTransition, distanceMeters } from './field-execution.rules';
+import { assertInsideGeofence, assertFreshLivenessEvidence, assertTransition, canTransition, distanceMeters } from './field-execution.rules';
 
 describe('field execution rules', () => {
   it('allows the complete evidence lifecycle', () => {
@@ -49,5 +49,23 @@ describe('field execution rules', () => {
     expect(() => assertFreshLivenessEvidence('/a.jpg', ['/a.jpg', '/b.jpg', '/c.jpg'], ['/b.jpg'])).toThrow(
       'Для новой Face verification сделайте три новых кадра',
     );
+  });
+});
+
+describe('mandatory bounded geofence', () => {
+  const section = { latitude: 51.2301, longitude: 51.3701, radiusMeters: 150 };
+  it('accepts a precise position inside the configured site', () => {
+    expect(assertInsideGeofence(section, 51.2301, 51.3701, 5)).toBe(0);
+  });
+  it('rejects missing configuration and missing or unreliable accuracy', () => {
+    expect(() => assertInsideGeofence({ ...section, latitude: null }, 51.2301, 51.3701, 5)).toThrow('не настроена геозона');
+    for (const accuracy of [undefined, null, NaN, Infinity, -1, 51, 1_000_000]) {
+      expect(() => assertInsideGeofence(section, 51.2301, 51.3701, accuracy)).toThrow('точная геолокация');
+    }
+  });
+  it('does not expand the radius by the claimed accuracy', () => {
+    // About 167m north: previously accepted with a 50m tolerance.
+    expect(() => assertInsideGeofence(section, 51.2316, 51.3701, 50)).toThrow('вне геозоны');
+    expect(() => assertInsideGeofence(section, NaN, 51.3701, 5)).toThrow('Некорректные координаты');
   });
 });

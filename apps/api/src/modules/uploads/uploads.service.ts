@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { open, stat, unlink, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
+import { User } from '../../entities';
+import { PhotoAccessService } from './photo-access.service';
 
 export function detectImageExtension(buffer: Buffer): '.jpg' | '.png' | '.webp' | '.heic' | null {
   if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return '.jpg';
@@ -15,6 +17,7 @@ export function detectImageExtension(buffer: Buffer): '.jpg' | '.png' | '.webp' 
 
 @Injectable()
 export class UploadsService {
+  constructor(private readonly access: PhotoAccessService) {}
   readonly photosDir = join(process.cwd(), 'uploads', 'photos');
 
   ensurePhotosDir() {
@@ -78,7 +81,12 @@ export class UploadsService {
     }
   }
 
-  async saveValidatedPhotos(files: Express.Multer.File[]): Promise<string[]> {
+  async assertOwnedPhotoUrls(urls: string[], user: User): Promise<void> {
+    await this.assertStoredPhotoUrls(urls);
+    await this.access.assertOwner(urls.map((url) => this.storedFilename(url)), user);
+  }
+
+  async saveValidatedPhotos(files: Express.Multer.File[], ownerId: number): Promise<string[]> {
     const extensions = files.map((file) => detectImageExtension(file.buffer));
     if (extensions.some((extension) => extension === null)) {
       throw new BadRequestException('Файл не является поддерживаемым изображением');
@@ -91,6 +99,7 @@ export class UploadsService {
         await writeFile(join(this.photosDir, filename), file.buffer, { flag: 'wx', mode: 0o640 });
         stored.push(filename);
       }
+      await this.access.register(stored, ownerId);
     } catch (error) {
       await Promise.all(stored.map((filename) => unlink(join(this.photosDir, filename)).catch(() => undefined)));
       throw error;

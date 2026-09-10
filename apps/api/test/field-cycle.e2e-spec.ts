@@ -63,6 +63,40 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     if (app) await app.close();
   });
 
+  it('persists section location on create/edit and prevents partial or invalid configuration', async () => {
+    const object = (await request(app.getHttpServer()).post('/api/objects').set(auth(adminToken))
+      .send({ name: `Location setup ${Date.now()}` }).expect(201)).body;
+    const create = (location: object) => request(app.getHttpServer()).post('/api/sections').set(auth(adminToken))
+      .send({ objectId: object.id, name: 'Location setup section', ...location });
+    await create({ latitude: 51.23 }).expect(400);
+    await create({ radiusMeters: 150 }).expect(400);
+    await create({ latitude: null, longitude: null }).expect(400);
+    const section = (await create({ latitude: 0, longitude: 0, radiusMeters: 150 }).expect(201)).body;
+    expect(section).toMatchObject({ latitude: 0, longitude: 0, radiusMeters: 150 });
+    const patch = (location: object) => request(app.getHttpServer()).patch(`/api/sections/${section.id}`)
+      .set(auth(adminToken)).send(location);
+    for (const invalid of [{ latitude: 51.23 }, { longitude: null }, { latitude: '', longitude: '' }, { radiusMeters: 5 }]) {
+      await patch(invalid).expect(400);
+    }
+    const unchanged = (await request(app.getHttpServer()).get(`/api/sections/${section.id}`).set(auth(adminToken)).expect(200)).body;
+    expect(unchanged).toMatchObject({ latitude: 0, longitude: 0, radiusMeters: 150 });
+    await patch({ latitude: 51.2301, longitude: 51.3701, radiusMeters: 250 }).expect(200);
+    await patch({ name: 'Renamed without moving' }).expect(200);
+    const reread = (await request(app.getHttpServer()).get(`/api/sections/code/${section.code}`).set(auth(adminToken)).expect(200)).body;
+    expect(reread).toMatchObject({ name: 'Renamed without moving', code: section.code, latitude: 51.2301, longitude: 51.3701, radiusMeters: 250 });
+    const saved = (await dataSource.query('SELECT latitude, longitude, radius_meters FROM sections WHERE id = $1', [section.id]))[0];
+    expect(saved).toEqual({ latitude: 51.2301, longitude: 51.3701, radius_meters: 250 });
+    const worker = (await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({
+      username: `location-worker-${Date.now()}`, fullName: 'Location worker', role: 'WORKER', password: 'location-test-password',
+    }).expect(201)).body;
+    const token = (await request(app.getHttpServer()).post('/api/auth/login').set(client(worker.username))
+      .send({ username: worker.username, password: 'location-test-password' }).expect(201)).body.accessToken;
+    await request(app.getHttpServer()).patch(`/api/sections/${section.id}`).set(auth(token))
+      .send({ latitude: 0, longitude: 0 }).expect(403);
+    expect((await request(app.getHttpServer()).get(`/api/field/scan/${section.code}`).set(auth(token)).expect(200)).body.section)
+      .toMatchObject({ latitude: 51.2301, longitude: 51.3701, radiusMeters: 250 });
+  });
+
   it('runs object → task → route → QR/GPS/Face → evidence → materials → acceptance → KPI/report', async () => {
     const suffix = Date.now();
     await request(app.getHttpServer()).post('/api/users').set(auth(adminToken)).send({

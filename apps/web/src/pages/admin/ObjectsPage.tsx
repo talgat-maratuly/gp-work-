@@ -1,4 +1,6 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { SectionLocationFields } from '@/components/SectionLocationFields'
+import { emptyLocation, hasSectionLocation, locationDraft, locationPayload } from '@/lib/sectionLocation'
 import { QrPrintModal } from '@/components/QrPrintModal'
 import { QrCanvas } from '@/components/QrCanvas'
 import { ArchiveSectionDialog } from '@/components/DeleteSectionDialog'
@@ -34,6 +36,9 @@ export function ObjectsPage() {
   const [secDesc, setSecDesc] = useState('')
   const [secSaving, setSecSaving] = useState(false)
   const [secError, setSecError] = useState<string | null>(null)
+  const [secLocation, setSecLocation] = useState(emptyLocation)
+  const [secLocating, setSecLocating] = useState(false)
+  const [secFormVersion, setSecFormVersion] = useState(0)
 
   const [editingObjId, setEditingObjId] = useState<number | null>(null)
   const [editObjName, setEditObjName] = useState('')
@@ -47,6 +52,13 @@ export function ObjectsPage() {
   const [editSecCulture, setEditSecCulture] = useState('')
   const [editSecDesc, setEditSecDesc] = useState('')
   const [editSecSaving, setEditSecSaving] = useState(false)
+  const [editSecLocation, setEditSecLocation] = useState(emptyLocation)
+  const [editSecLocating, setEditSecLocating] = useState(false)
+  const [editSecError, setEditSecError] = useState<string | null>(null)
+  const editSectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (editingSecId != null) editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [editingSecId])
 
   const [printSectionCode, setPrintSectionCode] = useState<string | null>(null)
   const [autoPrint, setAutoPrint] = useState(false)
@@ -148,18 +160,22 @@ export function ObjectsPage() {
     }
     setSecSaving(true)
     try {
+      const location = locationPayload(secLocation)
       await createSection({
         objectId: Number(secObjectId),
         name: secName.trim(),
         area: secArea.trim() || undefined,
         culture: secCulture.trim() || undefined,
         customText: secDesc.trim() || undefined,
+        ...location,
       })
       setSecName('')
       setSecArea('')
       setSecCulture('')
       setSecDesc('')
-      setToast('Участок сохранён, QR-код создан')
+      setSecLocation(emptyLocation())
+      setSecFormVersion(version => version + 1)
+      setToast(location.latitude === undefined ? 'Участок сохранён. Для начала смены настройте местоположение.' : 'Участок сохранён, местоположение и QR готовы')
       await reload()
     } catch (err) {
       console.error('[sections] create:', err)
@@ -176,26 +192,32 @@ export function ObjectsPage() {
     setEditSecArea(s.area ?? '')
     setEditSecCulture(s.culture ?? '')
     setEditSecDesc(s.description ?? '')
+    setEditSecLocation(locationDraft(s))
+    setEditSecError(null)
+    setEditSecLocating(false)
   }
 
   async function handleSaveSection(e: FormEvent) {
     e.preventDefault()
     if (editingSecId == null) return
+    setEditSecError(null)
     setEditSecSaving(true)
     try {
+      const existing = sections.find(section => section.id === editingSecId)
       await updateSection(editingSecId, {
         objectId: Number(editSecObjId),
         name: editSecName.trim(),
         area: editSecArea.trim() || undefined,
         culture: editSecCulture.trim() || undefined,
         customText: editSecDesc.trim() || undefined,
+        ...locationPayload(editSecLocation, !!existing && (existing.latitude != null || existing.longitude != null)),
       })
       setEditingSecId(null)
       setToast('Участок обновлён')
       await reload()
     } catch (err) {
       console.error('[sections] update:', err)
-      alert(toUserMessage(err))
+      setEditSecError(toUserMessage(err))
     } finally {
       setEditSecSaving(false)
     }
@@ -242,7 +264,10 @@ export function ObjectsPage() {
   return (
     <div className="no-print space-y-10">
       <h1 className="text-2xl font-bold">Объекты и участки</h1>
-      <p className="text-sm text-slate-500">Данные хранятся на сервере (NestJS + PostgreSQL)</p>
+      <p className="text-sm text-slate-500">Объекты, участки, местоположение и QR для ежедневной работы.</p>
+      {sections.some(s => s.is_active && !hasSectionLocation(s)) && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        Участков без настроенного местоположения: {sections.filter(s => s.is_active && !hasSectionLocation(s)).length}. Откройте «Изменить» в списке участков и задайте координаты. До настройки начало смены на этих участках недоступно.
+      </p>}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Добавить объект</h2>
@@ -360,8 +385,9 @@ export function ObjectsPage() {
         {objects.every((object) => !object.is_active) ? (
           <p className="text-sm text-amber-800">Сначала добавьте объект</p>
         ) : (
-          <form onSubmit={handleCreateSection} className="space-y-4">
+          <form aria-label="Добавить участок" onSubmit={handleCreateSection} className="space-y-4">
             <select
+              aria-label="Объект участка"
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5"
               value={secObjectId}
               onChange={(e) => setSecObjectId(e.target.value)}
@@ -401,10 +427,11 @@ export function ObjectsPage() {
                 onChange={(e) => setSecDesc(e.target.value)}
               />
             </div>
-            {secError && <p className="text-sm text-red-600">{secError}</p>}
+            <SectionLocationFields key={secFormVersion} value={secLocation} onChange={setSecLocation} disabled={secSaving} onLocatingChange={setSecLocating} />
+            {secError && <p role="alert" className="text-sm text-red-600">{secError}</p>}
             <button
               type="submit"
-              disabled={secSaving}
+              disabled={secSaving || secLocating}
               className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               {secSaving ? 'Сохранение…' : 'Сохранить участок'}
@@ -427,6 +454,7 @@ export function ObjectsPage() {
                   <th className="px-3 py-3">Участок</th>
                   <th className="px-3 py-3">Объект</th>
                   <th className="px-3 py-3">Культура</th>
+                  <th className="px-3 py-3">Местоположение</th>
                   <th className="px-3 py-3">Форма</th>
                   <th className="px-3 py-3">Действия</th>
                 </tr>
@@ -444,6 +472,11 @@ export function ObjectsPage() {
                     </td>
                     <td className="px-3 py-2">{s.objects?.name ?? '—'}</td>
                     <td className="px-3 py-2">{s.culture ?? '—'}</td>
+                    <td className="px-3 py-2">
+                      {hasSectionLocation(s) ? <span className="text-emerald-800">
+                        {s.latitude!.toFixed(6)}, {s.longitude!.toFixed(6)}<br />Радиус {s.radius_meters ?? 150} м
+                      </span> : <span className="text-amber-800">Не настроено — смена недоступна</span>}
+                    </td>
                     <td className="px-3 py-2">
                       {s.is_active ? <a
                         href={buildWorkFormUrlBySectionCode(s.code)}
@@ -486,9 +519,10 @@ export function ObjectsPage() {
       </section>
 
       {editingSecId != null && (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <section ref={editSectionRef} className="scroll-mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <h3 className="font-semibold">Редактирование участка</h3>
           <form
+            aria-label="Редактирование участка"
             onSubmit={handleSaveSection}
             className="mt-3 grid gap-3 sm:grid-cols-2"
           >
@@ -504,6 +538,8 @@ export function ObjectsPage() {
               ))}
             </select>
             <input
+              aria-label="Название участка"
+              required
               value={editSecName}
               onChange={(e) => setEditSecName(e.target.value)}
               className="rounded-lg border px-3 py-2"
@@ -526,8 +562,12 @@ export function ObjectsPage() {
               placeholder="Доп. текст"
               className="rounded-lg border px-3 py-2 sm:col-span-2"
             />
+            <div className="sm:col-span-2">
+              <SectionLocationFields key={editingSecId} value={editSecLocation} onChange={setEditSecLocation} disabled={editSecSaving} onLocatingChange={setEditSecLocating} />
+            </div>
+            {editSecError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{editSecError}</p>}
             <div className="flex gap-2 sm:col-span-2">
-              <button type="submit" disabled={editSecSaving} className="rounded-lg bg-blue-700 px-4 py-2 text-white text-sm">
+              <button type="submit" disabled={editSecSaving || editSecLocating} className="rounded-lg bg-blue-700 px-4 py-2 text-white text-sm">
                 Сохранить
               </button>
               <button type="button" onClick={() => setEditingSecId(null)} className="rounded-lg border px-4 py-2 text-sm">

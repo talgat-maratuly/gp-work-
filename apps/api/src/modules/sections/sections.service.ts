@@ -9,6 +9,7 @@ import { Task } from '../../entities/task.entity';
 import { TaskStatus } from '../../common/enums/task-status.enum';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
+import { SectionLocationDto } from './dto/section-location.dto';
 
 @Injectable()
 export class SectionsService {
@@ -46,6 +47,7 @@ export class SectionsService {
   }
 
   async create(dto: CreateSectionDto) {
+    const location = this.locationUpdate(dto);
     const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
     if (!object || !object.isActive) throw new BadRequestException('Активный объект не найден');
 
@@ -60,6 +62,7 @@ export class SectionsService {
       area: dto.area?.trim() || null,
       culture: dto.culture?.trim() || null,
       customText: dto.customText?.trim() || null,
+      ...location,
       formUrl,
       qrCodeUrl,
       isActive: dto.isActive ?? true,
@@ -70,6 +73,7 @@ export class SectionsService {
 
   async update(id: number, dto: UpdateSectionDto) {
     const row = await this.findOne(id);
+    const location = this.locationUpdate(dto, row);
     let targetObject = row.object;
     if (dto.objectId !== undefined) {
       const object = await this.objectRepo.findOne({ where: { id: dto.objectId } });
@@ -81,9 +85,7 @@ export class SectionsService {
     if (dto.area !== undefined) row.area = dto.area?.trim() || null;
     if (dto.culture !== undefined) row.culture = dto.culture?.trim() || null;
     if (dto.customText !== undefined) row.customText = dto.customText?.trim() || null;
-    if (dto.latitude !== undefined) row.latitude = dto.latitude;
-    if (dto.longitude !== undefined) row.longitude = dto.longitude;
-    if (dto.radiusMeters !== undefined) row.radiusMeters = dto.radiusMeters;
+    Object.assign(row, location);
     if (dto.isActive !== undefined) {
       if (dto.isActive && !targetObject.isActive) {
         throw new BadRequestException('Нельзя активировать участок архивного объекта');
@@ -92,6 +94,24 @@ export class SectionsService {
     }
     await this.sectionRepo.save(row);
     return this.findOne(id);
+  }
+
+  private locationUpdate(dto: SectionLocationDto, current?: Section): SectionLocationDto {
+    const hasLatitude = dto.latitude !== undefined;
+    const hasLongitude = dto.longitude !== undefined;
+    if (hasLatitude !== hasLongitude) {
+      throw new BadRequestException('Укажите широту и долготу вместе');
+    }
+    if (hasLatitude) {
+      return { latitude: dto.latitude, longitude: dto.longitude, radiusMeters: dto.radiusMeters ?? current?.radiusMeters ?? 150 };
+    }
+    if (dto.radiusMeters !== undefined) {
+      if (current?.latitude == null || current?.longitude == null) {
+        throw new BadRequestException('Сначала укажите координаты участка');
+      }
+      return { radiusMeters: dto.radiusMeters };
+    }
+    return {};
   }
 
   async remove(id: number): Promise<void> {

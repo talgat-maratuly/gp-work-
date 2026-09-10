@@ -24,6 +24,9 @@ export async function createSection(payload: {
   area?: string
   culture?: string
   customText?: string
+  latitude?: number
+  longitude?: number
+  radiusMeters?: number
 }): Promise<Section> {
   const data = await apiRequest<ApiSection>('/sections', {
     method: 'POST',

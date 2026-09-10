@@ -15,6 +15,9 @@ export interface Section {
   culture: string | null
   description: string | null
   qr_code_url: string | null
+  latitude: number | null
+  longitude: number | null
+  radius_meters: number | null
   is_active: boolean
   created_at: string
   objects?: NurseryObject

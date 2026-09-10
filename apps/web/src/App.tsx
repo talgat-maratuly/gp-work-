@@ -65,6 +65,11 @@ function AdminHome() {
   return user?.role === 'DIRECTOR' ? <Navigate to="/admin/director" replace /> : <DashboardPage />
 }
 
+function FieldAssistantRoute() {
+  const { user } = useAuth()
+  return user?.role === 'WORKER' ? <FieldAiAssistantPage /> : <Navigate to="/admin/assistant" replace />
+}
+
 function forRoles(page: ReactNode, roles: readonly UserRole[]) {
   return <ProtectedRoute roles={roles}>{page}</ProtectedRoute>
 }
@@ -96,7 +101,7 @@ export default function App() {
               <Route path="tasks/:taskId" element={<FieldTaskPage />} />
               <Route path="executions/:id" element={<FieldExecutionPage />} />
               <Route path="more" element={<FieldMorePage />} />
-              <Route path="assistant" element={<FieldAiAssistantPage />} />
+              <Route path="assistant" element={<FieldAssistantRoute />} />
             </Route>
             <Route
               path="/worker"

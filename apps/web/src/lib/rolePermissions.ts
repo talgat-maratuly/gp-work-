@@ -32,7 +32,7 @@ export const ADMIN_ROUTE_ROLES = {
   warehouse: ['ADMIN', 'BRIGADIER'],
   warehouseExport: ['ADMIN'],
   productImport: ['ADMIN'],
-  aiAssistant: ['ADMIN'],
+  aiAssistant: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'],
   aiDirector: ['ADMIN'],
   myTasks: ['BRIGADIER', 'AGRONOMIST'],
 } as const satisfies Record<string, readonly UserRole[]>

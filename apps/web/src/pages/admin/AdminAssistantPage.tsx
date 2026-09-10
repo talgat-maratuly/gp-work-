@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { askAdminAi, type AiAnswer } from '@/api/adminAiApi'
+import { askManagerAi, type AiAnswer } from '@/api/adminAiApi'
+import { useAuth } from '@/context/AuthContext'
+import { FieldAiAssistantPage } from '@/pages/field/FieldAiAssistantPage'
+import { AiAnswerNotice } from '@/components/AiAnswerNotice'
 import { toUserMessage } from '@/api/client'
 
 const questions = [
@@ -11,6 +14,11 @@ const questions = [
 ]
 
 export function AdminAssistantPage() {
+  const { user } = useAuth()
+  return user?.role === 'ADMIN' || user?.role === 'DIRECTOR' ? <ManagerAssistant /> : <FieldAiAssistantPage />
+}
+
+function ManagerAssistant() {
   const [question, setQuestion] = useState('')
   const [result, setResult] = useState<AiAnswer | null>(null)
   const [asking, setAsking] = useState(false)
@@ -23,7 +31,7 @@ export function AdminAssistantPage() {
     setError(null)
     setResult(null)
     try {
-      setResult(await askAdminAi(question.trim()))
+      setResult(await askManagerAi(question.trim()))
     } catch (error) {
       setError(toUserMessage(error, 'Не удалось получить ответ. Повторите вопрос.'))
     } finally {
@@ -35,7 +43,7 @@ export function AdminAssistantPage() {
     <div className="mx-auto max-w-4xl space-y-5">
       <section className="rounded-2xl bg-gradient-to-br from-blue-700 to-emerald-800 p-5 text-white">
         <h1 className="text-2xl font-bold">ИИ-ассистент</h1>
-        <p className="mt-2 text-sm text-white/90">Вопросы по задачам, сотрудникам, рабочим дням и материалам GP Work.</p>
+        <p className="mt-2 text-sm text-white/90">Помощник руководителя: вопросы по задачам, сотрудникам, рабочим дням и материалам GP Work.</p>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <form onSubmit={submit} className="space-y-3">
@@ -55,10 +63,10 @@ export function AdminAssistantPage() {
         {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
         {result && <section aria-label="Ответ ассистента" aria-live="polite" className="mt-5 rounded-xl bg-blue-50 p-4">
           <p className="whitespace-pre-wrap text-sm text-blue-950">{result.answer}</p>
-          {result.fallback && <p className="mt-3 text-xs text-slate-600">Ответ сформирован по данным GP Work без ИИ-модели: она сейчас недоступна.</p>}
+          <AiAnswerNotice result={result} />
         </section>}
       </section>
-      <p className="text-sm text-slate-600">Ассистент отвечает по доступным данным. Общая сводка и риски — в <Link to="/admin/ai-director" className="font-semibold text-blue-700 underline">ИИ-директоре</Link>.</p>
+      <p className="text-sm text-slate-600"><Link to="/admin/director" className="font-semibold text-blue-700 underline">Создать поручение в кабинете директора</Link>. Ассистент отвечает по доступным данным. Общая сводка и риски — в <Link to="/admin/ai-director" className="font-semibold text-blue-700 underline">ИИ-директоре</Link>.</p>
     </div>
   )
 }

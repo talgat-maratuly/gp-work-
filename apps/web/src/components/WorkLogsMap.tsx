@@ -44,6 +44,7 @@ export function WorkLogsMap({ logs, selectedId, onSelect }: Props) {
 
     const map = L.map(containerRef.current, {
       scrollWheelZoom: true,
+      zoomAnimation: false,
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -90,7 +91,7 @@ export function WorkLogsMap({ logs, selectedId, onSelect }: Props) {
     }
 
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 })
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: false })
     }
   }, [logs, stableSelect])
 

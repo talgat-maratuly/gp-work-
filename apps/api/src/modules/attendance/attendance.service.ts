@@ -132,6 +132,11 @@ export class AttendanceService {
       await this.syncOnWorkDayStarted(session, user, manager);
       row = await repo.findOneOrFail({ where: { workDate: session.shiftDate, userId: user.id } });
     }
+    row.completionPercent = session.overallPercent;
+    // Correcting an already closed report does not prove additional time on duty.
+    if (row.status === AttendanceStatus.COMPLETED && row.checkOutTime) {
+      return this.mapRecord(await repo.save(row));
+    }
     const checkOutTime = session.closedAt ?? new Date();
     row.checkOutTime = checkOutTime;
     row.lastActivityTime = checkOutTime;
@@ -139,7 +144,6 @@ export class AttendanceService {
     row.checkOutLongitude = session.endLongitude;
     row.workedHours = String(calcWorkedHours(row.checkInTime, checkOutTime));
     row.status = AttendanceStatus.COMPLETED;
-    row.completionPercent = session.overallPercent;
     return this.mapRecord(await repo.save(row));
   }
 

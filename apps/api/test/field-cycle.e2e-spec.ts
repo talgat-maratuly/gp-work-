@@ -809,6 +809,8 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
       .set(auth(adminToken)).expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
     expect(correctedAttendance).toMatchObject({ id: closedAttendance.id, userId: worker.id, completionPercent: 100 });
+    expect(correctedAttendance.checkOutTime).toBe(closedAttendance.checkOutTime);
+    expect(correctedAttendance.workedHours).toBe(closedAttendance.workedHours);
     const reviewed = (await request(app.getHttpServer())
       .post(`/api/field/work-days/${session.id}/review`)
       .set(auth(adminToken))

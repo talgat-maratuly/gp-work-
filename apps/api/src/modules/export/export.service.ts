@@ -1,13 +1,26 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { format } from 'date-fns';
 import * as ExcelJS from 'exceljs';
+import { In, Repository } from 'typeorm';
 import { buildMapLink, getApiPublicUrl } from '../../common/app-url';
+import { businessDateString } from '../../common/business-date';
+import { AttendanceRecord } from '../../entities/attendance-record.entity';
+import { User } from '../../entities/user.entity';
 import { WorkLogsService } from '../work-logs/work-logs.service';
 import { WorkLogQueryDto } from '../work-logs/dto/work-log-query.dto';
 
+function normalizeName(name: string): string {
+  return (name ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 @Injectable()
 export class ExportService {
-  constructor(private readonly workLogsService: WorkLogsService) {}
+  constructor(
+    private readonly workLogsService: WorkLogsService,
+    @InjectRepository(AttendanceRecord)
+    private readonly attendanceRepo: Repository<AttendanceRecord>,
+  ) {}
 
   private workTypeLabel(log: {
     customWorkType: string | null;
@@ -43,8 +56,22 @@ export class ExportService {
       : 'Геолокация не разрешена';
   }
 
-  async buildWorkLogsXlsx(query: WorkLogQueryDto): Promise<ExcelJS.Buffer> {
-    const logs = await this.workLogsService.findAll(query);
+  private async buildCheckoutPercentMap(dates: string[]): Promise<Map<string, number | null>> {
+    if (!dates.length) return new Map();
+    const rows = await this.attendanceRepo.find({ where: { workDate: In(dates) } });
+    const map = new Map<string, number | null>();
+    for (const r of rows) {
+      const identity = r.userId != null ? `user:${r.userId}` : `legacy:${normalizeName(r.workerFullName)}`;
+      const key = `${identity}__${r.workDate}`;
+      // An ambiguous historical name/date must never inherit another person's percentage.
+      map.set(key, map.has(key) ? null : r.completionPercent);
+    }
+    return map;
+  }
+
+  async buildWorkLogsXlsx(query: WorkLogQueryDto, user: User): Promise<ExcelJS.Buffer> {
+    const logs = await this.workLogsService.findAll(query, user);
+    const checkoutPercent = await this.buildCheckoutPercentMap([...new Set(logs.map(log => businessDateString(new Date(log.submittedAt))))]);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Журнал работ');
 
@@ -57,6 +84,7 @@ export class ExportService {
       { header: 'Культура', key: 'culture', width: 14 },
       { header: 'Вид работы', key: 'workType', width: 18 },
       { header: 'Процент выполнения', key: 'volume', width: 20 },
+      { header: 'Процент выполненной работы (уход)', key: 'checkoutPercent', width: 30 },
       { header: 'Комментарий', key: 'comment', width: 24 },
       { header: 'Фото', key: 'photos', width: 40 },
       { header: 'Геолокация', key: 'geo', width: 36 },
@@ -69,6 +97,9 @@ export class ExportService {
         log.latitude != null && log.longitude != null
           ? buildMapLink(log.latitude, log.longitude)
           : '—';
+      const identity = log.userId != null ? `user:${log.userId}` : `legacy:${normalizeName(log.workerFullName)}`;
+      const percentKey = `${identity}__${businessDateString(submitted)}`;
+      const coPercent = checkoutPercent.get(percentKey);
 
       sheet.addRow({
         date: format(submitted, 'dd.MM.yyyy'),
@@ -79,6 +110,7 @@ export class ExportService {
         culture: log.section.culture ?? '—',
         workType: this.workTypeLabel(log),
         volume: log.workVolume,
+        checkoutPercent: coPercent != null ? `${coPercent}%` : '—',
         comment: log.comment,
         photos: this.photoLinks(log.photoUrls),
         geo: this.geoLabel(log),

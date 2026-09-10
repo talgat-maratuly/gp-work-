@@ -769,7 +769,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
       .set(auth(adminToken))
       .expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
-    expect(closedAttendance).toMatchObject({ userId: worker.id, status: 'COMPLETED' });
+    expect(closedAttendance).toMatchObject({ userId: worker.id, status: 'COMPLETED', completionPercent: 75 });
     expect(closedAttendance.checkOutTime).toBeTruthy();
     expect(closedAttendance.checkOutLatitude).toBeCloseTo(51.2301);
     expect(closedAttendance.checkOutLongitude).toBeCloseTo(51.3701);
@@ -839,6 +839,12 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(resubmitted.endLivenessEvidenceUrls).toEqual(resubmittedFaces);
     expect(resubmitted.resultPhotoUrls).toEqual([resultPhoto, resubmittedPhoto]);
     expect(resubmitted.events.at(-1).type).toBe('RESUBMITTED');
+    const correctedAttendance = (await request(app.getHttpServer())
+      .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
+      .set(auth(adminToken)).expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
+    expect(correctedAttendance).toMatchObject({ id: closedAttendance.id, userId: worker.id, completionPercent: 100 });
+    expect(correctedAttendance.checkOutTime).toBe(closedAttendance.checkOutTime);
+    expect(correctedAttendance.workedHours).toBe(closedAttendance.workedHours);
     const reviewed = (await request(app.getHttpServer())
       .post(`/api/field/work-days/${session.id}/review`)
       .set(auth(adminToken))
@@ -846,6 +852,26 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .expect(201)).body;
     expect(reviewed.status).toBe('REVIEWED');
   });
+  it('keeps both form settings independent and requires administrator access', async () => {
+    await request(app.getHttpServer()).get('/api/form-settings?form=checkout_form').expect(401);
+    const work = (await request(app.getHttpServer()).get('/api/form-settings?form=work_form')
+      .set(auth(adminToken)).expect(200)).body;
+    const checkout = (await request(app.getHttpServer()).get('/api/form-settings?form=checkout_form')
+      .set(auth(adminToken)).expect(200)).body;
+    const updated = { ...checkout, formTitle: `Уход ${Date.now()}`,
+      fields: checkout.fields.map((field: { id: string }) => field.id === 'comment'
+        ? { ...field, visible: false, required: true } : field) };
+    await request(app.getHttpServer()).put('/api/form-settings?form=checkout_form')
+      .set(auth(adminToken)).send(updated).expect(200);
+    const saved = (await request(app.getHttpServer()).get('/api/form-settings?form=checkout_form')
+      .set(auth(adminToken)).expect(200)).body;
+    expect(saved.formTitle).toBe(updated.formTitle);
+    expect(saved.fields.find((field: { id: string }) => field.id === 'comment'))
+      .toMatchObject({ visible: false, required: false });
+    expect((await request(app.getHttpServer()).get('/api/form-settings?form=work_form')
+      .set(auth(adminToken)).expect(200)).body).toEqual(work);
+  });
+
   it('backfills only unambiguous legacy photo owners without changing evidence', async () => {
     const suffix = Date.now();
     const make = async (path: string, body: unknown) => (await request(app.getHttpServer())

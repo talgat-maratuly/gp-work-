@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -12,13 +12,13 @@ export class FormSettingsController {
 
   @Get()
   @Roles(UserRole.ADMIN)
-  getSettings() {
-    return this.formSettingsService.getSettings();
+  getSettings(@Query('form') form?: string) {
+    return this.formSettingsService.getSettings(form);
   }
 
   @Put()
   @Roles(UserRole.ADMIN)
-  updateSettings(@Body() dto: UpdateFormSettingsDto) {
-    return this.formSettingsService.updateSettings(dto);
+  updateSettings(@Body() dto: UpdateFormSettingsDto, @Query('form') form?: string) {
+    return this.formSettingsService.updateSettings(dto, form);
   }
 }

@@ -7,7 +7,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'apps/web/**'
-      - 'deploy/docker-compose.yml'
+      - 'deploy/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-api.yml'
@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: deploy-gp-work-api
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
@@ -127,7 +127,7 @@ jobs:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: deploy/docker-compose.yml
+          source: deploy/docker-compose.yml,deploy/ensure-private-uploads.py
           target: ${{ env.DEPLOY_PATH }}/
           strip_components: 1
 
@@ -222,7 +222,23 @@ jobs:
             if [ -s "${DEPLOY_PATH}/.rollback-api-env" ]; then
               cp "${DEPLOY_PATH}/.rollback-api-env" "$backup_dir/api-env-${stamp}.backup"
             fi
+            tar -czf "$backup_dir/uploads-${stamp}.tar.gz" -C "${DEPLOY_PATH}" uploads
+            tar -tzf "$backup_dir/uploads-${stamp}.tar.gz" >/dev/null
             find "$backup_dir" -type f -mtime +14 -delete
+
+      - name: Protect photo delivery in existing nginx configuration
+        id: privacy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            python3 "${DEPLOY_PATH}/ensure-private-uploads.py" \
+              --config /etc/nginx/conf.d/gp-work.gpartners.kz.conf \
+              --backup "${DEPLOY_PATH}/.rollback-uploads-nginx"
 
       - name: Pull and restart API
         id: restart
@@ -256,6 +272,11 @@ jobs:
               echo 'API database or exact-commit health check failed.' >&2
               exit 1
             fi
+            media_status="$(curl --max-time 20 -sS -D /tmp/gp-work-media-headers -o /dev/null -w '%{http_code}' https://gp-work.gpartners.kz/uploads/photos/release-access-probe.jpg)"
+            test "$media_status" = 401
+            grep -qi 'Cache-Control:.*no-store' /tmp/gp-work-media-headers
+            rm -f /tmp/gp-work-media-headers
+            echo 'Anonymous photo access denied; production photo caching disabled.'
             docker image prune -f
 
       - name: Roll back API after failed restart

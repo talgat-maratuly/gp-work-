@@ -52,6 +52,8 @@ jobs:
             echo 'Potential committed credential or insecure JWT fallback detected.'
             exit 1
           fi
+      - name: Verify surgical nginx update
+        run: python3 -m unittest discover -s deploy -p 'test_*.py'
       - run: npm run build
       - run: npm test -w @gp-work/api
       - run: npm run test:web:roles
@@ -64,6 +66,8 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const files = [
+            'apps/api/src/database/migrations/1731400000000-AddCheckoutFields.ts',
+            'apps/api/src/database/migrations/1732500000000-SyncWorkDayAttendancePercent.ts',
             'apps/api/src/database/migrations/1731400000000-AddFieldExecutionCore.ts',
             'apps/api/src/database/migrations/1731500000000-AddOperationalResources.ts',
             'apps/api/src/database/migrations/1731600000000-AddWorkDaySessions.ts',
@@ -91,6 +95,8 @@ jobs:
           node <<'NODE'
           const { Client } = require('pg');
           const expected = [
+            'AddCheckoutFields1731400000000',
+            'SyncWorkDayAttendancePercent1732500000000',
             'AddFieldExecutionCore1731400000000',
             'AddOperationalResources1731500000000',
             'AddWorkDaySessions1731600000000',

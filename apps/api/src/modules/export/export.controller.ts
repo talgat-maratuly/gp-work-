@@ -2,6 +2,8 @@ import { Controller, Get, Query, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../../entities/user.entity';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { ExportService } from './export.service';
 import { WorkLogQueryDto } from '../work-logs/dto/work-log-query.dto';
@@ -13,8 +15,8 @@ export class ExportController {
   constructor(private readonly exportService: ExportService) {}
 
   @Get('work-logs.xlsx')
-  async exportWorkLogs(@Query() query: WorkLogQueryDto, @Res() res: Response) {
-    const buffer = await this.exportService.buildWorkLogsXlsx(query);
+  async exportWorkLogs(@Query() query: WorkLogQueryDto, @CurrentUser() user: User, @Res() res: Response) {
+    const buffer = await this.exportService.buildWorkLogsXlsx(query, user);
     const from = query.dateFrom ?? 'all';
     const to = query.dateTo ?? 'all';
     const filename = `otchet_rabot_gp-work_${from}_${to}.xlsx`;

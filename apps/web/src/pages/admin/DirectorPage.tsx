@@ -91,7 +91,7 @@ export function DirectorPage() {
         {t.completionComment && <p className="mt-2 text-sm">Отчёт: {t.completionComment}</p>}
         {t.reviewComment && <p className="mt-1 text-sm">Проверка: {t.reviewComment}</p>}
         <div className="mt-2 flex flex-wrap gap-3">{t.completionPhotoUrls.map((url, i) => <a key={`${url}-${i}`} href={resolveAssetUrl(url)} target="_blank" rel="noreferrer" className="text-sm text-blue-700 underline">Фото {i + 1}</a>)}</div>
-        <Link to="/admin/tasks" className="mt-2 inline-block text-sm text-blue-700 underline">Открыть журнал задач и проверку →</Link>
+        <Link to={`/admin/tasks?task=${t.id}`} className="mt-2 inline-block text-sm text-blue-700 underline">Открыть поручение и проверку →</Link>
       </article>)}</div>
     </section>
   </div>

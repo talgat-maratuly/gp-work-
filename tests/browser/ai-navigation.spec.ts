@@ -114,7 +114,13 @@ test('worker can open the assistant directly and cannot access director data', a
   const octet = info.project.name.startsWith('mobile') ? 21 : 20
   await context.setExtraHTTPHeaders({ 'X-Forwarded-For': `10.31.${octet}.3` })
   const { worker, task } = await fixture(request, `${Date.now()}-worker-${info.project.name}`, `10.32.${octet}.3`)
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  const routeResponse = page.waitForResponse((response) => response.url().endsWith('/api/routes/my/today'))
   await login(page, worker.username, 'ai-worker-password')
+  expect(await (await routeResponse).json()).toBeNull()
+  await expect(page.getByRole('heading', { name: task.description, exact: true })).toBeVisible()
+  expect(pageErrors).toEqual([])
   const shortcuts = page.getByRole('navigation', { name: 'ИИ-помощники', exact: true })
   await expect(shortcuts.getByRole('link', { name: 'ИИ-ассистент', exact: true })).toBeInViewport()
   await expect(shortcuts.getByRole('link', { name: 'ИИ-директор', exact: true })).toHaveCount(0)
@@ -129,4 +135,6 @@ test('worker can open the assistant directly and cannot access director data', a
   expect((await request.get(`${api}/admin-ai/summary`, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403)
   await page.goto('/admin/ai-director')
   await expect(page).toHaveURL(/\/field\/today$/)
+  await expect(page.getByRole('heading', { name: task.description, exact: true })).toBeVisible()
+  expect(pageErrors).toEqual([])
 })

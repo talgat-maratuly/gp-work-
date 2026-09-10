@@ -7,8 +7,11 @@ export function aiLinksForRole(role?: UserRole) {
       { to: '/admin/assistant', label: 'ИИ-ассистент', icon: '✧' },
     ]
   }
-  if (role && ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'].includes(role)) {
+  if (role === 'WORKER') {
     return [{ to: '/field/assistant', label: 'ИИ-ассистент', icon: '✧' }]
+  }
+  if (role && ['BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'].includes(role)) {
+    return [{ to: '/admin/assistant', label: 'ИИ-ассистент', icon: '✧' }]
   }
   return []
 }

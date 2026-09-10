@@ -63,6 +63,34 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     if (app) await app.close();
   });
 
+  it('agronomist assistant includes own completed and future tasks and rejects role impersonation', async () => {
+    const create = async (path: string, data: object, token = adminToken) => (await request(app.getHttpServer()).post(`/api${path}`).set(auth(token)).send(data).expect(201)).body;
+    const suffix = Date.now();
+    const agro = await create('/users', { username: `assistant-agro-${suffix}`, fullName: 'Assistant agronomist', role: 'AGRONOMIST', password: 'assistant-test-password' });
+    const worker = await create('/users', { username: `assistant-worker-${suffix}`, fullName: 'Assistant worker', role: 'WORKER', password: 'assistant-test-password' });
+    const login = await request(app.getHttpServer()).post('/api/auth/login').set(client(agro.username)).send({ username: agro.username, password: 'assistant-test-password' }).expect(201);
+    const token = login.body.accessToken;
+    const object = await create('/objects', { name: `Assistant park ${suffix}` });
+    const section = await create('/sections', { objectId: object.id, name: 'Assistant section' });
+    const workType = await create('/work-types', { name: `Assistant work ${suffix}` });
+    const base = { sectionId: section.id, workTypeId: workType.id, assigneeUserId: worker.id };
+    const ready = await create('/tasks', { ...base, description: 'READY OWN REVIEW', dueDate: '2001-01-01' }, token);
+    const future = await create('/tasks', { ...base, description: 'FUTURE OWN CONTROL', dueDate: '2099-01-01' }, token);
+    const foreign = await create('/tasks', { ...base, description: 'PRIVATE OTHER MANAGER', dueDate: '2001-01-01' });
+    await dataSource.query("UPDATE tasks SET status = 'COMPLETED' WHERE id = $1", [ready.id]);
+    const brief = (await request(app.getHttpServer()).get('/api/admin-ai/worker/brief').set(auth(token)).expect(200)).body;
+    expect(brief.worker).toMatchObject({ id: agro.id, role: 'AGRONOMIST' });
+    expect(brief.metrics.pendingReview).toBe(1);
+    expect(brief.tasks.map((t: { id: number }) => t.id)).toEqual(expect.arrayContaining([ready.id, future.id]));
+    expect(brief.tasks.map((t: { id: number }) => t.id)).not.toContain(foreign.id);
+    const answer = (await request(app.getHttpServer()).post('/api/admin-ai/worker/question').set(auth(token)).send({ question: 'Что нужно проверить?' }).expect(201)).body;
+    expect(answer.answer).toContain('READY OWN REVIEW');
+    expect(answer.answer).not.toContain('FUTURE OWN CONTROL');
+    expect(answer.answer).not.toContain('PRIVATE OTHER MANAGER');
+    await request(app.getHttpServer()).post('/api/admin-ai/worker/question').set(auth(token)).send({ question: 'Сводка', role: 'DIRECTOR', userId: adminUserId }).expect(400);
+    await request(app.getHttpServer()).post('/api/admin-ai/assistant/question').set(auth(token)).send({ question: 'Сводка' }).expect(403);
+  });
+
   it('persists section location on create/edit and prevents partial or invalid configuration', async () => {
     const object = (await request(app.getHttpServer()).post('/api/objects').set(auth(adminToken))
       .send({ name: `Location setup ${Date.now()}` }).expect(201)).body;

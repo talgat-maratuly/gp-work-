@@ -1,19 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { askWorkerAi, fetchWorkerAiBrief, type WorkerAiBrief } from '@/api/adminAiApi'
+import { askWorkerAi, fetchWorkerAiBrief, type AiAnswer, type WorkerAiBrief } from '@/api/adminAiApi'
+import { AiAnswerNotice } from '@/components/AiAnswerNotice'
 import { toUserMessage } from '@/api/client'
-
-const samples = [
-  'Что мне делать сейчас?',
-  'Как правильно начать рабочий день?',
-  'Что нужно сделать перед уходом?',
-]
 
 export function FieldAiAssistantPage() {
   const [brief, setBrief] = useState<WorkerAiBrief | null>(null)
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState('')
-  const [fallback, setFallback] = useState(false)
+  const [result, setResult] = useState<AiAnswer | null>(null)
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,13 +21,13 @@ export function FieldAiAssistantPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    if (!question.trim()) return
+    if (!question.trim() || asking) return
     setAsking(true)
     setError(null)
+    setResult(null)
     try {
       const result = await askWorkerAi(question.trim())
-      setAnswer(result.answer)
-      setFallback(result.fallback === true)
+      setResult(result)
     } catch (err) {
       setError(toUserMessage(err, 'Не удалось получить ответ ИИ-ассистента'))
     } finally {
@@ -41,20 +35,24 @@ export function FieldAiAssistantPage() {
     }
   }
 
-  if (loading) return <p className="py-16 text-center text-slate-500">ИИ‑ассистент изучает рабочий день…</p>
+  if (loading) return <p className="py-16 text-center text-slate-500">Загружаем данные вашего кабинета…</p>
 
   return (
     <div className="space-y-4">
       <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-emerald-800 p-5 text-white shadow-lg">
-        <p className="text-sm text-blue-100">Ваш помощник</p>
+        <p className="text-sm text-blue-100">{brief?.assistant.title ?? 'Ваш помощник'}</p>
         <h1 className="mt-1 text-2xl font-black">ИИ-ассистент</h1>
+        <p className="mt-2 text-sm text-white/90">{brief?.assistant.responsibilities}</p>
         <p className="mt-3 text-sm text-white/90">{brief?.summary ?? 'Данные рабочего дня пока недоступны.'}</p>
       </section>
 
-      {error && <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
+      {brief && <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700"><p><b>Вы вошли:</b> {brief.worker.fullName} — {brief.assistant.roleLabel}.</p><p className="mt-2">Данные: {brief.assistant.scopeLabel.toLowerCase()}.</p><p className="mt-2 text-xs text-slate-500">ИИ-директор доступен в аккаунте директора или администратора. Для смены аккаунта нажмите «Выйти» сверху.</p></section>}
+
+      {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
 
       {brief && (
         <>
+          <nav aria-label="Действия по моей роли" className="flex flex-wrap gap-2">{brief.assistant.links.map(link => <Link key={link.to} to={link.to} className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-800">{link.label}</Link>)}</nav>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-xl bg-white p-3 shadow-sm"><p className="text-2xl font-bold">{brief.metrics.total}</p><p className="text-xs text-slate-500">Задач</p></div>
             <div className="rounded-xl bg-white p-3 shadow-sm"><p className="text-2xl font-bold text-blue-700">{brief.metrics.active}</p><p className="text-xs text-slate-500">В работе</p></div>
@@ -72,11 +70,11 @@ export function FieldAiAssistantPage() {
 
           {brief.tasks[0] && (
             <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Ближайшая задача</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">{brief.tasks[0].canReview ? 'Поручение на контроле' : 'Ближайшая задача'}</p>
               <h2 className="mt-2 font-bold text-slate-900">{brief.tasks[0].title}</h2>
               <p className="mt-1 text-sm text-slate-600">{brief.tasks[0].objectName} · {brief.tasks[0].sectionName}</p>
               <p className="mt-3 text-sm font-medium text-emerald-900">{brief.tasks[0].nextAction}</p>
-              <Link to={`/field/tasks/${brief.tasks[0].id}`} className="mt-3 inline-block rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Открыть задачу</Link>
+              <Link to={brief.tasks[0].to} className="mt-3 inline-block rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Открыть задачу</Link>
             </section>
           )}
         </>
@@ -97,9 +95,9 @@ export function FieldAiAssistantPage() {
           </button>
         </form>
         <div className="mt-3 flex flex-wrap gap-2">
-          {samples.map((sample) => <button key={sample} type="button" onClick={() => setQuestion(sample)} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">{sample}</button>)}
+          {(brief?.assistant.samples ?? []).map((sample) => <button key={sample} type="button" onClick={() => setQuestion(sample)} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">{sample}</button>)}
         </div>
-        {answer && <div aria-label="Ответ ассистента" aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900"><p className="whitespace-pre-wrap">{answer}</p>{fallback && <p className="mt-3 text-xs text-slate-600">Ответ сформирован по данным GP Work без ИИ-модели: она сейчас недоступна.</p>}</div>}
+        {result && <div aria-label="Ответ ассистента" aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900"><p className="whitespace-pre-wrap">{result.answer}</p><AiAnswerNotice result={result} /></div>}
       </section>
 
       <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">ИИ‑ассистент подсказывает по вашим данным, но не меняет задачи и решения руководителя.</p>

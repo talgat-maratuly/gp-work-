@@ -2,7 +2,7 @@ import { apiRequest } from './client'
 
 export type AdminAiRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
-export type AiAnswer = { answer: string; fallback?: boolean; model?: string }
+export type AiAnswer = { answer: string; fallback?: boolean; model?: string; fallbackReason?: 'not_configured' | 'provider_unavailable' }
 
 export type AdminAiSummary = {
   date: string
@@ -40,6 +40,8 @@ export type AdminAiRisk = {
 export type WorkerAiBrief = {
   date: string
   worker: { id: number; fullName: string; role: string }
+  assistant: { roleLabel: string; title: string; responsibilities: string; scopeLabel: string; samples: string[]; links: { label: string; to: string }[] }
+  watering: { id: number; objectName: string; status: string; plannedLiters: number | null }[]
   workDay: {
     id: number
     status: string
@@ -48,7 +50,7 @@ export type WorkerAiBrief = {
     sectionName: string
     sectionCode: string
   } | null
-  metrics: { total: number; active: number; problems: number }
+  metrics: { total: number; active: number; problems: number; pendingReview: number }
   tasks: {
     id: number
     title: string
@@ -58,6 +60,8 @@ export type WorkerAiBrief = {
     sectionCode: string
     status: string
     nextAction: string
+    canReview: boolean
+    to: string
   }[]
   recommendations: string[]
   summary: string
@@ -93,5 +97,11 @@ export async function askWorkerAi(question: string): Promise<AiAnswer> {
   return apiRequest<AiAnswer>('/admin-ai/worker/question', {
     method: 'POST',
     body: JSON.stringify({ question }),
+  })
+}
+
+export async function askManagerAi(question: string): Promise<AiAnswer> {
+  return apiRequest<AiAnswer>('/admin-ai/assistant/question', {
+    method: 'POST', body: JSON.stringify({ question }),
   })
 }

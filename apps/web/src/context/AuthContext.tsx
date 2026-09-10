@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMe, logout as apiLogout } from '@/api/authApi'
 import type { AuthUser, UserRole } from '@/lib/auth'
 import { clearAuth, getToken } from '@/lib/auth'
@@ -16,8 +16,14 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const revision = useRef(0)
+  const currentRequest = useRef<AbortController | null>(null)
 
   const refresh = useCallback(async () => {
+    currentRequest.current?.abort()
+    const controller = new AbortController()
+    currentRequest.current = controller
+    const requestRevision = ++revision.current
     const token = getToken()
     if (!token) {
       clearAuth()
@@ -28,18 +34,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true)
     try {
-      const me = await fetchMe()
-      setUser(me)
+      const me = await fetchMe(controller.signal)
+      if (revision.current === requestRevision && getToken() === token) setUser(me)
     } catch {
-      apiLogout()
-      setUser(null)
+      if (revision.current === requestRevision && getToken() === token) {
+        apiLogout()
+        setUser(null)
+      }
     } finally {
-      setLoading(false)
+      if (revision.current === requestRevision) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     void refresh()
+    const changed = (event: StorageEvent) => {
+      if (event.key === 'gp-work_token' || event.key === null) {
+        setUser(null)
+        void refresh()
+      }
+    }
+    window.addEventListener('storage', changed)
+    return () => { ++revision.current; currentRequest.current?.abort(); window.removeEventListener('storage', changed) }
   }, [refresh])
 
   const value = useMemo<AuthContextValue>(
@@ -47,8 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       logout: () => {
+        ++revision.current
+        currentRequest.current?.abort()
         apiLogout()
         setUser(null)
+        setLoading(false)
       },
       // Директор — полный доступ наравне с администратором: где разрешён ADMIN,
       // там разрешён и DIRECTOR (иначе кнопки создания/действий были бы скрыты).

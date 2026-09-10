@@ -2,7 +2,11 @@ import { apiRequest } from './client'
 import type { AuthUser } from '@/lib/auth'
 import { clearAuth, getToken, setAuth, setStoredUser } from '@/lib/auth'
 
+let pendingLogout: Promise<void> = Promise.resolve()
+let loggingOut = false
+
 export async function login(username: string, password: string) {
+  await pendingLogout
   const data = await apiRequest<{ accessToken: string; user: AuthUser; role: AuthUser['role'] }>(
     '/auth/login',
     {
@@ -14,16 +18,20 @@ export async function login(username: string, password: string) {
   return data.user
 }
 
-export async function fetchMe(): Promise<AuthUser> {
-  const me = await apiRequest<AuthUser>('/auth/me')
+export async function fetchMe(signal?: AbortSignal): Promise<AuthUser> {
   const token = getToken()
-  if (token) {
+  const me = await apiRequest<AuthUser>('/auth/me', { signal })
+  if (token && token === getToken()) {
     setStoredUser(me)
   }
   return me
 }
 
 export function logout() {
-  void apiRequest('/auth/logout', { method: 'POST' }).catch(() => undefined)
+  if (!loggingOut) {
+    loggingOut = true
+    pendingLogout = apiRequest('/auth/logout', { method: 'POST', signal: AbortSignal.timeout(5000) })
+      .then(() => undefined, () => undefined).finally(() => { loggingOut = false })
+  }
   clearAuth()
 }

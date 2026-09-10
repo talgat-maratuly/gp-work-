@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { AccountControls } from '@/components/AccountControls'
+import { homePathForRole } from '@/lib/roleRoutes'
 import { getNurseryName } from '@/lib/appConfig'
 import { useAuth } from '@/context/AuthContext'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
@@ -57,7 +59,7 @@ const directorGroups: NavGroup[] = [{ label: 'Кабинет директора'
 ] }]
 
 export function AdminLayout() {
-  const { user, logout, hasRole } = useAuth()
+  const { user, hasRole } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const aiLinks = aiLinksForRole(user?.role)
   const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
@@ -71,20 +73,21 @@ export function AdminLayout() {
       <aside className="hidden h-dvh w-64 shrink-0 flex-col bg-[#101b1e] text-white lg:sticky lg:top-0 lg:flex">
         <div className="border-b border-white/10 px-5 py-5"><p className="text-2xl font-black"><span className="text-emerald-400">GP</span> WORK</p><p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Операционная система полевых работ</p></div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">{navigation}</nav>
-        <div className="border-t border-white/10 p-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p><button onClick={logout} className="mt-3 text-xs text-slate-400 hover:text-white">Выйти</button></div>
+        <div className="border-t border-white/10 p-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p></div>
       </aside>
 
-      {mobileOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}><aside aria-label="Меню GP Work" className="flex h-full w-72 flex-col overflow-y-auto bg-[#101b1e] p-4 text-white" onClick={(e) => e.stopPropagation()}><div className="mb-5 flex items-center justify-between"><p className="text-xl font-black"><span className="text-emerald-400">GP</span> WORK</p><button type="button" aria-label="Закрыть меню" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2">✕</button></div><div className="mb-4 border-b border-white/10 pb-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p><button type="button" onClick={logout} className="mt-3 rounded-lg border border-white/20 px-4 py-2 text-sm">Выйти</button></div><nav>{navigation}</nav></aside></div>}
+      {mobileOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}><aside aria-label="Меню GP Work" className="flex h-full w-72 flex-col overflow-y-auto bg-[#101b1e] p-4 text-white" onClick={(e) => e.stopPropagation()}><div className="mb-5 flex items-center justify-between"><p className="text-xl font-black"><span className="text-emerald-400">GP</span> WORK</p><button type="button" aria-label="Закрыть меню" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2">✕</button></div><div className="mb-4 rounded-xl bg-white p-3"><AccountControls /></div><nav>{navigation}</nav></aside></div>}
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
+          <div className="flex min-h-20 items-center justify-between gap-3 px-4 md:px-6">
             <div className="flex items-center gap-3"><button aria-label="Открыть меню" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 lg:hidden">☰</button><div><p className="font-bold text-slate-900">{getNurseryName()}</p><p className="text-xs text-slate-500">Управление полевыми работами</p></div></div>
-            <div className="text-right"><p className="text-xs font-semibold text-emerald-800">{user ? ROLE_LABELS[user.role] : ''}</p>{!mobileOpen && <button type="button" onClick={logout} className="text-xs text-slate-600 underline lg:hidden">Выйти</button>}</div>
+            {!mobileOpen && <AccountControls />}
           </div>
-          {aiLinks.length > 0 && <nav aria-label="ИИ-помощники" className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2 md:px-6">
+          <nav aria-label="ИИ-помощники" className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2 md:px-6">
+            <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
             {aiLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800 hover:bg-blue-100'}`}><span aria-hidden="true">{item.icon}</span>{item.label}</NavLink>)}
-          </nav>}
+          </nav>
         </header>
         <main className="w-full p-4 md:p-6 xl:p-8"><Outlet /></main>
       </div>

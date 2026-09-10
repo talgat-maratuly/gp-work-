@@ -16,6 +16,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       API_PUBLIC_URL: ${API_PUBLIC_URL}
       DB_MIGRATE: ${DB_MIGRATE:-true}
+      APP_COMMIT_SHA: ${APP_COMMIT_SHA:-unknown}
+      ENABLE_SWAGGER: ${ENABLE_SWAGGER:-false}
+      ENABLE_ADMIN_RESET: ${ENABLE_ADMIN_RESET:-false}
       NODE_ENV: production
     ports:
       - '127.0.0.1:3002:3002'

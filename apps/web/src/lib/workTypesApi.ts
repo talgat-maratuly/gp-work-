@@ -46,13 +46,3 @@ export async function toggleWorkTypeActive(
     return { error: toUserMessage(err, 'Не удалось сохранить вид работы') }
   }
 }
-
-export async function deleteWorkType(id: number): Promise<{ error: string | null }> {
-  try {
-    await api.deleteWorkType(id)
-    return { error: null }
-  } catch (err) {
-    console.error('[work_types] delete:', err)
-    return { error: toUserMessage(err, 'Не удалось сохранить вид работы') }
-  }
-}

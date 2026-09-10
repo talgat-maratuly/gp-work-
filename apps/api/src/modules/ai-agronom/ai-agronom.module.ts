@@ -1,3 +1,4 @@
+import { UploadsModule } from '../uploads/uploads.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiAgronomAnalysis } from '../../entities/ai-agronom-analysis.entity';
@@ -7,7 +8,7 @@ import { AiAgronomController } from './ai-agronom.controller';
 import { AiAgronomService } from './ai-agronom.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AiAgronomAnalysis, NurseryObject, Section])],
+  imports: [UploadsModule, TypeOrmModule.forFeature([AiAgronomAnalysis, NurseryObject, Section])],
   controllers: [AiAgronomController],
   providers: [AiAgronomService],
 })

@@ -6,16 +6,13 @@ import {
   Param,
   ParseIntPipe,
   Patch,
-  Post,
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { User } from '../../entities/user.entity';
-import { CreateWorkLogDto } from './dto/create-work-log.dto';
 import { ReviewWorkLogDto } from './dto/review-work-log.dto';
 import { WorkLogQueryDto } from './dto/work-log-query.dto';
 import { WorkLogsService } from './work-logs.service';
@@ -47,12 +44,6 @@ export class WorkLogsController {
   )
   findAll(@Query() query: WorkLogQueryDto, @CurrentUser() user: User) {
     return this.workLogsService.findAll(query, user);
-  }
-
-  @Public()
-  @Post()
-  create(@Body() dto: CreateWorkLogDto, @CurrentUser() user?: User) {
-    return this.workLogsService.create(dto, user);
   }
 
   @Get(':id')

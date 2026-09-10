@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import {
+  businessDateString,
+  businessPeriodRange,
+  type BusinessPeriod,
+} from '../../common/business-date';
 import { parsePhotoUrls } from '../../common/photo-urls';
 import {
   DecisionPriority,
@@ -8,7 +13,7 @@ import {
 } from '../../common/enums/decision.enums';
 import { ScheduleStatus } from '../../common/enums/schedule-status.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
-import { WateringStatus } from '../../common/enums/watering.enums';
+import { WateringShift, WateringStatus } from '../../common/enums/watering.enums';
 import { ManagementDecision } from '../../entities/management-decision.entity';
 import { ScheduleEntry } from '../../entities/schedule-entry.entity';
 import { Task } from '../../entities/task.entity';
@@ -36,6 +41,13 @@ function pct(part: number, whole: number): number {
 }
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.VERIFIED];
+
+export interface OverviewFilters {
+  objectId?: number;
+  brigadeId?: number;
+  shift?: WateringShift;
+  createdById?: number;
+}
 
 @Injectable()
 export class ManagementService {
@@ -162,35 +174,25 @@ export class ManagementService {
   // ---------- СВОДКА (OVERVIEW) ----------
 
   private computeRange(period: string, dateStr?: string) {
-    const base = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
-    const iso = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-        d.getDate(),
-      ).padStart(2, '0')}`;
-
-    if (period === 'week') {
-      const day = (base.getDay() + 6) % 7; // Пн=0
-      const from = new Date(base);
-      from.setDate(base.getDate() - day);
-      const to = new Date(from);
-      to.setDate(from.getDate() + 6);
-      return { from: iso(from), to: iso(to), period };
+    if (!['day', 'week', 'month'].includes(period)) {
+      throw new BadRequestException('Период должен быть day, week или month');
     }
-    if (period === 'month') {
-      const from = new Date(base.getFullYear(), base.getMonth(), 1);
-      const to = new Date(base.getFullYear(), base.getMonth() + 1, 0);
-      return { from: iso(from), to: iso(to), period };
+    try {
+      return {
+        ...businessPeriodRange(period as BusinessPeriod, dateStr || businessDateString()),
+        period,
+      };
+    } catch {
+      throw new BadRequestException('Дата должна существовать и иметь формат YYYY-MM-DD');
     }
-    // day
-    return { from: iso(base), to: iso(base), period: 'day' };
   }
 
-  async overview(period = 'day', dateStr?: string) {
+  async overview(period = 'day', dateStr?: string, filters: OverviewFilters = {}) {
     const range = this.computeRange(period, dateStr);
-    const today = this.computeRange('day').from;
+    const today = businessDateString();
 
     // Задачи периода с деталями
-    const tasks = await this.taskRepo
+    const taskQuery = this.taskRepo
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.section', 'section')
       .leftJoinAndSelect('section.object', 'object')
@@ -201,8 +203,17 @@ export class ManagementService {
         from: range.from,
         to: range.to,
       })
-      .orderBy('task.due_date', 'DESC')
-      .getMany();
+      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED });
+    if (filters.objectId !== undefined) {
+      taskQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.brigadeId !== undefined) {
+      taskQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    if (filters.createdById !== undefined) {
+      taskQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
+    }
+    const tasks = await taskQuery.orderBy('task.due_date', 'DESC').getMany();
 
     const isClosed = (s: TaskStatus) => CLOSED.includes(s);
     const tasksTotal = tasks.length;
@@ -225,9 +236,16 @@ export class ManagementService {
     const withoutPhoto = completedTasks.length - withPhoto;
 
     // Полив периода
-    const watering = await this.wateringRepo.find({
-      where: { workDate: Between(range.from, range.to) },
-    });
+    const wateringQuery = this.wateringRepo
+      .createQueryBuilder('watering')
+      .where('watering.work_date BETWEEN :from AND :to', { from: range.from, to: range.to });
+    if (filters.objectId !== undefined) {
+      wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.shift) {
+      wateringQuery.andWhere('watering.shift = :shift', { shift: filters.shift });
+    }
+    const watering = await wateringQuery.getMany();
     const wPlanned = watering.reduce((s, w) => s + (w.plannedLiters ?? 0), 0);
     const wActual = watering.reduce((s, w) => s + (w.actualLiters ?? 0), 0);
     const wDone = watering.filter((w) => w.status === WateringStatus.DONE).length;
@@ -243,9 +261,16 @@ export class ManagementService {
     );
 
     // График периода
-    const schedule = await this.scheduleRepo.find({
-      where: { plannedDate: Between(range.from, range.to) },
-    });
+    const scheduleQuery = this.scheduleRepo
+      .createQueryBuilder('schedule')
+      .where('schedule.planned_date BETWEEN :from AND :to', { from: range.from, to: range.to });
+    if (filters.objectId !== undefined) {
+      scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.brigadeId !== undefined) {
+      scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    const schedule = await scheduleQuery.getMany();
     const sTotal = schedule.length;
     const sDone = schedule.filter((s) => s.status === ScheduleStatus.DONE).length;
 

@@ -7,6 +7,9 @@ import {
   type DashboardParams,
   type DashboardSummary,
 } from '@/api/dashboardApi'
+import { fetchDispatcher, type DispatcherData } from '@/api/operationsApi'
+import { DispatcherMap } from '@/components/operations/DispatcherMap'
+import { businessDateString } from '@/lib/businessDate'
 
 type Period = 'day' | 'week' | 'month'
 
@@ -60,22 +63,37 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
 export function DashboardPage() {
   const navigate = useNavigate()
   const [period, setPeriod] = useState<Period>('day')
+  const [date, setDate] = useState(businessDateString())
   const [data, setData] = useState<DashboardSummary | null>(null)
+  const [dispatcher, setDispatcher] = useState<DispatcherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setWarning(null)
     try {
-      const params: DashboardParams = { period }
-      setData(await fetchDashboardSummary(params))
+      const params: DashboardParams = { period, date }
+      const [summaryResult, operationsResult] = await Promise.allSettled([
+        fetchDashboardSummary(params),
+        fetchDispatcher(),
+      ])
+      if (summaryResult.status === 'rejected') throw summaryResult.reason
+      setData(summaryResult.value)
+      if (operationsResult.status === 'fulfilled') {
+        setDispatcher(operationsResult.value)
+      } else {
+        setDispatcher(null)
+        setWarning('Основная сводка загружена, но оперативная карта временно недоступна.')
+      }
     } catch (err) {
       setError(toUserMessage(err, 'Не удалось загрузить дашборд'))
     } finally {
       setLoading(false)
     }
-  }, [period])
+  }, [date, period])
 
   useEffect(() => {
     load()
@@ -96,6 +114,14 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="sr-only" htmlFor="dashboard-date">Дата сводки</label>
+          <input
+            id="dashboard-date"
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700"
+          />
           <div className="flex rounded-lg border border-slate-300 bg-white p-0.5">
             {PERIODS.map((p) => (
               <button
@@ -127,6 +153,7 @@ export function DashboardPage() {
         </div>
       ) : c ? (
         <>
+          {warning && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{warning}</div>}
           {/* KPI-карточки */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <KpiCard label="Всего объектов" value={c.objectsTotal} onClick={go('/admin/objects')} />
@@ -141,9 +168,22 @@ export function DashboardPage() {
             <KpiCard label="Водовозов" value={c.waterCarriers} tone="blue" onClick={go('/admin/watering')} />
             <KpiCard label="Активные бригады" value={c.activeBrigades} onClick={go('/admin/brigades')} />
             <KpiCard label="% выполнения работ" value={`${c.workCompletionPercent}%`} tone="green" onClick={go('/admin/schedule')} />
-            <KpiCard label="% прохождения проверки" value={`${c.reviewPassPercent}%`} tone="green" onClick={go('/admin/management?period=day')} />
+            <KpiCard label="% прохождения проверки" value={`${c.reviewPassPercent}%`} tone="green" onClick={go(`/admin/management?period=${period}&date=${date}`)} />
             <KpiCard label="Объекты без полива" value={c.objectsWithoutConfirmedWatering} tone="amber" onClick={go('/admin/watering?status=NEEDS_REVIEW')} />
           </div>
+
+          {dispatcher && (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+                <DispatcherMap data={dispatcher} />
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between"><h2 className="font-black">Оперативная сводка</h2><button onClick={go('/admin/dispatcher')} className="text-xs font-bold text-emerald-800 underline">открыть диспетчерскую</button></div>
+                <div className="mt-3"><Stat label="Вышло сотрудников" value={dispatcher.summary.checkedIn}/><Stat label="Опоздало" value={dispatcher.summary.late} tone="text-amber-700"/><Stat label="Активные бригады" value={dispatcher.summary.activeBrigades}/><Stat label="Техника на работах" value={dispatcher.summary.activeVehicles}/><Stat label="Задержки маршрутов" value={dispatcher.summary.overdueStops} tone="text-red-700"/><Stat label="Проблемные работы" value={dispatcher.summary.problems} tone="text-red-700"/></div>
+                <p className="mt-4 text-xs text-slate-400">Последнее обновление: {new Date(dispatcher.generatedAt).toLocaleTimeString('ru-RU')}</p>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Задачи сегодня */}

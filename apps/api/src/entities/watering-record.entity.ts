@@ -32,13 +32,13 @@ export class WateringRecord {
   @Column({ type: 'varchar', length: 24, default: WateringType.AUTO })
   type!: WateringType;
 
-  @Column({ name: 'object_id', nullable: true })
+  @Column({ name: 'object_id', type: 'int', nullable: true })
   objectId!: number | null;
 
-  @Column({ name: 'section_id', nullable: true })
+  @Column({ name: 'section_id', type: 'int', nullable: true })
   sectionId!: number | null;
 
-  @Column({ name: 'water_carrier_id', nullable: true })
+  @Column({ name: 'water_carrier_id', type: 'int', nullable: true })
   waterCarrierId!: number | null;
 
   @Column({ name: 'performer_name', type: 'varchar', length: 255, nullable: true })
@@ -74,10 +74,10 @@ export class WateringRecord {
   @Column({ type: 'varchar', length: 24, default: WateringStatus.PLANNED })
   status!: WateringStatus;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })

@@ -8,11 +8,9 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { User } from '../../entities/user.entity';
@@ -68,12 +66,6 @@ export class TasksController {
     return this.tasksService.completeTask(id, user, dto);
   }
 
-  @Public()
-  @Get('open')
-  findOpen(@Query('sectionId', ParseIntPipe) sectionId: number) {
-    return this.tasksService.findOpenForSection(sectionId);
-  }
-
   @Post()
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
   create(@Body() dto: CreateTaskDto, @CurrentUser() user: User) {
@@ -98,14 +90,14 @@ export class TasksController {
 
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto) {
-    return this.tasksService.update(id, dto);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateTaskDto, @CurrentUser() user: User) {
+    return this.tasksService.update(id, dto, user);
   }
 
   @Delete(':id')
   @HttpCode(204)
   @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.tasksService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+    return this.tasksService.remove(id, user);
   }
 }

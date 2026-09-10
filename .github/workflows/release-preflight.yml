@@ -1,0 +1,49 @@
+name: GP Work release preflight
+on:
+  push:
+    branches: ['codex/gp-work-security-browser-v3']
+    paths: ['.github/workflows/release-preflight.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only production readiness checks
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 5m
+          script: |
+            set -eu
+            curl -fsS http://127.0.0.1:3002/api/health
+            curl -fsS https://gp-work.gpartners.kz/version.json
+            docker exec -i gp-work-postgres psql -X -v ON_ERROR_STOP=1 -U postgres -d gp-work <<'SQL'
+            BEGIN READ ONLY;
+            SELECT count(*) FILTER (WHERE is_active) AS active_sections,
+                   count(*) FILTER (WHERE is_active AND (latitude IS NULL OR longitude IS NULL)) AS missing_coordinates,
+                   count(*) FILTER (WHERE is_active AND (latitude NOT BETWEEN -90 AND 90 OR longitude NOT BETWEEN -180 AND 180 OR radius_meters <= 0)) AS invalid_geofences
+            FROM sections;
+            SELECT count(*) AS applied_migrations FROM migrations;
+            COMMIT;
+            SQL
+            df -h /opt/gp-work
+            du -sh /opt/gp-work/api/uploads
+            test -s /opt/gp-work/api/.env
+            test -s /opt/gp-work/api/docker-compose.yml
+            docker inspect --format '{{.Config.Image}}' gp-work-api
+            # Output only whether the expected privacy directives exist; never dump server configuration.
+            python3 - <<'PY'
+            from pathlib import Path
+            import re
+            p = Path('/etc/nginx/conf.d/gp-work.gpartners.kz.conf')
+            if not p.is_file():
+                print('NGINX_UPLOADS: expected config path not found; manual inspection required')
+            else:
+                blocks = re.findall(r'location\s+(?:\^~\s+)?/uploads/\s*\{([^{}]*)\}', p.read_text())
+                ready = bool(blocks) and all('no-store' in b and 'proxy_cache off' in b and 'expires off' in b for b in blocks)
+                print('NGINX_UPLOADS_PRIVACY_READY=' + str(ready))
+            PY

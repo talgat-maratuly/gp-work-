@@ -40,6 +40,10 @@ export async function updateSection(
     area?: string
     culture?: string
     customText?: string
+    latitude?: number
+    longitude?: number
+    radiusMeters?: number
+    isActive?: boolean
   }
 ): Promise<Section> {
   const data = await apiRequest<ApiSection>(`/sections/${id}`, {
@@ -49,7 +53,7 @@ export async function updateSection(
   return mapSection(data)
 }
 
-export async function deleteSection(id: number): Promise<void> {
+export async function archiveSection(id: number): Promise<void> {
   await apiRequest(`/sections/${id}`, { method: 'DELETE' })
   notifySectionsChanged()
 }

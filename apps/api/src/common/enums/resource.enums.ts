@@ -1,0 +1,43 @@
+export enum VehicleType {
+  CAR = 'CAR',
+  WATER_TRUCK = 'WATER_TRUCK',
+  MOWER = 'MOWER',
+  PUMP = 'PUMP',
+  GENERATOR = 'GENERATOR',
+  DRILLING_RIG = 'DRILLING_RIG',
+  EQUIPMENT = 'EQUIPMENT',
+}
+
+export enum VehicleStatus {
+  FREE = 'FREE',
+  ASSIGNED = 'ASSIGNED',
+  IN_WORK = 'IN_WORK',
+  REPAIR = 'REPAIR',
+  UNAVAILABLE = 'UNAVAILABLE',
+}
+
+export enum VehicleAssignmentStatus {
+  ASSIGNED = 'ASSIGNED',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum NurseryBatchStatus {
+  AVAILABLE = 'AVAILABLE',
+  RESERVED = 'RESERVED',
+  ISSUED = 'ISSUED',
+  DAMAGED = 'DAMAGED',
+  WRITTEN_OFF = 'WRITTEN_OFF',
+}
+
+export enum NurseryMovementType {
+  INCOME = 'INCOME',
+  TRANSFER = 'TRANSFER',
+  RESERVE = 'RESERVE',
+  RELEASE = 'RELEASE',
+  ISSUE = 'ISSUE',
+  RETURN = 'RETURN',
+  WRITE_OFF = 'WRITE_OFF',
+  CORRECTION = 'CORRECTION',
+}

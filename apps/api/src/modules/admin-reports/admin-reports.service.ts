@@ -1,3 +1,4 @@
+import { UploadsService } from '../uploads/uploads.service';
 import {
   BadRequestException,
   ForbiddenException,
@@ -39,6 +40,7 @@ const CLOSED_TASK_STATUSES = [TaskStatus.COMPLETED, TaskStatus.VERIFIED];
 @Injectable()
 export class AdminReportsService {
   constructor(
+    private readonly uploadsService: UploadsService,
     @InjectRepository(AdminDailyReport)
     private readonly reportRepo: Repository<AdminDailyReport>,
     @InjectRepository(Task)
@@ -149,12 +151,15 @@ export class AdminReportsService {
       attendanceCount,
       wateringRows,
     ] = await Promise.all([
-      this.taskRepo.count({ where: { dueDate: date } }),
+      this.taskRepo.count({ where: { dueDate: date, status: Not(TaskStatus.CANCELLED) } }),
       this.taskRepo.count({ where: { dueDate: date, status: In(CLOSED_TASK_STATUSES) } }),
       this.taskRepo.count({ where: { dueDate: date, status: TaskStatus.IN_PROGRESS } }),
       this.taskRepo.count({ where: { dueDate: date, status: TaskStatus.COMPLETED } }),
       this.taskRepo.count({
-        where: { dueDate: LessThan(date), status: Not(In(CLOSED_TASK_STATUSES)) },
+        where: {
+          dueDate: LessThan(date),
+          status: Not(In([...CLOSED_TASK_STATUSES, TaskStatus.CANCELLED])),
+        },
       }),
       this.attendanceRepo.count({ where: { workDate: date } }),
       this.wateringRepo.find({ where: { workDate: date } }),
@@ -189,6 +194,7 @@ export class AdminReportsService {
   }
 
   async create(dto: CreateAdminReportDto, user: User) {
+    await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls ?? [], user);
     const row = this.reportRepo.create({
       reportDate: dto.reportDate,
       authorId: user.id,
@@ -225,7 +231,7 @@ export class AdminReportsService {
     }
   }
 
-  async update(id: number, dto: UpdateAdminReportDto) {
+  async update(id: number, dto: UpdateAdminReportDto, user: User) {
     const row = await this.reportRepo.findOne({ where: { id } });
     if (!row) throw new NotFoundException('Отчёт не найден');
     this.assertEditable(row);
@@ -253,8 +259,11 @@ export class AdminReportsService {
     if (dto.reportDate !== undefined) row.reportDate = dto.reportDate;
     if (dto.plannedLiters !== undefined) row.plannedLiters = dto.plannedLiters;
     if (dto.actualLiters !== undefined) row.actualLiters = dto.actualLiters;
-    if (dto.photoUrls !== undefined)
+    if (dto.photoUrls !== undefined) {
+      const existing = parsePhotoUrls(row.photoUrls);
+      await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls.filter((url) => !existing.includes(url)), user);
       row.photoUrls = serializePhotoUrls(dto.photoUrls);
+    }
 
     await this.reportRepo.save(row);
     return this.findOne(id);

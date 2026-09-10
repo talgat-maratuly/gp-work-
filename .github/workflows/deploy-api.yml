@@ -1,30 +1,60 @@
+# Release trigger: deploy GP Work API and Web from one commit.
 name: Deploy API
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/worker-day-cycle-v2']
     paths:
       - 'apps/api/**'
-      - 'deploy/docker-compose.yml'
+      - 'apps/web/**'
+      - 'deploy/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-api.yml'
+      - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
   packages: write
 
 concurrency:
   group: deploy-gp-work-api
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy gp-work]')
     name: Build and push API image
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Wait for verified release CI
+        uses: actions/github-script@v7
+        timeout-minutes: 20
+        with:
+          script: |
+            for (let attempt = 0; attempt < 120; attempt++) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'ci.yml',
+                head_sha: context.sha,
+                per_page: 10,
+              });
+              const run = data.workflow_runs.find(run => run.head_sha === context.sha);
+              if (run?.status === 'completed') {
+                if (run.conclusion !== 'success') {
+                  throw new Error('ci.yml failed for ' + context.sha + ': ' + run.conclusion);
+                }
+                core.info('Verified successful ci.yml for ' + context.sha);
+                return;
+              }
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            throw new Error('Timed out waiting for ci.yml at ' + context.sha);
 
       - name: Compute image prefix
         id: image_vars
@@ -84,7 +114,12 @@ jobs:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: mkdir -p "${{ env.DEPLOY_PATH }}/uploads/photos"
+          script: |
+            set -euo pipefail
+            mkdir -p "${{ env.DEPLOY_PATH }}/uploads/photos"
+            if [ -s "${{ env.DEPLOY_PATH }}/docker-compose.yml" ]; then
+              cp "${{ env.DEPLOY_PATH }}/docker-compose.yml" "${{ env.DEPLOY_PATH }}/.rollback-api-compose"
+            fi
 
       - name: Upload docker-compose file
         uses: appleboy/scp-action@v0.1.7
@@ -92,9 +127,22 @@ jobs:
           host: ${{ vars.SSH_HOST }}
           username: ${{ vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: deploy/docker-compose.yml
+          source: deploy/docker-compose.yml,deploy/ensure-private-uploads.py
           target: ${{ env.DEPLOY_PATH }}/
           strip_components: 1
+
+      - name: Preserve current API environment
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            if [ -s "${DEPLOY_PATH}/.env" ]; then
+              cp "${DEPLOY_PATH}/.env" "${DEPLOY_PATH}/.rollback-api-env"
+            fi
 
       - name: Prepare remote environment
         uses: appleboy/ssh-action@v1.2.0
@@ -108,6 +156,7 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_ADMIN_MODEL: ${{ vars.OPENAI_ADMIN_MODEL }}
+          OPENAI_WORKER_MODEL: ${{ vars.OPENAI_WORKER_MODEL }}
           OPENAI_VISION_MODEL: ${{ vars.OPENAI_VISION_MODEL }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
           API_PUBLIC_URL: ${{ vars.API_PUBLIC_URL }}
@@ -117,26 +166,82 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 60s
           command_timeout: 10m
-          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
+          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,DB_PASSWORD,JWT_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,OPENAI_API_KEY,OPENAI_ADMIN_MODEL,OPENAI_WORKER_MODEL,OPENAI_VISION_MODEL,FRONTEND_URL,API_PUBLIC_URL,DEPLOY_PATH
           script: |
             set -euo pipefail
+            : "${DB_PASSWORD:?DB_PASSWORD secret is required}"
+            : "${JWT_SECRET:?JWT_SECRET secret is required}"
+            if [ "$(printf '%s' "$JWT_SECRET" | wc -c)" -lt 32 ]; then
+              echo 'JWT_SECRET must contain at least 32 bytes; deployment stopped before restart.' >&2
+              exit 1
+            fi
+            : "${ADMIN_PASSWORD:?ADMIN_PASSWORD secret is required}"
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             cat > "${DEPLOY_PATH}/.env" <<EOF
-            API_IMAGE=${IMAGE_PREFIX}/gp-work-api:prod-latest
+            API_IMAGE=${IMAGE_PREFIX}/gp-work-api:sha-${{ github.sha }}
             DB_PASSWORD=${DB_PASSWORD}
-            JWT_SECRET=${JWT_SECRET:-gp-work-prod-secret}
+            JWT_SECRET=${JWT_SECRET}
             ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
             ADMIN_PASSWORD=${ADMIN_PASSWORD}
             OPENAI_API_KEY=${OPENAI_API_KEY}
             OPENAI_ADMIN_MODEL=${OPENAI_ADMIN_MODEL:-gpt-4o}
+            OPENAI_WORKER_MODEL=${OPENAI_WORKER_MODEL:-gpt-4o-mini}
             OPENAI_VISION_MODEL=${OPENAI_VISION_MODEL:-gpt-4o}
             FRONTEND_URL=${FRONTEND_URL}
             API_PUBLIC_URL=${API_PUBLIC_URL}
             DB_MIGRATE=true
+            APP_COMMIT_SHA=${{ github.sha }}
             EOF
 
+      - name: Backup database and current API image
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 20m
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            backup_dir="/opt/gp-work/backups"
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            mkdir -p "$backup_dir"
+            chmod 700 "$backup_dir"
+            docker exec gp-work-postgres pg_dump -U postgres -d gp-work -Fc > "$backup_dir/database-${stamp}.dump"
+            test -s "$backup_dir/database-${stamp}.dump"
+            docker exec -i gp-work-postgres pg_restore --list < "$backup_dir/database-${stamp}.dump" >/dev/null
+            echo "Verified database backup: $backup_dir/database-${stamp}.dump"
+            if docker inspect gp-work-api >/dev/null 2>&1; then
+              previous_image="$(docker inspect --format '{{.Image}}' gp-work-api)"
+              rollback_tag="gp-work-api:rollback-${stamp}"
+              docker tag "$previous_image" "$rollback_tag"
+              printf '%s\n' "$rollback_tag" > "${DEPLOY_PATH}/.rollback-api-image"
+            fi
+            if [ -s "${DEPLOY_PATH}/.rollback-api-env" ]; then
+              cp "${DEPLOY_PATH}/.rollback-api-env" "$backup_dir/api-env-${stamp}.backup"
+            fi
+            tar -czf "$backup_dir/uploads-${stamp}.tar.gz" -C "${DEPLOY_PATH}" uploads
+            tar -tzf "$backup_dir/uploads-${stamp}.tar.gz" >/dev/null
+            find "$backup_dir" -type f -mtime +14 -delete
+
+      - name: Protect photo delivery in existing nginx configuration
+        id: privacy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            python3 "${DEPLOY_PATH}/ensure-private-uploads.py" \
+              --config /etc/nginx/conf.d/gp-work.gpartners.kz.conf \
+              --backup "${DEPLOY_PATH}/.rollback-uploads-nginx"
+
       - name: Pull and restart API
+        id: restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ vars.SSH_HOST }}
@@ -148,7 +253,59 @@ jobs:
           script: |
             set -euo pipefail
             cd "${DEPLOY_PATH}"
-            docker compose --env-file .env pull
-            docker compose --env-file .env up -d --remove-orphans
+            docker compose --env-file .env pull gp-work-api
+            docker compose --env-file .env up -d --no-deps gp-work-api
             docker compose --env-file .env ps
+            healthy=false
+            for attempt in $(seq 1 60); do
+              health="$(curl -fsS http://127.0.0.1:3002/api/health || true)"
+              if printf '%s' "$health" | grep -q '"status":"ok"' &&
+                 printf '%s' "$health" | grep -q '"database":"ok"' &&
+                 printf '%s' "$health" | grep -q '"commit":"${{ github.sha }}"'; then
+                healthy=true
+                printf '%s\n' "$health"
+                break
+              fi
+              sleep 2
+            done
+            if [ "$healthy" != true ]; then
+              echo 'API database or exact-commit health check failed.' >&2
+              exit 1
+            fi
+            media_status="$(curl --max-time 20 -sS -D /tmp/gp-work-media-headers -o /dev/null -w '%{http_code}' https://gp-work.gpartners.kz/uploads/photos/release-access-probe.jpg)"
+            test "$media_status" = 401
+            grep -qi 'Cache-Control:.*no-store' /tmp/gp-work-media-headers
+            rm -f /tmp/gp-work-media-headers
+            echo 'Anonymous photo access denied; production photo caching disabled.'
             docker image prune -f
+
+      - name: Roll back API after failed restart
+        if: failure() && steps.restart.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          envs: DEPLOY_PATH
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH}"
+            test -s .rollback-api-image
+            test -s .rollback-api-env
+            rollback_image="$(cat .rollback-api-image)"
+            cp .rollback-api-env .env
+            if [ -s .rollback-api-compose ]; then
+              cp .rollback-api-compose docker-compose.yml
+            fi
+            sed -i "s|^API_IMAGE=.*|API_IMAGE=${rollback_image}|" .env
+            docker compose --env-file .env up -d --no-deps gp-work-api
+            for attempt in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:3002/api/health | grep -q '"status":"ok"'; then
+                echo 'Previous API restored; additive database changes retained.'
+                exit 0
+              fi
+              sleep 2
+            done
+            echo 'Rollback health check failed.' >&2
+            exit 1

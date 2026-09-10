@@ -5,6 +5,7 @@ export enum TaskStatus {
   COMPLETED = 'COMPLETED',
   VERIFIED = 'VERIFIED',
   REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
 }
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -14,4 +15,5 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   [TaskStatus.COMPLETED]: 'Завершена',
   [TaskStatus.VERIFIED]: 'Проверена',
   [TaskStatus.REJECTED]: 'Отклонена',
+  [TaskStatus.CANCELLED]: 'Отменена',
 };

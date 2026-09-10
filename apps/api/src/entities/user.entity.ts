@@ -23,13 +23,13 @@ export class User {
   @Column({ unique: true })
   username!: string;
 
-  @Column({ name: 'password_hash', type: 'text', nullable: true })
+  @Column({ name: 'password_hash', type: 'text', nullable: true, select: false })
   passwordHash!: string | null;
 
   @Column({ type: 'varchar', length: 32, default: UserRole.WORKER })
   role!: UserRole;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
   @Column({ name: 'is_active', default: true })

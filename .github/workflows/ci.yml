@@ -1,0 +1,148 @@
+name: GP Work CI
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: gp-work-test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d gp-work-test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres-test
+      DATABASE_NAME: gp-work-test
+      DB_MIGRATE: 'true'
+      NODE_ENV: test
+      JWT_SECRET: ci-only-secret-at-least-32-characters-long
+      ADMIN_USERNAME: e2e-admin
+      ADMIN_PASSWORD: e2e-admin-password
+      BUSINESS_TIME_ZONE: Asia/Oral
+      BUSINESS_UTC_OFFSET: '+05:00'
+      APP_COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+      - name: Repository secret guard
+        shell: bash
+        run: |
+          if git grep -nEI '(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|JWT_SECRET=\$\{JWT_SECRET:-[^}]+\})' -- .; then
+            echo 'Potential committed credential or insecure JWT fallback detected.'
+            exit 1
+          fi
+      - name: Verify surgical nginx update
+        run: python3 -m unittest discover -s deploy -p 'test_*.py'
+      - run: npm run build
+      - run: npm test -w @gp-work/api
+      - run: npm run test:web:roles
+      - run: npm run test:web:actions
+      - run: npm run test:e2e:typecheck -w @gp-work/api
+      - name: Verify additive migration source
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const files = [
+            'apps/api/src/database/migrations/1731400000000-AddCheckoutFields.ts',
+            'apps/api/src/database/migrations/1732500000000-SyncWorkDayAttendancePercent.ts',
+            'apps/api/src/database/migrations/1731400000000-AddFieldExecutionCore.ts',
+            'apps/api/src/database/migrations/1731500000000-AddOperationalResources.ts',
+            'apps/api/src/database/migrations/1731600000000-AddWorkDaySessions.ts',
+            'apps/api/src/database/migrations/1731700000000-AddWorkDayTaskResults.ts',
+            'apps/api/src/database/migrations/1731800000000-AddExecutionResults.ts',
+            'apps/api/src/database/migrations/1731900000000-AddWorkDayLivenessEvidence.ts',
+            'apps/api/src/database/migrations/1732000000000-AddObjectSectionLifecycle.ts',
+            'apps/api/src/database/migrations/1732100000000-AddTaskLifecycleIntegrity.ts',
+            'apps/api/src/database/migrations/1732200000000-AddWorkTypeLifecycleIntegrity.ts',
+            'apps/api/src/database/migrations/1732300000000-LinkAttendanceToUsers.ts',
+            'apps/api/src/database/migrations/1732400000000-AddPhotoOwnership.ts',
+          ];
+          const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
+          for (const file of files) {
+            const source = fs.readFileSync(file, 'utf8');
+            const up = source.split(/\n\s*async down\s*\(/)[0];
+            if (forbidden.test(up)) throw new Error(`${file} contains a destructive statement in up()`);
+          }
+          console.log('All field-cycle migrations are additive.');
+          NODE
+      - run: npm run migration:run
+      - name: Verify field-cycle additive migrations applied
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          const expected = [
+            'AddCheckoutFields1731400000000',
+            'SyncWorkDayAttendancePercent1732500000000',
+            'AddFieldExecutionCore1731400000000',
+            'AddOperationalResources1731500000000',
+            'AddWorkDaySessions1731600000000',
+            'AddWorkDayTaskResults1731700000000',
+            'AddExecutionResults1731800000000',
+            'AddWorkDayLivenessEvidence1731900000000',
+            'AddObjectSectionLifecycle1732000000000',
+            'AddTaskLifecycleIntegrity1732100000000',
+            'AddWorkTypeLifecycleIntegrity1732200000000',
+            'LinkAttendanceToUsers1732300000000',
+            'AddPhotoOwnership1732400000000',
+          ];
+          const client = new Client({
+            host: process.env.DATABASE_HOST,
+            port: Number(process.env.DATABASE_PORT),
+            user: process.env.DATABASE_USERNAME,
+            password: process.env.DATABASE_PASSWORD,
+            database: process.env.DATABASE_NAME,
+          });
+          (async () => {
+            await client.connect();
+            const { rows } = await client.query(
+              'SELECT name FROM migrations WHERE name = ANY($1::text[])',
+              [expected],
+            );
+            const found = new Set(rows.map(({ name }) => name));
+            const missing = expected.filter((name) => !found.has(name));
+            if (missing.length) throw new Error(`Missing migrations: ${missing.join(', ')}`);
+            console.log(`Verified migrations: ${expected.join(', ')}`);
+          })()
+            .finally(() => client.end())
+            .catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          NODE
+      - run: npm run test:e2e -w @gp-work/api
+      - name: Install browser for real UI regression tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser worker-day regression (real API and PostgreSQL)
+        run: npm run test:browser
+      - name: Preserve browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regression-${{ github.sha }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

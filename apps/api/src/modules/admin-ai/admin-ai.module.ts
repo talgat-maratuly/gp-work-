@@ -9,6 +9,8 @@ import { Section } from '../../entities/section.entity';
 import { Task } from '../../entities/task.entity';
 import { User } from '../../entities/user.entity';
 import { WorkLog } from '../../entities/work-log.entity';
+import { WorkDaySession } from '../../entities/work-day-session.entity';
+import { WorkExecution } from '../../entities/work-execution.entity';
 import { AdminAiController } from './admin-ai.controller';
 import { AdminAiService } from './admin-ai.service';
 
@@ -24,6 +26,8 @@ import { AdminAiService } from './admin-ai.service';
       NurseryObject,
       Section,
       AiAgronomAnalysis,
+      WorkDaySession,
+      WorkExecution,
     ]),
   ],
   controllers: [AdminAiController],

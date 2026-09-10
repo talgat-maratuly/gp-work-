@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { QrPrintModal } from '@/components/QrPrintModal'
 import { QrCanvas } from '@/components/QrCanvas'
-import { DeleteSectionDialog } from '@/components/DeleteSectionDialog'
+import { ArchiveSectionDialog } from '@/components/DeleteSectionDialog'
 import { Toast } from '@/components/Toast'
 import { toUserMessage } from '@/api/client'
 import { createObject, deleteObject, fetchObjects, updateObject } from '@/api/objectsApi'
@@ -122,14 +122,15 @@ export function ObjectsPage() {
     }
   }
 
-  async function handleDeleteObject(id: number) {
-    if (!confirm('Удалить объект? Все участки этого объекта тоже будут удалены.')) return
+  async function handleToggleObject(object: NurseryObject) {
+    if (object.is_active && !confirm('Переместить объект и его участки в архив? История сохранится.')) return
     try {
-      await deleteObject(id)
-      setToast('Объект удалён')
+      if (object.is_active) await deleteObject(object.id)
+      else await updateObject(object.id, { isActive: true })
+      setToast(object.is_active ? 'Объект и его участки перемещены в архив' : 'Объект активирован')
       await reload()
     } catch (err) {
-      console.error('[objects] delete:', err)
+      console.error('[objects] lifecycle:', err)
       alert(toUserMessage(err))
     }
   }
@@ -200,15 +201,26 @@ export function ObjectsPage() {
     }
   }
 
-  function handleSectionDeleted(id: number) {
-    setSections((prev) => prev.filter((s) => s.id !== id))
+  async function handleSectionArchived(id: number) {
     if (sectionToDelete?.id === id && printSectionCode === sectionToDelete.code) {
       setPrintSectionCode(null)
     }
     if (editingSecId === id) {
       setEditingSecId(null)
     }
-    setToast('Участок успешно удален.')
+    setToast('Участок перемещён в архив, история сохранена')
+    await reload()
+  }
+
+  async function handleRestoreSection(section: SectionWithObject) {
+    try {
+      await updateSection(section.id, { isActive: true })
+      setToast('Участок активирован')
+      await reload()
+    } catch (err) {
+      console.error('[sections] restore:', err)
+      alert(toUserMessage(err))
+    }
   }
 
   const printSection = printSectionCode
@@ -280,6 +292,7 @@ export function ObjectsPage() {
                 <tr>
                   <th className="px-4 py-3">Название</th>
                   <th className="px-4 py-3">Описание</th>
+                  <th className="px-4 py-3">Статус</th>
                   <th className="px-4 py-3">Действия</th>
                 </tr>
               </thead>
@@ -314,6 +327,11 @@ export function ObjectsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      <span className={o.is_active ? 'text-emerald-700' : 'text-slate-500'}>
+                        {o.is_active ? 'Активен' : 'В архиве'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       {editingObjId === o.id ? (
                         <button type="submit" form={`obj-${o.id}`} disabled={editObjSaving} className="text-xs text-blue-700">
                           Сохранить
@@ -323,8 +341,8 @@ export function ObjectsPage() {
                           <button type="button" onClick={() => startEditObject(o)} className="text-xs underline">
                             Изменить
                           </button>
-                          <button type="button" onClick={() => void handleDeleteObject(o.id)} className="text-xs text-red-600">
-                            Удалить
+                          <button type="button" onClick={() => void handleToggleObject(o)} className="text-xs text-red-600">
+                            {o.is_active ? 'В архив' : 'Активировать'}
                           </button>
                         </div>
                       )}
@@ -339,7 +357,7 @@ export function ObjectsPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Добавить участок</h2>
-        {objects.length === 0 ? (
+        {objects.every((object) => !object.is_active) ? (
           <p className="text-sm text-amber-800">Сначала добавьте объект</p>
         ) : (
           <form onSubmit={handleCreateSection} className="space-y-4">
@@ -350,7 +368,7 @@ export function ObjectsPage() {
               required
             >
               <option value="">— объект —</option>
-              {objects.map((o) => (
+              {objects.filter((o) => o.is_active).map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
                 </option>
@@ -417,41 +435,46 @@ export function ObjectsPage() {
                 {sections.map((s) => (
                   <tr key={s.id}>
                     <td className="px-3 py-2">
-                      <QrCanvas value={buildWorkFormUrlBySectionCode(s.code)} className="h-14 w-14" size={56} />
+                      {s.is_active ? <QrCanvas value={buildWorkFormUrlBySectionCode(s.code)} className="h-14 w-14" size={56} /> : '—'}
                     </td>
                     <td className="px-3 py-2 font-mono">{s.code}</td>
-                    <td className="px-3 py-2">{s.name}</td>
+                    <td className="px-3 py-2">
+                      {s.name}
+                      {!s.is_active && <span className="ml-2 text-xs text-slate-500">В архиве</span>}
+                    </td>
                     <td className="px-3 py-2">{s.objects?.name ?? '—'}</td>
                     <td className="px-3 py-2">{s.culture ?? '—'}</td>
                     <td className="px-3 py-2">
-                      <a
+                      {s.is_active ? <a
                         href={buildWorkFormUrlBySectionCode(s.code)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-blue-700 underline"
                       >
                         открыть
-                      </a>
+                      </a> : '—'}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">
-                        <button
+                        {s.is_active && <button
                           type="button"
                           onClick={() => openPrint(s)}
                           className="text-xs text-blue-700 underline"
                         >
                           Печать
-                        </button>
-                        <button type="button" onClick={() => startEditSection(s)} className="text-xs underline">
+                        </button>}
+                        {s.is_active && <button type="button" onClick={() => startEditSection(s)} className="text-xs underline">
                           Изменить
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSectionToDelete(s)}
-                          className="text-xs text-red-600"
-                        >
-                          Удалить
-                        </button>
+                        </button>}
+                        {s.is_active ? (
+                          <button type="button" onClick={() => setSectionToDelete(s)} className="text-xs text-red-600">
+                            В архив
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => void handleRestoreSection(s)} className="text-xs text-emerald-700">
+                            Активировать
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -474,7 +497,7 @@ export function ObjectsPage() {
               onChange={(e) => setEditSecObjId(e.target.value)}
               className="rounded-lg border px-3 py-2"
             >
-              {objects.map((o) => (
+              {objects.filter((o) => o.is_active).map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
                 </option>
@@ -523,10 +546,10 @@ export function ObjectsPage() {
         autoPrint={autoPrint}
       />
 
-      <DeleteSectionDialog
+      <ArchiveSectionDialog
         section={sectionToDelete}
         onClose={() => setSectionToDelete(null)}
-        onSuccess={handleSectionDeleted}
+        onSuccess={(id) => void handleSectionArchived(id)}
       />
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

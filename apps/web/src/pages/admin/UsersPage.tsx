@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useState } from 'react'
 import {
   changeUserPassword,
   createUser,
-  deleteUser,
   fetchUsers,
   updateUser,
   type ApiUser,
@@ -132,21 +131,6 @@ export function UsersPage() {
     }
   }
 
-  async function handleDelete(user: ApiUser) {
-    if (!window.confirm(`Удалить пользователя «${user.fullName}»?`)) return
-    setError(null)
-    setSuccess(null)
-    try {
-      await deleteUser(user.id)
-      if (editingId === user.id) cancelEdit()
-      setSuccess('Пользователь удален.')
-      await reload()
-    } catch (err) {
-      console.error('[users/delete]', err)
-      setError(toUserMessage(err))
-    }
-  }
-
   function renderRoleSelect(
     value: UserRole,
     onChange: (role: UserRole) => void,
@@ -222,7 +206,7 @@ export function UsersPage() {
             value={createForm.password}
             onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
             required
-            minLength={4}
+            minLength={8}
             autoComplete="new-password"
             name="new-user-password"
           />
@@ -277,6 +261,7 @@ export function UsersPage() {
               placeholder="Новый пароль (оставьте пустым, чтобы не менять)"
               value={editForm.password}
               onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+              minLength={8}
               autoComplete="new-password"
               name="edit-user-new-password"
             />
@@ -362,13 +347,6 @@ export function UsersPage() {
                     >
                       {u.isActive ? 'Заблокировать' : 'Разблокировать'}
                     </button>
-                    <button
-                      type="button"
-                      className="text-xs text-red-600 underline"
-                      onClick={() => void handleDelete(u)}
-                    >
-                      Удалить
-                    </button>
                   </div>
                 </td>
               </tr>
@@ -379,4 +357,3 @@ export function UsersPage() {
     </div>
   )
 }
-

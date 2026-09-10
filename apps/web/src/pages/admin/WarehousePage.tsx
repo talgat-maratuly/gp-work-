@@ -16,6 +16,7 @@ import {
 } from '@/api/productsApi'
 import { toUserMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
+import { fetchTasks, type ApiTask } from '@/api/tasksApi'
 
 type MovementForm = {
   productId: string
@@ -24,6 +25,7 @@ type MovementForm = {
   workerName: string
   objectId: string
   sectionId: string
+  taskId: string
   purpose: string
   comment: string
 }
@@ -35,6 +37,7 @@ const emptyMovementForm = (): MovementForm => ({
   workerName: '',
   objectId: '',
   sectionId: '',
+  taskId: '',
   purpose: '',
   comment: '',
 })
@@ -59,6 +62,7 @@ export function WarehousePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [objects, setObjects] = useState<NurseryObjectWithSections[]>([])
   const [movements, setMovements] = useState<StockMovement[]>([])
+  const [tasks, setTasks] = useState<ApiTask[]>([])
   const [search, setSearch] = useState('')
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
   const [showMovementForm, setShowMovementForm] = useState(() =>
@@ -80,6 +84,8 @@ export function WarehousePage() {
   )
 
   const availableSections = selectedObject?.sections ?? []
+  const availableSectionIds = new Set(availableSections.map((section) => section.id))
+  const availableTasks = tasks.filter((task) => !form.objectId || availableSectionIds.has(task.sectionId))
 
   async function loadProducts(nextSearch = search) {
     const data = await fetchProducts(nextSearch)
@@ -93,9 +99,10 @@ export function WarehousePage() {
   async function loadInitial() {
     setLoading(true)
     try {
-      const [p, o] = await Promise.all([fetchProducts(search), fetchObjectsWithSections()])
+      const [p, o, t] = await Promise.all([fetchProducts(search), fetchObjectsWithSections(), fetchTasks()])
       setProducts(p)
       setObjects(o)
+      setTasks(t)
       setError(null)
     } catch (err) {
       console.error('[warehouse]', err)
@@ -160,6 +167,8 @@ export function WarehousePage() {
         workerName: form.workerName.trim() || undefined,
         objectId: form.objectId ? Number(form.objectId) : undefined,
         sectionId: form.sectionId ? Number(form.sectionId) : undefined,
+        taskId: form.taskId ? Number(form.taskId) : undefined,
+        clientOperationId: crypto.randomUUID(),
         purpose: form.purpose.trim() || undefined,
         comment: form.comment.trim() || undefined,
       })
@@ -292,6 +301,10 @@ export function WarehousePage() {
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as MovementForm['type'] }))}
           >
             <option value="OUTCOME">Расход</option>
+            <option value="RETURN">Возврат</option>
+            <option value="RESERVE">Резерв</option>
+            <option value="RELEASE">Снять резерв</option>
+            <option value="TRANSFER">Перемещение</option>
             <option value="WRITE_OFF">Списание</option>
             <option value="INCOME">Приход</option>
             <option value="CORRECTION">Корректировка остатка</option>
@@ -318,13 +331,24 @@ export function WarehousePage() {
           <select
             className="rounded-lg border px-3 py-2"
             value={form.objectId}
-            onChange={(e) => setForm((f) => ({ ...f, objectId: e.target.value, sectionId: '' }))}
+            onChange={(e) => setForm((f) => ({ ...f, objectId: e.target.value, sectionId: '', taskId: '' }))}
           >
             <option value="">— объект —</option>
             {objects.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
+            ))}
+          </select>
+
+          <select
+            className="rounded-lg border px-3 py-2 sm:col-span-2"
+            value={form.taskId}
+            onChange={(e) => setForm((f) => ({ ...f, taskId: e.target.value }))}
+          >
+            <option value="">— привязать к задаче —</option>
+            {availableTasks.map((task) => (
+              <option key={task.id} value={task.id}>#{task.id} {task.description}</option>
             ))}
           </select>
 
@@ -380,6 +404,8 @@ export function WarehousePage() {
               <th className="px-3 py-2 text-right">Приход</th>
               <th className="px-3 py-2 text-right">Расход</th>
               <th className="px-3 py-2 text-right">Текущий остаток</th>
+              <th className="px-3 py-2 text-right">Резерв</th>
+              <th className="px-3 py-2 text-right">Доступно</th>
               <th className="px-3 py-2 text-right">Учетная цена</th>
               <th className="px-3 py-2 text-right">Сумма</th>
               <th className="px-3 py-2 text-left">Статус</th>
@@ -389,13 +415,13 @@ export function WarehousePage() {
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
                   Загрузка…
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
                   Товаров пока нет. Загрузите Excel-файл в разделе «Импорт Excel».
                 </td>
               </tr>
@@ -410,6 +436,8 @@ export function WarehousePage() {
                   <td className="px-3 py-2 text-right">{fmtNumber(p.incomingQuantity, 3)}</td>
                   <td className="px-3 py-2 text-right">{fmtNumber(p.outgoingQuantity, 3)}</td>
                   <td className="px-3 py-2 text-right font-semibold">{fmtNumber(p.currentQuantity, 3)}</td>
+                  <td className="px-3 py-2 text-right text-amber-700">{fmtNumber(p.reservedQuantity, 3)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">{fmtNumber(p.availableQuantity, 3)}</td>
                   <td className="px-3 py-2 text-right">{fmtNumber(p.accountingPrice)}</td>
                   <td className="px-3 py-2 text-right">{fmtNumber(p.totalAmount)}</td>
                   <td className="px-3 py-2">
@@ -456,6 +484,7 @@ export function WarehousePage() {
                   <th className="px-3 py-2 text-left">Кто забрал</th>
                   <th className="px-3 py-2 text-left">Объект</th>
                   <th className="px-3 py-2 text-left">Участок</th>
+                  <th className="px-3 py-2 text-left">Задача / бригада</th>
                   <th className="px-3 py-2 text-left">Комментарий</th>
                   <th className="px-3 py-2 text-right">Остаток после</th>
                 </tr>
@@ -463,7 +492,7 @@ export function WarehousePage() {
               <tbody className="divide-y">
                 {movements.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-6 text-center text-slate-500">
+                    <td colSpan={10} className="px-3 py-6 text-center text-slate-500">
                       Движений пока нет
                     </td>
                   </tr>
@@ -479,6 +508,7 @@ export function WarehousePage() {
                       <td className="px-3 py-2">{m.workerName ?? '—'}</td>
                       <td className="px-3 py-2">{m.object?.name ?? '—'}</td>
                       <td className="px-3 py-2">{m.section?.name ?? '—'}</td>
+                      <td className="px-3 py-2">{m.task ? `#${m.task.id} ${m.task.description}` : m.brigade?.name ?? '—'}</td>
                       <td className="px-3 py-2">{m.comment || m.purpose || '—'}</td>
                       <td className="px-3 py-2 text-right font-medium">{fmtNumber(m.balanceAfter, 3)}</td>
                     </tr>

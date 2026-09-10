@@ -75,6 +75,12 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('field-options')
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
+  fieldOptions() {
+    return this.productsService.findFieldOptions();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.findOnePublic(id);

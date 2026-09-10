@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { format } from 'date-fns';
 import * as ExcelJS from 'exceljs';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { buildMapLink, getApiPublicUrl } from '../../common/app-url';
+import { businessDateString } from '../../common/business-date';
 import { AttendanceRecord } from '../../entities/attendance-record.entity';
+import { User } from '../../entities/user.entity';
 import { WorkLogsService } from '../work-logs/work-logs.service';
 import { WorkLogQueryDto } from '../work-logs/dto/work-log-query.dto';
 
@@ -54,20 +56,22 @@ export class ExportService {
       : 'Геолокация не разрешена';
   }
 
-  // Карта «ФИО+дата → процент выполненной работы (из отметки ухода)».
-  private async buildCheckoutPercentMap(): Promise<Map<string, number>> {
-    const rows = await this.attendanceRepo.find();
-    const map = new Map<string, number>();
+  private async buildCheckoutPercentMap(dates: string[]): Promise<Map<string, number | null>> {
+    if (!dates.length) return new Map();
+    const rows = await this.attendanceRepo.find({ where: { workDate: In(dates) } });
+    const map = new Map<string, number | null>();
     for (const r of rows) {
-      if (r.completionPercent == null) continue;
-      map.set(`${normalizeName(r.workerFullName)}__${r.workDate}`, r.completionPercent);
+      const identity = r.userId != null ? `user:${r.userId}` : `legacy:${normalizeName(r.workerFullName)}`;
+      const key = `${identity}__${r.workDate}`;
+      // An ambiguous historical name/date must never inherit another person's percentage.
+      map.set(key, map.has(key) ? null : r.completionPercent);
     }
     return map;
   }
 
-  async buildWorkLogsXlsx(query: WorkLogQueryDto): Promise<ExcelJS.Buffer> {
-    const logs = await this.workLogsService.findAll(query);
-    const checkoutPercent = await this.buildCheckoutPercentMap();
+  async buildWorkLogsXlsx(query: WorkLogQueryDto, user: User): Promise<ExcelJS.Buffer> {
+    const logs = await this.workLogsService.findAll(query, user);
+    const checkoutPercent = await this.buildCheckoutPercentMap([...new Set(logs.map(log => businessDateString(new Date(log.submittedAt))))]);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Журнал работ');
 
@@ -93,7 +97,8 @@ export class ExportService {
         log.latitude != null && log.longitude != null
           ? buildMapLink(log.latitude, log.longitude)
           : '—';
-      const percentKey = `${normalizeName(log.workerFullName)}__${format(submitted, 'yyyy-MM-dd')}`;
+      const identity = log.userId != null ? `user:${log.userId}` : `legacy:${normalizeName(log.workerFullName)}`;
+      const percentKey = `${identity}__${businessDateString(submitted)}`;
       const coPercent = checkoutPercent.get(percentKey);
 
       sheet.addRow({

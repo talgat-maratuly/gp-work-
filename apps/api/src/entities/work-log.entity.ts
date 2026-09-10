@@ -12,6 +12,8 @@ import { Section } from './section.entity';
 import { Task } from './task.entity';
 import { User } from './user.entity';
 import { WorkType } from './work-type.entity';
+import { Brigade } from './brigade.entity';
+import { WorkExecution } from './work-execution.entity';
 
 @Entity('work_logs')
 export class WorkLog {
@@ -24,7 +26,7 @@ export class WorkLog {
   @Column({ name: 'worker_full_name' })
   workerFullName!: string;
 
-  @Column({ name: 'work_type_id', nullable: true })
+  @Column({ name: 'work_type_id', type: 'int', nullable: true })
   workTypeId!: number | null;
 
   @Column({ name: 'custom_work_type', type: 'text', nullable: true })
@@ -55,13 +57,22 @@ export class WorkLog {
   @Column({ name: 'submitted_at', type: 'timestamptz', default: () => 'NOW()' })
   submittedAt!: Date;
 
-  @Column({ name: 'task_id', nullable: true })
+  @Column({ name: 'task_id', type: 'int', nullable: true })
   taskId!: number | null;
+
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId!: number | null;
+
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
+  brigadeId!: number | null;
+
+  @Column({ name: 'execution_id', type: 'int', nullable: true, unique: true })
+  executionId!: number | null;
 
   @Column({ name: 'review_status', type: 'varchar', length: 32, default: ReviewStatus.PENDING })
   reviewStatus!: ReviewStatus;
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'review_comment', type: 'text', nullable: true })
@@ -76,6 +87,18 @@ export class WorkLog {
   @ManyToOne(() => Task, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'task_id' })
   task!: Task | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
+
+  @ManyToOne(() => Brigade, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'brigade_id' })
+  brigade!: Brigade | null;
+
+  @ManyToOne(() => WorkExecution, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'execution_id' })
+  execution!: WorkExecution | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reviewed_by_id' })

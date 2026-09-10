@@ -2,7 +2,6 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -10,9 +9,9 @@ import {
 } from 'typeorm';
 import { AttendanceStatus } from '../common/enums/attendance-status.enum';
 import { WorkLog } from './work-log.entity';
+import { User } from './user.entity';
 
 @Entity('attendance_records')
-@Index('UQ_attendance_date_worker', ['workDate', 'workerFullName'], { unique: true })
 export class AttendanceRecord {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -22,6 +21,9 @@ export class AttendanceRecord {
 
   @Column({ name: 'worker_full_name' })
   workerFullName!: string;
+
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId!: number | null;
 
   @Column({ name: 'check_in_time', type: 'timestamptz' })
   checkInTime!: Date;
@@ -67,7 +69,7 @@ export class AttendanceRecord {
   @Column({ name: 'extra_values', type: 'text', nullable: true })
   extraValues!: string | null;
 
-  @Column({ name: 'first_work_log_id', nullable: true })
+  @Column({ name: 'first_work_log_id', type: 'int', nullable: true })
   firstWorkLogId!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -79,4 +81,8 @@ export class AttendanceRecord {
   @ManyToOne(() => WorkLog, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'first_work_log_id' })
   firstWorkLog!: WorkLog | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
 }

@@ -38,7 +38,3 @@ export async function updateBrigade(
 ): Promise<ApiBrigade> {
   return apiRequest<ApiBrigade>(`/brigades/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
-
-export async function deleteBrigade(id: number): Promise<void> {
-  await apiRequest(`/brigades/${id}`, { method: 'DELETE' })
-}

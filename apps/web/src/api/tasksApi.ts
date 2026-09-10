@@ -8,6 +8,7 @@ export type TaskStatus =
   | 'COMPLETED'
   | 'VERIFIED'
   | 'REJECTED'
+  | 'CANCELLED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 export type TaskCategory = 'WORK' | 'AGRO'
 
@@ -45,6 +46,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   COMPLETED: 'Завершена',
   VERIFIED: 'Проверена',
   REJECTED: 'Отклонена',
+  CANCELLED: 'Отменена',
 }
 
 /** Подписи статуса в списке задач (админ / агроном) */
@@ -55,6 +57,7 @@ export const TASK_LIST_STATUS_LABELS: Record<TaskStatus, string> = {
   COMPLETED: 'На проверке',
   VERIFIED: 'Завершена',
   REJECTED: 'Отклонена',
+  CANCELLED: 'Отменена',
 }
 
 export function getTaskReviewLabel(status: TaskStatus): string {
@@ -122,10 +125,6 @@ export async function fetchTask(id: number): Promise<ApiTask> {
   return apiRequest<ApiTask>(`/tasks/${id}`)
 }
 
-export async function fetchOpenTasksForSection(sectionId: number): Promise<ApiTask[]> {
-  return apiRequest<ApiTask[]>(`/tasks/open?sectionId=${sectionId}`)
-}
-
 export async function createTask(payload: {
   sectionId: number
   workTypeId: number
@@ -134,7 +133,6 @@ export async function createTask(payload: {
   priority?: TaskPriority
   description: string
   brigadeId?: number
-  status?: TaskStatus
   category?: TaskCategory
 }): Promise<ApiTask> {
   return apiRequest<ApiTask>('/tasks', { method: 'POST', body: JSON.stringify(payload) })
@@ -154,19 +152,17 @@ export async function updateTask(
   id: number,
   payload: Partial<{
     sectionId: number
-    workTypeId: number | null
-    assigneeUserId: number | null
-    brigadeId: number | null
-    dueDate: string | null
+    workTypeId: number
+    assigneeUserId: number
+    brigadeId: number
+    dueDate: string
     priority: TaskPriority
     description: string
-    status: TaskStatus
-    category: TaskCategory
   }>,
 ): Promise<ApiTask> {
   return apiRequest<ApiTask>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
-export async function deleteTask(id: number): Promise<void> {
+export async function cancelTask(id: number): Promise<void> {
   await apiRequest(`/tasks/${id}`, { method: 'DELETE' })
 }

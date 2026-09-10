@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Toast } from '@/components/Toast'
 import { useAuth } from '@/context/AuthContext'
+import { businessDateString } from '@/lib/businessDate'
 import { toUserMessage } from '@/api/client'
 import { fetchAssignableUsers, type ApiAssignee } from '@/api/usersApi'
 import {
@@ -74,6 +75,7 @@ export function ManagementPage() {
     const p = searchParams.get('period')
     return p === 'week' || p === 'month' ? p : 'day'
   })
+  const [date, setDate] = useState(() => searchParams.get('date') || businessDateString())
   const [overview, setOverview] = useState<ManagementOverview | null>(null)
   const [decisions, setDecisions] = useState<Decision[]>([])
   const [users, setUsers] = useState<ApiAssignee[]>([])
@@ -88,7 +90,7 @@ export function ManagementPage() {
     setLoading(true)
     setError(null)
     try {
-      const [ov, dec] = await Promise.all([fetchOverview(period), fetchDecisions()])
+      const [ov, dec] = await Promise.all([fetchOverview(period, date), fetchDecisions()])
       setOverview(ov)
       setDecisions(dec)
     } catch (err) {
@@ -96,7 +98,7 @@ export function ManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [period])
+  }, [date, period])
 
   useEffect(() => {
     load()
@@ -165,7 +167,15 @@ export function ManagementPage() {
       </div>
 
       {/* Вкладки-периоды */}
-      <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1">
+      <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white p-1">
+        <label className="sr-only" htmlFor="management-date">Дата отчёта</label>
+        <input
+          id="management-date"
+          type="date"
+          value={date}
+          onChange={(event) => setDate(event.target.value)}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
         {PERIOD_TABS.map((t) => (
           <button
             key={t.key}

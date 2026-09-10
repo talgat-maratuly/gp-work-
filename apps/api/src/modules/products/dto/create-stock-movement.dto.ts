@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { StockMovementType } from '../../../common/enums/stock-movement-type.enum';
@@ -37,6 +38,35 @@ export class CreateStockMovementDto {
   @Type(() => Number)
   @IsInt()
   sectionId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  taskId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  brigadeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  employeeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  routeId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  executionId?: number;
+
+  @IsOptional()
+  @IsUUID()
+  clientOperationId?: string;
 
   @IsOptional()
   @IsString()

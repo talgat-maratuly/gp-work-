@@ -23,13 +23,13 @@ export class Task {
   @Column({ name: 'section_id' })
   sectionId!: number;
 
-  @Column({ name: 'work_type_id', nullable: true })
+  @Column({ name: 'work_type_id', type: 'int', nullable: true })
   workTypeId!: number | null;
 
-  @Column({ name: 'assignee_user_id', nullable: true })
+  @Column({ name: 'assignee_user_id', type: 'int', nullable: true })
   assigneeUserId!: number | null;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
   @Column({ name: 'due_date', type: 'date', nullable: true })
@@ -47,7 +47,7 @@ export class Task {
   @Column({ type: 'varchar', length: 16, default: TaskCategory.WORK })
   category!: TaskCategory;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
   @Column({ name: 'accepted_at', type: 'timestamptz', nullable: true })
@@ -62,7 +62,7 @@ export class Task {
   @Column({ name: 'completion_comment', type: 'text', nullable: true })
   completionComment!: string | null;
 
-  @Column({ name: 'reviewed_by_id', nullable: true })
+  @Column({ name: 'reviewed_by_id', type: 'int', nullable: true })
   reviewedById!: number | null;
 
   @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })

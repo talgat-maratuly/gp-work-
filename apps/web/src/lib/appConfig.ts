@@ -21,15 +21,11 @@ function getApiOrigin(): string {
 }
 
 export function buildWorkFormUrlBySectionCode(sectionCode: string): string {
-  return `${getAppBaseUrl()}/work-form/${encodeURIComponent(sectionCode)}`
+  return `${getAppBaseUrl()}/field/scan/${encodeURIComponent(sectionCode)}`
 }
 
 export function buildWorkFormUrl(objectId: number, sectionId: number): string {
   return `${getAppBaseUrl()}/work-form?objectId=${objectId}&sectionId=${sectionId}`
-}
-
-export function buildCheckOutUrl(): string {
-  return `${getAppBaseUrl()}/attendance/check-out`
 }
 
 export function buildMapLink(lat: number, lng: number): string {
@@ -38,8 +34,4 @@ export function buildMapLink(lat: number, lng: number): string {
 
 export function buildQrImageUrl(sectionCode: string): string {
   return `${getApiOrigin()}/api/qr/${encodeURIComponent(sectionCode)}`
-}
-
-export function buildCheckOutQrImageUrl(): string {
-  return `${getApiOrigin()}/api/attendance/check-out/qr.png`
 }

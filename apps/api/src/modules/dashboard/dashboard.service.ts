@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
+import { businessDateString } from '../../common/business-date';
 import { ScheduleStatus } from '../../common/enums/schedule-status.enum';
 import { TaskStatus } from '../../common/enums/task-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -19,13 +20,6 @@ import { ManagementService } from '../management/management.service';
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.VERIFIED];
 
-function isoToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`;
-}
-
 // Извлекаем число из текстового поля площади ("40 000 м²" -> 40000)
 function parseArea(area: string | null): number {
   if (!area) return 0;
@@ -39,6 +33,7 @@ export interface DashboardFilters {
   objectId?: number;
   brigadeId?: number;
   shift?: WateringShift;
+  createdById?: number;
 }
 
 @Injectable()
@@ -61,33 +56,72 @@ export class DashboardService {
     private readonly managementService: ManagementService,
   ) {}
 
-  async summary(filters: DashboardFilters = {}) {
-    const date = filters.date || isoToday();
-    const today = isoToday();
+  private scopeFilters(filters: DashboardFilters, user: User): DashboardFilters {
+    if (user.role === UserRole.BRIGADIER) {
+      if (filters.brigadeId !== undefined && filters.brigadeId !== user.brigadeId) {
+        throw new ForbiddenException('Бригадир может просматривать только свою бригаду');
+      }
+      return { ...filters, brigadeId: user.brigadeId ?? 0 };
+    }
+    if (user.role === UserRole.AGRONOMIST) {
+      return { ...filters, createdById: user.id };
+    }
+    return filters;
+  }
+
+  async summary(requestedFilters: DashboardFilters = {}, user: User) {
+    const filters = this.scopeFilters(requestedFilters, user);
+    const date = filters.date || businessDateString();
+    const today = businessDateString();
     const period = filters.period || 'day';
 
     // Диапазон дат для KPI (переиспользуем оперативную сводку «Управления»)
-    const overview = await this.managementService.overview(period, date);
+    const overview = await this.managementService.overview(period, date, filters);
 
     // ---- Карточки ----
-    const objectsTotal = await this.objectRepo.count();
-    const activeBrigades = await this.brigadeRepo.count({ where: { isActive: true } });
+    const objectQuery = this.objectRepo
+      .createQueryBuilder('object')
+      .where('object.is_active = true');
+    if (filters.objectId !== undefined) objectQuery.andWhere('object.id = :objectId', { objectId: filters.objectId });
+    const objectsTotal = await objectQuery.getCount();
+
+    const brigadeQuery = this.brigadeRepo
+      .createQueryBuilder('brigade')
+      .where('brigade.is_active = true');
+    if (filters.brigadeId !== undefined) brigadeQuery.andWhere('brigade.id = :brigadeId', { brigadeId: filters.brigadeId });
+    const activeBrigades = await brigadeQuery.getCount();
+
     const waterCarriers = await this.userRepo.count({
       where: { role: UserRole.WATER_CARRIER, isActive: true },
     });
 
-    const sections = await this.sectionRepo.find();
+    const sectionQuery = this.sectionRepo
+      .createQueryBuilder('section')
+      .innerJoinAndSelect('section.object', 'object')
+      .where('section.is_active = true')
+      .andWhere('object.is_active = true');
+    if (filters.objectId !== undefined) sectionQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    const sections = await sectionQuery.getMany();
     const totalAreaM2 = sections.reduce((s, sec) => s + parseArea(sec.area), 0);
 
     // Задачи сегодня
-    const tasksTodayRows = await this.taskRepo
+    const tasksTodayQuery = this.taskRepo
       .createQueryBuilder('task')
       .leftJoinAndSelect('task.section', 'section')
       .leftJoinAndSelect('section.object', 'object')
       .leftJoinAndSelect('task.assignee', 'assignee')
       .where('task.due_date = :date', { date })
-      .orderBy('task.id', 'DESC')
-      .getMany();
+      .andWhere('task.status != :cancelled', { cancelled: TaskStatus.CANCELLED });
+    if (filters.objectId !== undefined) {
+      tasksTodayQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    }
+    if (filters.brigadeId !== undefined) {
+      tasksTodayQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    }
+    if (filters.createdById !== undefined) {
+      tasksTodayQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
+    }
+    const tasksTodayRows = await tasksTodayQuery.orderBy('task.id', 'DESC').getMany();
 
     const tasksToday = tasksTodayRows.length;
     const tasksDone = tasksTodayRows.filter((t) => CLOSED.includes(t.status)).length;
@@ -97,14 +131,25 @@ export class DashboardService {
     const tasksNeedsReview = tasksTodayRows.filter(
       (t) => t.status === TaskStatus.COMPLETED,
     ).length;
-    const tasksOverdue = await this.taskRepo
+    const overdueQuery = this.taskRepo
       .createQueryBuilder('task')
+      .innerJoin('task.section', 'section')
       .where('task.due_date < :today', { today })
-      .andWhere('task.status NOT IN (:...closed)', { closed: CLOSED })
-      .getCount();
+      .andWhere('task.status NOT IN (:...closed)', {
+        closed: [...CLOSED, TaskStatus.CANCELLED],
+      });
+    if (filters.objectId !== undefined) overdueQuery.andWhere('section.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.brigadeId !== undefined) overdueQuery.andWhere('task.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    if (filters.createdById !== undefined) overdueQuery.andWhere('task.created_by_id = :createdById', { createdById: filters.createdById });
+    const tasksOverdue = await overdueQuery.getCount();
 
     // Полив за дату
-    const wateringToday = await this.wateringRepo.find({ where: { workDate: date } });
+    const wateringQuery = this.wateringRepo
+      .createQueryBuilder('watering')
+      .where('watering.work_date = :date', { date });
+    if (filters.objectId !== undefined) wateringQuery.andWhere('watering.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.shift) wateringQuery.andWhere('watering.shift = :shift', { shift: filters.shift });
+    const wateringToday = await wateringQuery.getMany();
     const wateringPlannedLiters = wateringToday.reduce(
       (s, w) => s + (w.plannedLiters ?? 0),
       0,
@@ -144,9 +189,12 @@ export class DashboardService {
     };
 
     // Производственный план за дату
-    const scheduleToday = await this.scheduleRepo.find({
-      where: { plannedDate: date },
-    });
+    const scheduleQuery = this.scheduleRepo
+      .createQueryBuilder('schedule')
+      .where('schedule.planned_date = :date', { date });
+    if (filters.objectId !== undefined) scheduleQuery.andWhere('schedule.object_id = :objectId', { objectId: filters.objectId });
+    if (filters.brigadeId !== undefined) scheduleQuery.andWhere('schedule.brigade_id = :brigadeId', { brigadeId: filters.brigadeId });
+    const scheduleToday = await scheduleQuery.getMany();
     const productionPlan = {
       total: scheduleToday.length,
       planned: scheduleToday.filter((s) => s.status === ScheduleStatus.PLANNED).length,
@@ -160,7 +208,13 @@ export class DashboardService {
     const decisions = await this.managementService.findDecisions();
 
     return {
-      filters: { date, period },
+      filters: {
+        date,
+        period,
+        objectId: filters.objectId ?? null,
+        brigadeId: filters.brigadeId ?? null,
+        shift: filters.shift ?? null,
+      },
       cards: {
         objectsTotal,
         totalAreaM2,

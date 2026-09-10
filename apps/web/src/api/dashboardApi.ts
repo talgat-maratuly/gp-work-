@@ -1,7 +1,13 @@
 import { apiRequest } from './client'
 
 export interface DashboardSummary {
-  filters: { date: string; period: string }
+  filters: {
+    date: string
+    period: string
+    objectId: number | null
+    brigadeId: number | null
+    shift: 'DAY' | 'NIGHT' | null
+  }
   cards: {
     objectsTotal: number
     totalAreaM2: number

@@ -25,22 +25,22 @@ export class ScheduleEntry {
   @Column({ name: 'planned_date', type: 'date' })
   plannedDate!: string;
 
-  @Column({ name: 'object_id', nullable: true })
+  @Column({ name: 'object_id', type: 'int', nullable: true })
   objectId!: number | null;
 
-  @Column({ name: 'section_id', nullable: true })
+  @Column({ name: 'section_id', type: 'int', nullable: true })
   sectionId!: number | null;
 
-  @Column({ name: 'work_type_id', nullable: true })
+  @Column({ name: 'work_type_id', type: 'int', nullable: true })
   workTypeId!: number | null;
 
-  @Column({ name: 'brigade_id', nullable: true })
+  @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;
 
-  @Column({ name: 'assignee_user_id', nullable: true })
+  @Column({ name: 'assignee_user_id', type: 'int', nullable: true })
   assigneeUserId!: number | null;
 
-  @Column({ name: 'task_id', nullable: true })
+  @Column({ name: 'task_id', type: 'int', nullable: true })
   taskId!: number | null;
 
   @Column({ type: 'varchar', length: 24, default: ScheduleStatus.PLANNED })
@@ -55,7 +55,7 @@ export class ScheduleEntry {
   @Column({ name: 'status_history', type: 'text', default: '[]' })
   statusHistory!: string;
 
-  @Column({ name: 'created_by_id', nullable: true })
+  @Column({ name: 'created_by_id', type: 'int', nullable: true })
   createdById!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

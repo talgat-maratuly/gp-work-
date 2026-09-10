@@ -32,7 +32,7 @@ export async function createObject(payload: {
 
 export async function updateObject(
   id: number,
-  payload: { name?: string; description?: string }
+  payload: { name?: string; description?: string; isActive?: boolean }
 ): Promise<NurseryObject> {
   const data = await apiRequest<ApiObject>(`/objects/${id}`, {
     method: 'PATCH',

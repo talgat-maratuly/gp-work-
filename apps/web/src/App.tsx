@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { HomeRedirect } from '@/components/HomeRedirect'
+import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
+import type { UserRole } from '@/lib/auth'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
@@ -16,8 +18,7 @@ const ObjectsPage = lazy(() => import('@/pages/admin/ObjectsPage').then((m) => (
 const PhotosPage = lazy(() => import('@/pages/admin/PhotosPage').then((m) => ({ default: m.PhotosPage })))
 const QrPage = lazy(() => import('@/pages/admin/QrPage').then((m) => ({ default: m.QrPage })))
 const WorkTypesPage = lazy(() => import('@/pages/admin/WorkTypesPage').then((m) => ({ default: m.WorkTypesPage })))
-const WorkFormPage = lazy(() => import('@/pages/WorkFormPage').then((m) => ({ default: m.WorkFormPage })))
-const CheckOutPage = lazy(() => import('@/pages/CheckOutPage').then((m) => ({ default: m.CheckOutPage })))
+const LegacyWorkFormRedirect = lazy(() => import('@/pages/LegacyWorkFormRedirect').then((m) => ({ default: m.LegacyWorkFormRedirect })))
 const FormSettingsPage = lazy(() => import('@/pages/admin/FormSettingsPage').then((m) => ({ default: m.FormSettingsPage })))
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
@@ -34,10 +35,31 @@ const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').the
 const ProductionSchedulePage = lazy(() => import('@/pages/admin/ProductionSchedulePage').then((m) => ({ default: m.ProductionSchedulePage })))
 const ManagementPage = lazy(() => import('@/pages/admin/ManagementPage').then((m) => ({ default: m.ManagementPage })))
 const WorkerLayout = lazy(() => import('@/pages/worker/WorkerLayout').then((m) => ({ default: m.WorkerLayout })))
-const WorkerTasksPage = lazy(() => import('@/pages/worker/WorkerTasksPage').then((m) => ({ default: m.WorkerTasksPage })))
+const FieldLayout = lazy(() => import('@/layouts/FieldLayout').then((m) => ({ default: m.FieldLayout })))
+const FieldTodayPage = lazy(() => import('@/pages/field/FieldTodayPage').then((m) => ({ default: m.FieldTodayPage })))
+const FieldRoutePage = lazy(() => import('@/pages/field/FieldRoutePage').then((m) => ({ default: m.FieldRoutePage })))
+const FieldQrPage = lazy(() => import('@/pages/field/FieldQrPage').then((m) => ({ default: m.FieldQrPage })))
+const FieldScanPage = lazy(() => import('@/pages/field/FieldScanPage').then((m) => ({ default: m.FieldScanPage })))
+const FieldTasksPage = lazy(() => import('@/pages/field/FieldTasksPage').then((m) => ({ default: m.FieldTasksPage })))
+const FieldTaskPage = lazy(() => import('@/pages/field/FieldTaskPage').then((m) => ({ default: m.FieldTaskPage })))
+const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage').then((m) => ({ default: m.FieldExecutionPage })))
+const FieldMorePage = lazy(() => import('@/pages/field/FieldMorePage').then((m) => ({ default: m.FieldMorePage })))
+const FieldAiAssistantPage = lazy(() => import('@/pages/field/FieldAiAssistantPage').then((m) => ({ default: m.FieldAiAssistantPage })))
+const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
+const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
+const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
+const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => ({ default: m.NurseryPage })))
+const DispatcherPage = lazy(() => import('@/pages/admin/DispatcherPage').then((m) => ({ default: m.DispatcherPage })))
+const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ default: m.KpiPage })))
+const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
+const WorkDaysPage = lazy(() => import('@/pages/admin/WorkDaysPage').then((m) => ({ default: m.WorkDaysPage })))
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
+}
+
+function forRoles(page: ReactNode, roles: readonly UserRole[]) {
+  return <ProtectedRoute roles={roles}>{page}</ProtectedRoute>
 }
 
 export default function App() {
@@ -48,9 +70,27 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<HomeRedirect />} />
-            <Route path="/work-form/:sectionCode" element={<WorkFormPage />} />
-            <Route path="/work-form" element={<WorkFormPage />} />
-            <Route path="/attendance/check-out" element={<CheckOutPage />} />
+            <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
+            <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
+            <Route path="/field/scan/:sectionCode" element={<ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}><FieldScanPage /></ProtectedRoute>} />
+            <Route
+              path="/field"
+              element={
+                <ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}>
+                  <FieldLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/field/today" replace />} />
+              <Route path="today" element={<FieldTodayPage />} />
+              <Route path="route" element={<FieldRoutePage />} />
+              <Route path="qr" element={<FieldQrPage />} />
+              <Route path="tasks" element={<FieldTasksPage />} />
+              <Route path="tasks/:taskId" element={<FieldTaskPage />} />
+              <Route path="executions/:id" element={<FieldExecutionPage />} />
+              <Route path="more" element={<FieldMorePage />} />
+              <Route path="assistant" element={<FieldAiAssistantPage />} />
+            </Route>
             <Route
               path="/worker"
               element={
@@ -59,8 +99,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/worker/tasks" replace />} />
-              <Route path="tasks" element={<WorkerTasksPage />} />
+              <Route index element={<Navigate to="/field/today" replace />} />
+              <Route path="tasks" element={<Navigate to="/field/tasks" replace />} />
             </Route>
             <Route
               path="/admin"
@@ -72,81 +112,85 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="work-logs" element={<JournalPage />} />
-              <Route path="map" element={<WorkMapPage />} />
+              <Route index element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
+              <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />
               <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />
               <Route path="work-map" element={<Navigate to="/admin/map" replace />} />
-              <Route path="objects" element={<ObjectsPage />} />
-              <Route path="work-types" element={<WorkTypesPage />} />
-              <Route path="qr" element={<QrPage />} />
-              <Route path="form-settings" element={<FormSettingsPage />} />
-              <Route path="export" element={<ExportPage />} />
-              <Route path="photos" element={<PhotosPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="brigades" element={<BrigadesPage />} />
-              <Route path="tasks" element={<TasksPage />} />
-              <Route path="watering" element={<WateringPage />} />
-              <Route path="schedule" element={<ProductionSchedulePage />} />
-              <Route path="management" element={<ManagementPage />} />
+              <Route path="objects" element={forRoles(<ObjectsPage />, ADMIN_ROUTE_ROLES.objects)} />
+              <Route path="work-types" element={forRoles(<WorkTypesPage />, ADMIN_ROUTE_ROLES.workTypes)} />
+              <Route path="qr" element={forRoles(<QrPage />, ADMIN_ROUTE_ROLES.qr)} />
+              <Route path="form-settings" element={forRoles(<FormSettingsPage />, ADMIN_ROUTE_ROLES.formSettings)} />
+              <Route path="export" element={forRoles(<ExportPage />, ADMIN_ROUTE_ROLES.export)} />
+              <Route path="photos" element={forRoles(<PhotosPage />, ADMIN_ROUTE_ROLES.photos)} />
+              <Route path="users" element={forRoles(<UsersPage />, ADMIN_ROUTE_ROLES.users)} />
+              <Route path="brigades" element={forRoles(<BrigadesPage />, ADMIN_ROUTE_ROLES.brigades)} />
+              <Route path="tasks" element={forRoles(<TasksPage />, ADMIN_ROUTE_ROLES.tasks)} />
+              <Route path="routes" element={forRoles(<RoutesPage />, ADMIN_ROUTE_ROLES.routes)} />
+              <Route path="executions" element={forRoles(<ExecutionReviewPage />, ADMIN_ROUTE_ROLES.executions)} />
+              <Route path="dispatcher" element={forRoles(<DispatcherPage />, ADMIN_ROUTE_ROLES.dispatcher)} />
+              <Route path="kpi" element={forRoles(<KpiPage />, ADMIN_ROUTE_ROLES.kpi)} />
+              <Route path="evidence-reports" element={forRoles(<EvidenceReportsPage />, ADMIN_ROUTE_ROLES.evidenceReports)} />
+              <Route
+                path="vehicles"
+                element={
+                  forRoles(<VehiclesPage />, ADMIN_ROUTE_ROLES.vehicles)
+                }
+              />
+              <Route
+                path="nursery"
+                element={
+                  forRoles(<NurseryPage />, ADMIN_ROUTE_ROLES.nursery)
+                }
+              />
+              <Route path="watering" element={forRoles(<WateringPage />, ADMIN_ROUTE_ROLES.watering)} />
+              <Route path="schedule" element={forRoles(<ProductionSchedulePage />, ADMIN_ROUTE_ROLES.schedule)} />
+              <Route path="management" element={forRoles(<ManagementPage />, ADMIN_ROUTE_ROLES.management)} />
               <Route
                 path="daily-reports"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR']}>
-                    <AdminReportsPage />
-                  </ProtectedRoute>
+                  forRoles(<AdminReportsPage />, ADMIN_ROUTE_ROLES.dailyReports)
                 }
               />
               <Route
                 path="my-tasks"
                 element={
-                  <ProtectedRoute roles={['BRIGADIER', 'AGRONOMIST']}>
-                    <MyTasksPage />
-                  </ProtectedRoute>
+                  forRoles(<MyTasksPage />, ADMIN_ROUTE_ROLES.myTasks)
                 }
               />
-              <Route path="attendance" element={<AttendancePage />} />
+              <Route path="attendance" element={forRoles(<AttendancePage />, ADMIN_ROUTE_ROLES.attendance)} />
+              <Route path="work-days" element={forRoles(<WorkDaysPage />, ADMIN_ROUTE_ROLES.workDays)} />
               <Route
                 path="warehouse"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouse)
                 }
               />
               <Route
                 path="warehouse/issue"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN', 'BRIGADIER']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouse)
                 }
               />
               <Route
                 path="warehouse/export"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <WarehousePage />
-                  </ProtectedRoute>
+                  forRoles(<WarehousePage />, ADMIN_ROUTE_ROLES.warehouseExport)
                 }
               />
               <Route
                 path="products/import"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <ProductImportPage />
-                  </ProtectedRoute>
+                  forRoles(<ProductImportPage />, ADMIN_ROUTE_ROLES.productImport)
                 }
               />
               <Route
                 path="ai-assistant"
                 element={
-                  <ProtectedRoute roles={['DIRECTOR', 'ADMIN']}>
-                    <AdminAiAssistantPage />
-                  </ProtectedRoute>
+                  forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)
                 }
               />
-              <Route path="seed" element={<SeedPage />} />
+              <Route path="seed" element={forRoles(<SeedPage />, ADMIN_ROUTE_ROLES.seed)} />
             </Route>
           </Routes>
         </Suspense>

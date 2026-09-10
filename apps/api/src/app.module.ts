@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { join } from 'path';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -27,6 +28,11 @@ import { AdminReportsModule } from './modules/admin-reports/admin-reports.module
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { ManagementModule } from './modules/management/management.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { RoutesModule } from './modules/routes/routes.module';
+import { FieldExecutionsModule } from './modules/field-executions/field-executions.module';
+import { ResourcesModule } from './modules/resources/resources.module';
+import { OperationsModule } from './modules/operations/operations.module';
+import { HealthModule } from './modules/health/health.module';
 import { getTypeOrmPostgresFromConfig } from './database/database.config';
 import {
   AdminDailyReport,
@@ -47,6 +53,21 @@ import {
   WateringRecord,
   WorkLog,
   WorkType,
+  Route,
+  RouteStop,
+  WorkExecution,
+  WorkExecutionEvent,
+  WorkPhoto,
+  ChecklistItem,
+  ChecklistAnswer,
+  FaceVerification,
+  LocationEvent,
+  SyncOperation,
+  Vehicle,
+  VehicleAssignment,
+  NurseryBatch,
+  NurseryMovement,
+  WorkDaySession,
 } from './entities';
 
 @Module({
@@ -60,6 +81,7 @@ import {
         join(__dirname, '..', '..', '.env'),
       ],
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -84,6 +106,21 @@ import {
           AdminDailyReport,
           ScheduleEntry,
           ManagementDecision,
+          Route,
+          RouteStop,
+          WorkExecution,
+          WorkExecutionEvent,
+          WorkPhoto,
+          ChecklistItem,
+          ChecklistAnswer,
+          FaceVerification,
+          LocationEvent,
+          SyncOperation,
+          Vehicle,
+          VehicleAssignment,
+          NurseryBatch,
+          NurseryMovement,
+          WorkDaySession,
         ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: config.get('DB_MIGRATE') !== 'false',
@@ -103,6 +140,11 @@ import {
     ScheduleModule,
     ManagementModule,
     DashboardModule,
+    RoutesModule,
+    FieldExecutionsModule,
+    ResourcesModule,
+    OperationsModule,
+    HealthModule,
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,
@@ -113,6 +155,7 @@ import {
     SeedModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

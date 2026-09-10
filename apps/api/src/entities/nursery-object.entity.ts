@@ -19,6 +19,9 @@ export class NurseryObject {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
+  @Column({ name: 'is_active', default: true })
+  isActive!: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

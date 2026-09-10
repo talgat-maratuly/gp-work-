@@ -6,6 +6,7 @@ export type ApiObject = {
   id: number
   name: string
   description: string | null
+  isActive: boolean
   createdAt: string
   updatedAt: string
   sections?: ApiSection[]
@@ -24,6 +25,7 @@ export type ApiSection = {
   latitude: number | null
   longitude: number | null
   radiusMeters: number | null
+  isActive: boolean
   createdAt: string
   updatedAt: string
   object?: ApiObject
@@ -67,6 +69,7 @@ export function mapObject(o: ApiObject): NurseryObject {
     id: o.id,
     name: o.name,
     description: o.description,
+    is_active: o.isActive,
     created_at: o.createdAt,
   }
 }
@@ -81,6 +84,7 @@ export function mapSection(s: ApiSection): Section {
     culture: s.culture,
     description: s.customText,
     qr_code_url: s.qrCodeUrl,
+    is_active: s.isActive,
     created_at: s.createdAt,
     objects: s.object ? mapObject(s.object) : undefined,
   }

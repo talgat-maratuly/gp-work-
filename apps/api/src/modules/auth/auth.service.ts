@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -18,12 +19,16 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, password: string): Promise<User> {
-    const user = await this.userRepo.findOne({ where: { username: username.trim() } });
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.username = :username', { username: username.trim() })
+      .getOne();
     if (!user) {
       throw new UnauthorizedException('Неверный логин или пароль');
     }
     if (!user.isActive) {
-      throw new ForbiddenException('Пользователь заблокирован');
+      throw new UnauthorizedException('Неверный логин или пароль');
     }
     if (!user.passwordHash) {
       throw new UnauthorizedException('Неверный логин или пароль');
@@ -43,14 +48,29 @@ export class AuthService {
     };
   }
 
-  async resetAdmin() {
-    const passwordHash = await bcrypt.hash('admin123', 10);
-    let admin = await this.userRepo.findOne({ where: { username: 'admin' } });
+  async resetAdmin(resetToken?: string) {
+    const expected = process.env.ADMIN_RESET_TOKEN?.trim();
+    if (process.env.ENABLE_ADMIN_RESET !== 'true' || !expected || !resetToken) {
+      throw new NotFoundException('Endpoint недоступен');
+    }
+    const supplied = Buffer.from(resetToken);
+    const reference = Buffer.from(expected);
+    if (supplied.length !== reference.length || !timingSafeEqual(supplied, reference)) {
+      throw new ForbiddenException('Неверный токен восстановления');
+    }
+    const password = process.env.ADMIN_PASSWORD?.trim();
+    if (!password) throw new ForbiddenException('ADMIN_PASSWORD не настроен');
+    if (password.length < 8) {
+      throw new ForbiddenException('ADMIN_PASSWORD должен содержать минимум 8 символов');
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const username = (process.env.ADMIN_USERNAME ?? 'admin').trim();
+    let admin = await this.userRepo.findOne({ where: { username } });
 
     if (!admin) {
       admin = this.userRepo.create({
         fullName: 'Администратор',
-        username: 'admin',
+        username,
       });
     }
 

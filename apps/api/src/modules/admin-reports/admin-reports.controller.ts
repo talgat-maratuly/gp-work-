@@ -23,6 +23,7 @@ import { UpdateAdminReportDto } from './dto/update-admin-report.dto';
 
 // Просмотр — руководство и контролирующие органы (Акимат, Антикор).
 const VIEW_ROLES = [
+  UserRole.ACCOUNTANT,
   UserRole.DIRECTOR,
   UserRole.ADMIN,
   UserRole.AKIMAT,

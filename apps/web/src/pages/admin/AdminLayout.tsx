@@ -52,10 +52,6 @@ const groups: NavGroup[] = [
 
 const directorGroups: NavGroup[] = [{ label: 'Кабинет директора', items: [
   { to: '/admin/director', label: 'Поручения и исполнение', icon: '⌂' },
-  { to: '/admin/executions', label: 'Приёмка работ', icon: '✓' },
-  { to: '/admin/map', label: 'Карта объектов', icon: '⌖' },
-  { to: '/admin/evidence-reports', label: 'Отчёты по работам', icon: '▥' },
-  { to: '/admin/management', label: 'Управленческие решения', icon: '◆' },
 ] }]
 
 export function AdminLayout() {
@@ -63,7 +59,10 @@ export function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const aiLinks = aiLinksForRole(user?.role)
   const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
-  const allGroups: NavGroup[] = [...(user?.role === 'DIRECTOR' ? directorGroups : groups), ...(aiLinks.length ? [{ label: 'ИИ-помощники', items: aiLinks }] : [])]
+  const operationGroups = user?.role === 'DIRECTOR'
+    ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)).map((item) => item.to === '/admin' ? { ...item, to: '/admin/overview', label: 'Сводка компании' } : item) }))]
+    : groups
+  const allGroups: NavGroup[] = [...operationGroups, ...(aiLinks.length ? [{ label: 'ИИ-помощники', items: aiLinks }] : [])]
   const visible = allGroups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)) })).filter((group) => group.items.length)
 
   const navigation = <>{visible.map((group) => <section key={group.label} className="mb-5"><p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{group.label}</p><div className="space-y-0.5">{group.items.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMobileOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><span className="w-5 text-center text-base">{item.icon}</span><span>{item.label}</span></NavLink>)}</div></section>)}</>

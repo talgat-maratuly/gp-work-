@@ -45,17 +45,17 @@ export function SectionLocationFields({ value, onChange, disabled, onLocatingCha
     )
   }
 
-  return <fieldset className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3" disabled={disabled || locating}>
+  return <fieldset className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3" disabled={disabled || locating}>
     <legend className="px-1 text-sm font-semibold">Местоположение участка</legend>
     <p className="text-sm text-slate-600">Укажите центр участка и радиус, в пределах которого можно начать и завершить работу. Без координат участок сохраняется, но начало смены недоступно.</p>
-    <div className="grid gap-3 sm:grid-cols-3">
-      <label className="text-sm" htmlFor={`${id}-lat`}>Широта
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <label className="block min-w-0 text-sm" htmlFor={`${id}-lat`}>Широта
         <input id={`${id}-lat`} inputMode="decimal" value={value.latitude} onChange={e => onChange({ ...value, latitude: e.target.value })} placeholder="От −90 до 90" className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
-      <label className="text-sm" htmlFor={`${id}-lon`}>Долгота
+      <label className="block min-w-0 text-sm" htmlFor={`${id}-lon`}>Долгота
         <input id={`${id}-lon`} inputMode="decimal" value={value.longitude} onChange={e => onChange({ ...value, longitude: e.target.value })} placeholder="От −180 до 180" className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
-      <label className="text-sm" htmlFor={`${id}-radius`}>Радиус, м
+      <label className="block min-w-0 text-sm" htmlFor={`${id}-radius`}>Радиус, м
         <input id={`${id}-radius`} inputMode="numeric" value={value.radius} onChange={e => onChange({ ...value, radius: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
     </div>

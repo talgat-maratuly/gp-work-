@@ -524,8 +524,9 @@ export function ObjectsPage() {
           <form
             aria-label="Редактирование участка"
             onSubmit={handleSaveSection}
-            className="mt-3 grid gap-3 sm:grid-cols-2"
+            className="mt-3 space-y-3"
           >
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <select
               value={editSecObjId}
               onChange={(e) => setEditSecObjId(e.target.value)}
@@ -562,11 +563,10 @@ export function ObjectsPage() {
               placeholder="Доп. текст"
               className="rounded-lg border px-3 py-2 sm:col-span-2"
             />
-            <div className="sm:col-span-2">
-              <SectionLocationFields key={editingSecId} value={editSecLocation} onChange={setEditSecLocation} disabled={editSecSaving} onLocatingChange={setEditSecLocating} />
             </div>
-            {editSecError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{editSecError}</p>}
-            <div className="flex gap-2 sm:col-span-2">
+            <SectionLocationFields key={editingSecId} value={editSecLocation} onChange={setEditSecLocation} disabled={editSecSaving} onLocatingChange={setEditSecLocating} />
+            {editSecError && <p role="alert" className="text-sm text-red-700">{editSecError}</p>}
+            <div className="flex flex-wrap gap-2">
               <button type="submit" disabled={editSecSaving || editSecLocating} className="rounded-lg bg-blue-700 px-4 py-2 text-white text-sm">
                 Сохранить
               </button>

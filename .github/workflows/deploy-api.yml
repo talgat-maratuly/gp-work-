@@ -279,6 +279,37 @@ jobs:
             echo 'Anonymous photo access denied; production photo caching disabled.'
             docker image prune -f
 
+      - name: Report AI connection status without account data
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 1m
+          script: |
+            docker exec -i gp-work-api node <<'NODE'
+            (async () => {
+              const key = process.env.OPENAI_API_KEY;
+              const report = (data) => console.log(JSON.stringify({ check: 'AI_PROVIDER', ...data }));
+              if (!key) { report({ status: 'not_configured' }); return; }
+              const models = new Set([process.env.OPENAI_WORKER_MODEL || 'gpt-4o-mini', process.env.OPENAI_ADMIN_MODEL || 'gpt-4o-mini']);
+              for (const model of models) {
+                try {
+                  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST', signal: AbortSignal.timeout(12000),
+                    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: 'user', content: 'Connection check. Reply OK.' }] }),
+                  });
+                  const data = await response.json();
+                  const ready = response.ok && typeof data.choices?.[0]?.message?.content === 'string';
+                  report({ model, status: ready ? 'ready' : 'unavailable', httpStatus: response.status,
+                    code: typeof data.error?.code === 'string' ? data.error.code.replace(/[^a-zA-Z0-9_-]/g, '').slice(0,64) : null });
+                } catch { report({ model, status: 'network_or_response_error' }); }
+              }
+            })().catch(() => console.log('{"check":"AI_PROVIDER","status":"probe_failed"}'));
+            NODE
+
       - name: Roll back API after failed restart
         if: failure() && steps.restart.outcome == 'failure'
         uses: appleboy/ssh-action@v1.2.0

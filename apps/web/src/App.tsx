@@ -4,12 +4,14 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
+import { useAuth } from '@/context/AuthContext'
 import type { UserRole } from '@/lib/auth'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
 // подтягиваются только на своих экранах.
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })))
+const DirectorPage = lazy(() => import('@/pages/admin/DirectorPage').then((m) => ({ default: m.DirectorPage })))
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const ExportPage = lazy(() => import('@/pages/admin/ExportPage').then((m) => ({ default: m.ExportPage })))
 const JournalPage = lazy(() => import('@/pages/admin/JournalPage').then((m) => ({ default: m.JournalPage })))
@@ -30,6 +32,7 @@ const AttendancePage = lazy(() => import('@/pages/admin/AttendancePage').then((m
 const WarehousePage = lazy(() => import('@/pages/admin/WarehousePage').then((m) => ({ default: m.WarehousePage })))
 const ProductImportPage = lazy(() => import('@/pages/admin/ProductImportPage').then((m) => ({ default: m.ProductImportPage })))
 const AdminAiAssistantPage = lazy(() => import('@/pages/admin/AdminAiAssistantPage').then((m) => ({ default: m.AdminAiAssistantPage })))
+const AdminAssistantPage = lazy(() => import('@/pages/admin/AdminAssistantPage').then((m) => ({ default: m.AdminAssistantPage })))
 const WateringPage = lazy(() => import('@/pages/admin/WateringPage').then((m) => ({ default: m.WateringPage })))
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').then((m) => ({ default: m.AdminReportsPage })))
 const ProductionSchedulePage = lazy(() => import('@/pages/admin/ProductionSchedulePage').then((m) => ({ default: m.ProductionSchedulePage })))
@@ -48,7 +51,6 @@ const FieldAiAssistantPage = lazy(() => import('@/pages/field/FieldAiAssistantPa
 const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
 const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
 const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
-const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => ({ default: m.NurseryPage })))
 const DispatcherPage = lazy(() => import('@/pages/admin/DispatcherPage').then((m) => ({ default: m.DispatcherPage })))
 const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ default: m.KpiPage })))
 const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
@@ -56,6 +58,11 @@ const WorkDaysPage = lazy(() => import('@/pages/admin/WorkDaysPage').then((m) =>
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
+}
+
+function AdminHome() {
+  const { user } = useAuth()
+  return user?.role === 'DIRECTOR' ? <Navigate to="/admin/director" replace /> : <DashboardPage />
 }
 
 function forRoles(page: ReactNode, roles: readonly UserRole[]) {
@@ -112,7 +119,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="director" element={forRoles(<DirectorPage />, ['ADMIN', 'DIRECTOR'])} />
               <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
               <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />
               <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />
@@ -137,12 +145,7 @@ export default function App() {
                   forRoles(<VehiclesPage />, ADMIN_ROUTE_ROLES.vehicles)
                 }
               />
-              <Route
-                path="nursery"
-                element={
-                  forRoles(<NurseryPage />, ADMIN_ROUTE_ROLES.nursery)
-                }
-              />
+              <Route path="nursery" element={<Navigate to="/admin/objects" replace />} />
               <Route path="watering" element={forRoles(<WateringPage />, ADMIN_ROUTE_ROLES.watering)} />
               <Route path="schedule" element={forRoles(<ProductionSchedulePage />, ADMIN_ROUTE_ROLES.schedule)} />
               <Route path="management" element={forRoles(<ManagementPage />, ADMIN_ROUTE_ROLES.management)} />
@@ -184,12 +187,9 @@ export default function App() {
                   forRoles(<ProductImportPage />, ADMIN_ROUTE_ROLES.productImport)
                 }
               />
-              <Route
-                path="ai-assistant"
-                element={
-                  forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)
-                }
-              />
+              <Route path="ai-director" element={forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiDirector)} />
+              <Route path="assistant" element={forRoles(<AdminAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)} />
+              <Route path="ai-assistant" element={<Navigate to="/admin/ai-director" replace />} />
               <Route path="seed" element={forRoles(<SeedPage />, ADMIN_ROUTE_ROLES.seed)} />
             </Route>
           </Routes>

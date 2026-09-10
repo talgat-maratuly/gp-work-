@@ -59,6 +59,7 @@ jobs:
       - run: npm run test:web:roles
       - run: npm run test:web:actions
       - run: npm run test:web:location
+      - run: node --test scripts/director-commands.test.cjs
       - run: npm run test:e2e:typecheck -w @gp-work/api
       - name: Verify additive migration source
         shell: bash

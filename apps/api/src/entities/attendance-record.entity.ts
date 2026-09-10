@@ -61,6 +61,14 @@ export class AttendanceRecord {
   @Column({ name: 'report_count', type: 'int', default: 1 })
   reportCount!: number;
 
+  // Процент выполненной работы, указываемый при отметке ухода (0..100).
+  @Column({ name: 'completion_percent', type: 'int', nullable: true })
+  completionPercent!: number | null;
+
+  // Значения дополнительных настраиваемых полей формы ухода (JSON).
+  @Column({ name: 'extra_values', type: 'text', nullable: true })
+  extraValues!: string | null;
+
   @Column({ name: 'first_work_log_id', type: 'int', nullable: true })
   firstWorkLogId!: number | null;
 

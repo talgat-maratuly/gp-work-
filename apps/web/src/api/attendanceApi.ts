@@ -18,6 +18,8 @@ export type AttendanceRecord = {
   status: AttendanceStatus
   reportCount: number
   firstWorkLogId: number | null
+  completionPercent: number | null
+  extraValues: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
 }

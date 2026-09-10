@@ -7,7 +7,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'apps/web/**'
-      - 'deploy/docker-compose.yml'
+      - 'deploy/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy-api.yml'
@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: deploy-gp-work-web
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:

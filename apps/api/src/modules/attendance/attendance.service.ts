@@ -48,9 +48,21 @@ export class AttendanceService {
       status: row.status,
       reportCount: row.reportCount,
       firstWorkLogId: row.firstWorkLogId,
+      completionPercent: row.completionPercent ?? null,
+      extraValues: this.parseExtra(row.extraValues),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private parseExtra(raw: string | null): Record<string, unknown> | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 
   async syncOnWorkLogCreated(workLog: WorkLog) {
@@ -120,7 +132,6 @@ export class AttendanceService {
       await this.syncOnWorkDayStarted(session, user, manager);
       row = await repo.findOneOrFail({ where: { workDate: session.shiftDate, userId: user.id } });
     }
-    if (row.status === AttendanceStatus.COMPLETED && row.checkOutTime) return this.mapRecord(row);
     const checkOutTime = session.closedAt ?? new Date();
     row.checkOutTime = checkOutTime;
     row.lastActivityTime = checkOutTime;
@@ -128,6 +139,7 @@ export class AttendanceService {
     row.checkOutLongitude = session.endLongitude;
     row.workedHours = String(calcWorkedHours(row.checkInTime, checkOutTime));
     row.status = AttendanceStatus.COMPLETED;
+    row.completionPercent = session.overallPercent;
     return this.mapRecord(await repo.save(row));
   }
 

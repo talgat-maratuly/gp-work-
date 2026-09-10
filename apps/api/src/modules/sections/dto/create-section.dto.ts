@@ -1,7 +1,8 @@
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { SectionLocationDto } from './section-location.dto';
 
-export class CreateSectionDto {
+export class CreateSectionDto extends SectionLocationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)

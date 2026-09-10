@@ -28,8 +28,45 @@ async function fixture(request: APIRequestContext, suffix: string, ip: string) {
   const workType = await create('/work-types', { name: `AI work ${suffix}` })
   const task = await create('/tasks', { sectionId: section.id, workTypeId: workType.id, assigneeUserId: worker.id,
     dueDate: '2000-01-01', description: `AI overdue ${suffix}` })
-  return { worker, task, create }
+  return { worker, task, section, workType, create }
 }
+
+test('director: dedicated home, draft confirmation, real task delivery and mobile logout', async ({ page, context, request }, info) => {
+  const octet = info.project.name.startsWith('mobile') ? 41 : 40
+  await context.setExtraHTTPHeaders({ 'X-Forwarded-For': `10.31.${octet}.1` })
+  const suffix = `${Date.now()}-command-${info.project.name}`
+  const { worker, section, workType, create } = await fixture(request, suffix, `10.32.${octet}.1`)
+  const director = await create('/users', { fullName: `Director ${suffix}`, username: `director-command-${suffix}`, password: adminPassword, role: 'DIRECTOR' })
+  await login(page, director.username, adminPassword)
+  await expect(page).toHaveURL(/\/admin\/director$/)
+  await expect(page.getByRole('heading', { name: 'Кабинет директора', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Системные данные', exact: true })).toHaveCount(0)
+  const description = `${workType.name}, ${section.code}, ${worker.fullName}, завтра`
+  await page.getByLabel('Напишите или надиктуйте:', { exact: false }).fill(description)
+  const posts: string[] = []
+  page.on('request', (r) => { if (r.method() === 'POST' && r.url().endsWith('/api/tasks')) posts.push(r.url()) })
+  await page.getByRole('button', { name: 'Подготовить поручение', exact: true }).click()
+  await expect(page.getByLabel('Исполнитель', { exact: true })).toHaveValue(String(worker.id))
+  await expect(page.getByLabel('Участок', { exact: true })).toHaveValue(String(section.id))
+  expect(posts).toHaveLength(0)
+  const response = page.waitForResponse((r) => r.url().endsWith('/api/tasks') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Подтвердить и отправить исполнителю', exact: true }).click()
+  const createdResponse = await response
+  expect(createdResponse.status()).toBe(201)
+  const task = await createdResponse.json()
+  await expect(page.getByRole('status')).toContainText(`Поручение №${task.id}`)
+  expect(posts).toHaveLength(1)
+  const auth = await request.post(`${api}/auth/login`, { headers: { 'X-Forwarded-For': `10.32.${octet}.2` }, data: { username: worker.username, password: 'ai-worker-password' } })
+  expect(auth.ok()).toBeTruthy()
+  const { accessToken } = await auth.json()
+  const mine = await request.get(`${api}/tasks/my`, { headers: { Authorization: `Bearer ${accessToken}` } })
+  expect((await mine.json()).some((row: { id: number }) => row.id === task.id)).toBeTruthy()
+  await page.screenshot({ path: info.outputPath('director-workspace.png'), fullPage: true })
+  await page.goto('/admin')
+  await expect(page).toHaveURL(/\/admin\/director$/)
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+  await expect(page).toHaveURL(/\/login$/)
+})
 
 for (const role of ['ADMIN', 'DIRECTOR'] as const) {
   test(`${role}: both AI entries stay visible and answer from real records; nursery is removed`, async ({ page, context, request }, info) => {

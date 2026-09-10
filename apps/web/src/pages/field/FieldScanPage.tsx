@@ -5,6 +5,7 @@ import { uploadWorkPhotos } from '@/api/uploadsApi'
 import { CameraCapture, type CameraShot } from '@/components/field/CameraCapture'
 import { LivenessCapture } from '@/components/field/LivenessCapture'
 import { useGeolocation } from '@/hooks/useGeolocation'
+import { hasSectionLocation } from '@/lib/sectionLocation'
 
 type TaskResult = {
   percent: number
@@ -20,7 +21,7 @@ type DayTask = {
 }
 
 type DayState = {
-  section: { code: string; name: string; object?: { name: string } }
+  section: { code: string; name: string; latitude: number | null; longitude: number | null; radiusMeters: number | null; object?: { name: string } }
   session: null | { id: number; startedAt: string; status: string; reviewComment: string | null }
   tasks: DayTask[]
   serverTime: string
@@ -73,6 +74,10 @@ export function FieldScanPage() {
 
   async function submit(close: boolean) {
     if (busy) return
+    if (!prepared.current && state && !hasSectionLocation({ ...state.section, radius_meters: state.section.radiusMeters })) {
+      setMessage('Местоположение участка не настроено. Обратитесь к руководителю.')
+      return
+    }
     if (!prepared.current && (liveness.length !== 3 || !workPhoto)) {
       setMessage('Обязательны три кадра лица и фото участка')
       return
@@ -139,6 +144,7 @@ export function FieldScanPage() {
   }
 
   if (!state) return <div className="p-5">{message || 'Проверяем QR…'}</div>
+  const locationReady = hasSectionLocation({ ...state.section, radius_meters: state.section.radiusMeters })
 
   return (
     <main className="mx-auto min-h-screen max-w-md space-y-4 bg-slate-50 p-4 pb-28">
@@ -181,7 +187,11 @@ export function FieldScanPage() {
         </section>
       )}
 
-      <fieldset disabled={busy || !!prepared.current} className="space-y-4">
+      {!locationReady && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <p>Местоположение участка не настроено. Попросите руководителя указать координаты и радиус в разделе «Объекты». До настройки начать или завершить смену нельзя.</p>
+        <button type="button" onClick={() => void load()} className="mt-3 font-semibold underline">Обновить данные участка</button>
+      </div>}
+      <fieldset disabled={busy || !!prepared.current || !locationReady} className="space-y-4">
       <LivenessCapture key={`face-${captureRevision}`} onChange={setLiveness} />
       <CameraCapture key={`work-${captureRevision}`}
         label={state.session ? 'Фото результата' : 'Начальное фото участка'}
@@ -244,7 +254,7 @@ export function FieldScanPage() {
 
       </fieldset>
       <button
-        disabled={busy}
+        disabled={busy || (!locationReady && !prepared.current)}
         onClick={() => void submit(!!state.session)}
         className={`w-full rounded-2xl p-5 text-lg font-black text-white disabled:opacity-50 ${state.session ? 'bg-red-700' : 'bg-emerald-700'}`}
       >

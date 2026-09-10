@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   createTask,
   cancelTask,
@@ -114,6 +115,7 @@ function TaskPhotoPreview({ urls }: { urls: string[] }) {
 
 export function TasksPage() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
   const [tasks, setTasks] = useState<ApiTask[]>([])
   const [objects, setObjects] = useState<NurseryObjectWithSections[]>([])
   const [workTypes, setWorkTypes] = useState<{ id: number; name: string }[]>([])
@@ -159,6 +161,11 @@ export function TasksPage() {
   useEffect(() => {
     void reload().catch((err) => setError(toUserMessage(err)))
   }, [])
+
+  useEffect(() => {
+    const id = Number(searchParams.get('task'))
+    if (Number.isSafeInteger(id) && id > 0) setSelectedTaskId(id)
+  }, [searchParams])
 
   useEffect(() => {
     if (selectedTaskId == null) {
@@ -247,7 +254,7 @@ export function TasksPage() {
       description.trim(),
   )
 
-  const isAdmin = user?.role === 'ADMIN'
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'DIRECTOR'
   const isAgronomist = user?.role === 'AGRONOMIST'
   const isBrigadier = user?.role === 'BRIGADIER'
   const showExtendedTable = isAdmin || isAgronomist

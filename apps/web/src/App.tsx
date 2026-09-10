@@ -4,12 +4,14 @@ import { AuthProvider } from '@/context/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
+import { useAuth } from '@/context/AuthContext'
 import type { UserRole } from '@/lib/auth'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
 // подтягиваются только на своих экранах.
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout').then((m) => ({ default: m.AdminLayout })))
+const DirectorPage = lazy(() => import('@/pages/admin/DirectorPage').then((m) => ({ default: m.DirectorPage })))
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const ExportPage = lazy(() => import('@/pages/admin/ExportPage').then((m) => ({ default: m.ExportPage })))
 const JournalPage = lazy(() => import('@/pages/admin/JournalPage').then((m) => ({ default: m.JournalPage })))
@@ -56,6 +58,11 @@ const WorkDaysPage = lazy(() => import('@/pages/admin/WorkDaysPage').then((m) =>
 
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
+}
+
+function AdminHome() {
+  const { user } = useAuth()
+  return user?.role === 'DIRECTOR' ? <Navigate to="/admin/director" replace /> : <DashboardPage />
 }
 
 function forRoles(page: ReactNode, roles: readonly UserRole[]) {
@@ -112,7 +119,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="director" element={forRoles(<DirectorPage />, ['ADMIN', 'DIRECTOR'])} />
               <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
               <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />
               <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />

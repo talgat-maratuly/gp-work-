@@ -1,0 +1,77 @@
+import { test, expect } from 'playwright/test'
+
+const api = 'http://localhost:3002/api'
+
+test('section location: real form, GPS rejection, persistence, edit and unchanged QR', async ({ page, context, request }, testInfo) => {
+  // Test data is isolated in the CI database; no production account is used.
+  const suffix = `${Date.now()}-${testInfo.project.name}`
+  const response = await request.post(`${api}/auth/login`, {
+    data: { username: process.env.ADMIN_USERNAME || 'e2e-admin', password: process.env.ADMIN_PASSWORD || 'e2e-admin-password' },
+  })
+  expect(response.ok()).toBeTruthy()
+  const { accessToken } = await response.json()
+  const headers = { Authorization: `Bearer ${accessToken}` }
+  const objectResponse = await request.post(`${api}/objects`, { headers, data: { name: `Location test ${suffix}` } })
+  expect(objectResponse.ok()).toBeTruthy()
+  const object = await objectResponse.json()
+
+  await page.goto('/login')
+  await page.getByLabel('Логин', { exact: true }).fill(process.env.ADMIN_USERNAME || 'e2e-admin')
+  await page.getByLabel('Пароль', { exact: true }).fill(process.env.ADMIN_PASSWORD || 'e2e-admin-password')
+  await page.getByRole('button', { name: 'Войти', exact: true }).click()
+  await expect(page).not.toHaveURL(/\/login$/)
+  await page.goto('/admin/objects')
+  const create = page.getByRole('form', { name: 'Добавить участок', exact: true })
+  await create.getByLabel('Объект участка').selectOption(String(object.id))
+  const sectionName = `Location section ${suffix}`
+  await create.getByPlaceholder('Название участка *').fill(sectionName)
+  await create.getByLabel('Широта', { exact: true }).fill('51,2301')
+  await create.getByRole('button', { name: 'Сохранить участок', exact: true }).click()
+  await expect(create.getByRole('alert')).toHaveText('Укажите широту и долготу вместе')
+
+  await context.setGeolocation({ latitude: 51.2301, longitude: 51.3701, accuracy: 500 })
+  await create.getByRole('button', { name: 'Я на участке — определить координаты', exact: true }).click()
+  await expect(create.getByRole('status')).toContainText('Координаты не изменены')
+  await expect(create.getByLabel('Долгота', { exact: true })).toHaveValue('')
+  await context.clearPermissions()
+  await create.getByRole('button', { name: 'Я на участке — определить координаты', exact: true }).click()
+  await expect(create.getByRole('status')).toContainText('Доступ к геолокации запрещён')
+  await context.grantPermissions(['geolocation'])
+  await context.setGeolocation({ latitude: 51.2301, longitude: 51.3701, accuracy: 5 })
+  await create.getByRole('button', { name: 'Я на участке — определить координаты', exact: true }).click()
+  await expect(create.getByLabel('Широта', { exact: true })).toHaveValue('51.230100')
+  await expect(create.getByLabel('Долгота', { exact: true })).toHaveValue('51.370100')
+  await create.getByLabel('Радиус, м', { exact: true }).fill('250')
+  await create.getByRole('button', { name: 'Сохранить участок', exact: true }).click()
+  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: sectionName, exact: true }) })
+  await expect(row).toContainText('Радиус 250 м')
+  const qrLink = await row.getByRole('link', { name: 'открыть', exact: true }).getAttribute('href')
+  await page.reload()
+  await expect(row).toContainText('51.230100, 51.370100')
+  await row.getByRole('button', { name: 'Изменить', exact: true }).click()
+  const edit = page.getByRole('form', { name: 'Редактирование участка', exact: true })
+  await expect(edit.getByLabel('Широта', { exact: true })).toHaveValue('51.2301')
+  await expect(edit.getByLabel('Радиус, м', { exact: true })).toHaveValue('250')
+  await edit.getByLabel('Широта', { exact: true }).fill('51,2302')
+  await edit.getByLabel('Радиус, м', { exact: true }).fill('300')
+  await edit.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await expect(edit).toHaveCount(0)
+  await page.reload()
+  await expect(row).toContainText('51.230200, 51.370100')
+  await expect(row).toContainText('Радиус 300 м')
+  await expect(row.getByRole('link', { name: 'открыть', exact: true })).toHaveAttribute('href', qrLink!)
+  const sectionsResponse = await request.get(`${api}/sections`, { headers })
+  expect(sectionsResponse.ok()).toBeTruthy()
+  expect((await sectionsResponse.json()).find((section: { name: string }) => section.name === sectionName))
+    .toMatchObject({ latitude: 51.2302, longitude: 51.3701, radiusMeters: 300 })
+  await row.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await expect(edit.getByLabel('Широта', { exact: true })).toHaveValue('51.2302')
+  await edit.screenshot({ path: testInfo.outputPath('section-location.png') })
+  if (testInfo.project.name === 'mobile-chromium') {
+    await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
+  }
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await page.goto('/admin/objects')
+  await expect(page).toHaveURL(/\/login$/)
+})

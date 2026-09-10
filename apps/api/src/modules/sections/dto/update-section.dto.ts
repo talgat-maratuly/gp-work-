@@ -3,15 +3,14 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
   Min,
 } from 'class-validator';
+import { SectionLocationDto } from './section-location.dto';
 
-export class UpdateSectionDto {
+export class UpdateSectionDto extends SectionLocationDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -39,27 +38,6 @@ export class UpdateSectionDto {
   @IsString()
   @MaxLength(4000)
   customText?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  latitude?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  longitude?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(10)
-  @Max(5000)
-  radiusMeters?: number;
 
   @IsOptional()
   @IsBoolean()

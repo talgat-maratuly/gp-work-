@@ -338,7 +338,11 @@ export class AdminAiService {
       .andWhere('task.status NOT IN (:...done)', {
         done: manager ? [TaskStatus.VERIFIED, TaskStatus.CANCELLED] : [TaskStatus.COMPLETED, TaskStatus.VERIFIED, TaskStatus.CANCELLED],
       });
-    if (!manager) query.andWhere('(task.due_date IS NULL OR task.due_date <= :today)', { today });
+    // Future management tasks have a cabinet route. Personal field task pages
+    // only expose today's work, so do not link a future task into a dead end.
+    const futureScope = user.role === UserRole.AGRONOMIST ? ' OR task.created_by_id = :userId'
+      : user.role === UserRole.BRIGADIER ? ' OR task.brigade_id = :brigadeId' : '';
+    query.andWhere(`(task.due_date IS NULL OR task.due_date <= :today${futureScope})`, { today });
     const tasks = await query.orderBy('task.due_date', 'ASC', 'NULLS LAST').addOrderBy('task.id', 'ASC').getMany();
     const openDay = await this.workDayRepo.findOne({
       where: { userId: user.id, status: WorkDayStatus.OPEN }, relations: { section: { object: true } },

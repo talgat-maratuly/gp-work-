@@ -76,6 +76,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     const base = { sectionId: section.id, workTypeId: workType.id, assigneeUserId: worker.id };
     const ready = await create('/tasks', { ...base, description: 'READY OWN REVIEW', dueDate: '2001-01-01' }, token);
     const future = await create('/tasks', { ...base, description: 'FUTURE OWN CONTROL', dueDate: '2099-01-01' }, token);
+    const futureField = await create('/tasks', { ...base, assigneeUserId: agro.id, description: 'FUTURE PERSONAL FIELD WORK', dueDate: '2099-01-01' });
     const foreign = await create('/tasks', { ...base, description: 'PRIVATE OTHER MANAGER', dueDate: '2001-01-01' });
     await dataSource.query("UPDATE tasks SET status = 'COMPLETED' WHERE id = $1", [ready.id]);
     const brief = (await request(app.getHttpServer()).get('/api/admin-ai/worker/brief').set(auth(token)).expect(200)).body;
@@ -83,6 +84,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(brief.metrics.pendingReview).toBe(1);
     expect(brief.tasks.map((t: { id: number }) => t.id)).toEqual(expect.arrayContaining([ready.id, future.id]));
     expect(brief.tasks.map((t: { id: number }) => t.id)).not.toContain(foreign.id);
+    expect(brief.tasks.map((t: { id: number }) => t.id)).not.toContain(futureField.id);
     const answer = (await request(app.getHttpServer()).post('/api/admin-ai/worker/question').set(auth(token)).send({ question: 'Что нужно проверить?' }).expect(201)).body;
     expect(answer.answer).toContain('READY OWN REVIEW');
     expect(answer.answer).not.toContain('FUTURE OWN CONTROL');

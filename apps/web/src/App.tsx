@@ -120,6 +120,7 @@ export default function App() {
               }
             >
               <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="overview" element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
               <Route path="director" element={forRoles(<DirectorPage />, ['ADMIN', 'DIRECTOR'])} />
               <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
               <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />

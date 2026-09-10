@@ -58,7 +58,7 @@ export function AdminLayout() {
   const aiLinks = aiLinksForRole(user?.role)
   const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
   const operationGroups = user?.role === 'DIRECTOR'
-    ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)) }))]
+    ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)).map((item) => item.to === '/admin' ? { ...item, to: '/admin/overview', label: 'Сводка компании' } : item) }))]
     : groups
   const allGroups: NavGroup[] = [...operationGroups, ...(aiLinks.length ? [{ label: 'ИИ-помощники', items: aiLinks }] : [])]
   const visible = allGroups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)) })).filter((group) => group.items.length)

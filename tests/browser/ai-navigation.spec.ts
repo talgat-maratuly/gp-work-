@@ -96,7 +96,7 @@ for (const role of ['ADMIN', 'DIRECTOR'] as const) {
     await shortcuts.getByRole('link', { name: 'ИИ-ассистент', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'ИИ-ассистент', exact: true })).toBeVisible()
     await page.getByLabel('Ваш вопрос', { exact: true }).fill('Какие задачи просрочены?')
-    const assistantResponse = page.waitForResponse((response) => response.url().endsWith('/api/admin-ai/question') && response.request().method() === 'POST')
+    const assistantResponse = page.waitForResponse((response) => response.url().endsWith('/api/admin-ai/assistant/question') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Спросить', exact: true }).click()
     expect((await assistantResponse).status()).toBe(201)
     await expect(page.getByLabel('Ответ ассистента', { exact: true })).toContainText(task.description)

@@ -1,4 +1,7 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { AccountControls } from '@/components/AccountControls'
+import { homePathForRole } from '@/lib/roleRoutes'
+import { aiLinksForRole } from '@/lib/aiNavigation'
 import { useAuth } from '@/context/AuthContext'
 import { useOfflineQueue } from '@/hooks/useOfflineQueue'
 import { useRouteLocationTracking } from '@/hooks/useRouteLocationTracking'
@@ -12,8 +15,7 @@ const items = [
 ]
 
 export function FieldLayout() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const { pending, online, lastError } = useOfflineQueue()
   const tracking = useRouteLocationTracking()
 
@@ -23,17 +25,19 @@ export function FieldLayout() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-lg font-black tracking-tight"><span className="text-emerald-700">GP</span> WORK</p>
-            <p className="text-xs text-slate-500">{user?.fullName ?? 'Полевые работы'}</p>
+            <p className="text-xs text-slate-500">Полевые работы</p>
           </div>
           <div className="text-right text-xs">
+            <AccountControls />
             <p className={online ? 'text-emerald-700' : 'text-amber-700'}>{online ? '● На связи' : '● Нет сети'}</p>
             {tracking.routeId && <p className={tracking.status === 'denied' || tracking.status === 'error' ? 'font-semibold text-red-700' : 'text-blue-700'}>{tracking.status === 'denied' ? 'GPS запрещён' : tracking.status === 'error' ? 'Ошибка GPS' : tracking.status === 'queued' ? 'GPS сохранён offline' : 'GPS маршрута активен'}</p>}
             {pending > 0 && <p className="font-semibold text-amber-700">Не синхронизировано: {pending}</p>}
             {lastError && <p className="max-w-48 truncate text-red-700" title={lastError}>Ошибка синхронизации</p>}
           </div>
         </div>
-        <nav aria-label="ИИ-помощники" className="mt-3">
-          <NavLink to="/field/assistant" className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>
+        <nav aria-label="ИИ-помощники" className="mt-3 flex flex-wrap gap-2">
+          <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
+          <NavLink to={aiLinksForRole(user?.role)[0]?.to ?? '/field/assistant'} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>
             <span aria-hidden="true">✧</span>ИИ-ассистент
           </NavLink>
         </nav>
@@ -50,7 +54,7 @@ export function FieldLayout() {
         ))}
       </nav>
 
-      <button className="sr-only" onClick={() => { logout(); navigate('/login', { replace: true }) }}>Выйти</button>
+
     </div>
   )
 }

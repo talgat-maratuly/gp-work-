@@ -1,3 +1,4 @@
+import { WateringRecord } from '../../entities/watering-record.entity';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AiAgronomAnalysis } from '../../entities/ai-agronom-analysis.entity';
@@ -28,6 +29,7 @@ import { AdminAiService } from './admin-ai.service';
       AiAgronomAnalysis,
       WorkDaySession,
       WorkExecution,
+      WateringRecord,
     ]),
   ],
   controllers: [AdminAiController],

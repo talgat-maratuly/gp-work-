@@ -26,8 +26,14 @@ export class AdminAiController {
 
   @Post('question')
   @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
-  answerQuestion(@Body() dto: AdminAiQuestionDto) {
-    return this.adminAiService.answerQuestion(dto);
+  answerQuestion(@Body() dto: AdminAiQuestionDto, @CurrentUser() user: User) {
+    return this.adminAiService.answerQuestion(dto, user);
+  }
+
+  @Post('assistant/question')
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
+  answerManagerQuestion(@Body() dto: AdminAiQuestionDto, @CurrentUser() user: User) {
+    return this.adminAiService.answerQuestion(dto, user, 'assistant');
   }
 
   @Get('worker/brief')

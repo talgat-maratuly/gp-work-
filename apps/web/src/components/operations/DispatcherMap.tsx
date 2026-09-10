@@ -8,7 +8,9 @@ export function DispatcherMap({ data }: { data: DispatcherData }) {
   const map = useRef<L.Map | null>(null)
   useEffect(() => {
     if (!node.current || map.current) return
-    map.current = L.map(node.current).setView([51.23, 51.37], 11)
+    // Leaflet's zoom transition timer can fire after the route unmounts.
+    // Keep this frequently mounted dashboard map synchronous.
+    map.current = L.map(node.current, { zoomAnimation: false }).setView([51.23, 51.37], 11)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap', maxZoom: 19,
     }).addTo(map.current)
@@ -31,7 +33,7 @@ export function DispatcherMap({ data }: { data: DispatcherData }) {
         .addTo(instance)
       bounds.extend([team.latitude, team.longitude])
     })
-    if (bounds.isValid()) instance.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
+    if (bounds.isValid()) instance.fitBounds(bounds, { padding: [30, 30], maxZoom: 14, animate: false })
   }, [data])
   return <div ref={node} className="h-[430px] w-full rounded-2xl bg-slate-100" aria-label="Оперативная карта объектов и бригад" />
 }

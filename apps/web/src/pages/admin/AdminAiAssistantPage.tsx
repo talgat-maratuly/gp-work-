@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { AiAnswerNotice } from '@/components/AiAnswerNotice'
+import type { AiAnswer } from '@/api/adminAiApi'
 import {
   ADMIN_AI_RISK_LABELS,
   askAdminAi,
@@ -27,6 +29,7 @@ export function AdminAiAssistantPage() {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [fallback, setFallback] = useState(false)
+  const [fallbackReason, setFallbackReason] = useState<AiAnswer['fallbackReason']>()
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,13 +49,15 @@ export function AdminAiAssistantPage() {
 
   async function handleQuestion(e: FormEvent) {
     e.preventDefault()
-    if (!question.trim()) return
+    if (!question.trim() || asking) return
     setAsking(true)
+    setAnswer('')
     setError(null)
     try {
       const result = await askAdminAi(question.trim())
       setAnswer(result.answer)
       setFallback(result.fallback === true)
+      setFallbackReason(result.fallbackReason)
     } catch (err) {
       console.error('[admin-ai/question]', err)
       setError(AI_UNAVAILABLE_MESSAGE)
@@ -156,7 +161,7 @@ export function AdminAiAssistantPage() {
             {answer && (
               <div aria-label="Ответ директора" aria-live="polite" className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
                 <p className="whitespace-pre-wrap">{answer}</p>
-                {fallback && <p className="mt-3 text-xs text-slate-600">Ответ сформирован по данным GP Work без ИИ-модели: она сейчас недоступна.</p>}
+                <AiAnswerNotice result={{ answer, fallback, fallbackReason }} />
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2 text-xs">

@@ -9,6 +9,9 @@ export function homePathForRole(role: UserRole): string {
 
 export function resolvePostLoginPath(role: UserRole, from?: string): string {
   if (!from || from === '/login') return homePathForRole(role)
+  if (!from.startsWith('/') || from.startsWith('//')) return homePathForRole(role)
+  if (role !== 'WORKER' && from === '/field/assistant') return '/admin/assistant'
+  if (['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR'].includes(role) && from.startsWith('/field')) return homePathForRole(role)
   if (role === 'DIRECTOR' && from === '/admin') return homePathForRole(role)
   if (role === 'WORKER' && (from.startsWith('/admin') || from.startsWith('/worker'))) {
     return homePathForRole(role)
@@ -16,7 +19,7 @@ export function resolvePostLoginPath(role: UserRole, from?: string): string {
   if (
     role === 'WATER_CARRIER' &&
     from.startsWith('/admin') &&
-    !from.startsWith('/admin/watering')
+    !from.startsWith('/admin/watering') && from !== '/admin/assistant'
   ) {
     return homePathForRole(role)
   }

@@ -13,7 +13,7 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
+  @Roles(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.BRIGADIER, UserRole.AGRONOMIST)
   findAll(@Query() query: AttendanceQueryDto, @CurrentUser() user: User) {
     return this.attendanceService.findAll(query, user);
   }

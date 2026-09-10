@@ -155,6 +155,7 @@ export class AttendanceService {
       !user ||
       user.role === UserRole.ADMIN ||
       user.role === UserRole.DIRECTOR ||
+      user.role === UserRole.ACCOUNTANT ||
       user.role === UserRole.AGRONOMIST
     ) {
       return qb;
@@ -198,6 +199,13 @@ export class AttendanceService {
 
     qb = await this.applyRoleFilter(qb, user);
     const rows = await qb.getMany();
-    return rows.map((r) => this.mapRecord(r));
+    return rows.map((r) => {
+      const record = this.mapRecord(r);
+      // Accounting needs time and completion data, not precise location or custom personal fields.
+      return user?.role === UserRole.ACCOUNTANT ? {
+        ...record, checkInLatitude: null, checkInLongitude: null,
+        checkOutLatitude: null, checkOutLongitude: null, extraValues: null,
+      } : record;
+    });
   }
 }

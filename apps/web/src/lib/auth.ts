@@ -6,6 +6,7 @@ const AUTH_STORAGE_KEYS = [TOKEN_KEY, USER_KEY, 'gp-work_role', 'role'] as const
 export type UserRole =
   | 'DIRECTOR'
   | 'ADMIN'
+  | 'ACCOUNTANT'
   | 'BRIGADIER'
   | 'AGRONOMIST'
   | 'WORKER'
@@ -61,6 +62,7 @@ export function clearAuth() {
 export const ROLE_LABELS: Record<UserRole, string> = {
   DIRECTOR: 'Директор',
   ADMIN: 'Администратор',
+  ACCOUNTANT: 'Бухгалтер',
   BRIGADIER: 'Бригадир',
   AGRONOMIST: 'Агроном',
   WORKER: 'Рабочий',

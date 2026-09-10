@@ -134,10 +134,11 @@ export function AdminReportsPage() {
   }, [load])
 
   useEffect(() => {
+    if (!canEdit) return
     fetchUsers()
       .then((u) => setAuthors(u.filter((x) => x.role === 'ADMIN' || x.role === 'DIRECTOR')))
       .catch(() => setAuthors([]))
-  }, [])
+  }, [canEdit])
 
   // Авто-сводка из задач/полива/табеля за дату отчёта
   useEffect(() => {

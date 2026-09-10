@@ -41,6 +41,12 @@ test('director: dedicated home, draft confirmation, real task delivery and mobil
   await expect(page).toHaveURL(/\/admin\/director$/)
   await expect(page.getByRole('heading', { name: 'Кабинет директора', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Системные данные', exact: true })).toHaveCount(0)
+  if (info.project.name.startsWith('mobile')) await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
+  await expect(page.getByRole('link', { name: /Табель/ })).toBeVisible()
+  await page.getByRole('link', { name: /Табель/ }).click()
+  await expect(page.getByRole('heading', { name: 'Табель', exact: true })).toBeVisible()
+  await expect(page.getByText('Нет доступа', { exact: false })).toHaveCount(0)
+  await page.goto('/admin/director')
   const description = `${workType.name}, ${section.code}, ${worker.fullName}, завтра`
   await page.getByLabel('Напишите или надиктуйте:', { exact: false }).fill(description)
   const posts: string[] = []
@@ -66,6 +72,30 @@ test('director: dedicated home, draft confirmation, real task delivery and mobil
   await expect(page).toHaveURL(/\/admin\/director$/)
   await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/\/login$/)
+})
+
+test('accountant: attendance and reports only, with API enforcement', async ({ page, context, request }, info) => {
+  const ip = info.project.name.startsWith('mobile') ? '10.35.41.1' : '10.35.40.1'
+  await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
+  const suffix = `${Date.now()}-accountant-${info.project.name}`
+  const { create } = await fixture(request, suffix, ip)
+  const accountant = await create('/users', { fullName: `Accountant ${suffix}`, username: `accountant-${suffix}`, password: adminPassword, role: 'ACCOUNTANT' })
+  await login(page, accountant.username, adminPassword)
+  await expect(page).toHaveURL(/\/admin\/attendance$/)
+  await expect(page.getByRole('heading', { name: 'Табель', exact: true })).toBeVisible()
+  if (info.project.name.startsWith('mobile')) await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
+  await expect(page.getByRole('link', { name: /Сотрудники|Задачи|Поручения|Системные данные|ИИ-директор/ })).toHaveCount(0)
+  await page.getByRole('link', { name: /Отчёты/ }).click()
+  await expect(page.getByRole('button', { name: '+ Создать ежедневный отчёт', exact: true })).toHaveCount(0)
+  const auth = await request.post(`${api}/auth/login`, { headers: { 'X-Forwarded-For': ip }, data: { username: accountant.username, password: adminPassword } })
+  expect(auth.ok()).toBeTruthy()
+  const { accessToken } = await auth.json()
+  const headers = { Authorization: `Bearer ${accessToken}`, 'X-Forwarded-For': ip }
+  for (const path of ['/attendance', '/admin-reports']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(200)
+  for (const path of ['/users', '/tasks', '/field/work-days', '/admin-ai/summary']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(403)
+  for (const path of ['/users', '/tasks', '/admin-reports']) expect((await request.post(`${api}${path}`, { headers, data: {} })).status()).toBe(403)
+  await page.goto('/admin/users')
+  await expect(page).toHaveURL(/\/admin\/attendance$/)
 })
 
 for (const role of ['ADMIN', 'DIRECTOR'] as const) {

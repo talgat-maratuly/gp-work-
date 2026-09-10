@@ -113,7 +113,7 @@ export default function App() {
               path="/admin"
               element={
                 <ProtectedRoute
-                  roles={['DIRECTOR', 'ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR']}
+                  roles={['DIRECTOR', 'ADMIN', 'ACCOUNTANT', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR']}
                 >
                   <AdminLayout />
                 </ProtectedRoute>

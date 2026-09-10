@@ -302,7 +302,8 @@ jobs:
                     body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: 'user', content: 'Connection check. Reply OK.' }] }),
                   });
                   const data = await response.json();
-                  const ready = response.ok && typeof data.choices?.[0]?.message?.content === 'string';
+                  const content = data.choices?.[0]?.message?.content;
+                  const ready = response.ok && typeof content === 'string' && content.trim().length > 0;
                   report({ model, status: ready ? 'ready' : 'unavailable', httpStatus: response.status,
                     code: typeof data.error?.code === 'string' ? data.error.code.replace(/[^a-zA-Z0-9_-]/g, '').slice(0,64) : null });
                 } catch { report({ model, status: 'network_or_response_error' }); }

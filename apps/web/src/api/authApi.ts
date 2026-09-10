@@ -28,6 +28,7 @@ export async function fetchMe(signal?: AbortSignal): Promise<AuthUser> {
 }
 
 export function logout() {
+  sessionStorage.setItem('gp-work_signed_out', '1')
   if (!loggingOut) {
     loggingOut = true
     pendingLogout = apiRequest('/auth/logout', { method: 'POST', signal: AbortSignal.timeout(5000) })

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { login } from '@/api/authApi'
 import { toUserMessage } from '@/api/client'
@@ -15,7 +15,16 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const from = (location.state as { from?: string } | null)?.from
+  const [afterLogout] = useState(() => sessionStorage.getItem('gp-work_signed_out') === '1')
+  // A protected route may redirect during logout before router navigation settles.
+  // Its return URL belongs to the previous account, so discard it explicitly.
+  const from = afterLogout ? undefined : (location.state as { from?: string } | null)?.from
+  useEffect(() => {
+    if (afterLogout) {
+      sessionStorage.removeItem('gp-work_signed_out')
+      navigate('/login', { replace: true, state: null })
+    }
+  }, [afterLogout, navigate])
 
   if (loading) {
     return (
@@ -107,4 +116,3 @@ export function LoginPage() {
     </div>
   )
 }
-

@@ -30,6 +30,7 @@ const AttendancePage = lazy(() => import('@/pages/admin/AttendancePage').then((m
 const WarehousePage = lazy(() => import('@/pages/admin/WarehousePage').then((m) => ({ default: m.WarehousePage })))
 const ProductImportPage = lazy(() => import('@/pages/admin/ProductImportPage').then((m) => ({ default: m.ProductImportPage })))
 const AdminAiAssistantPage = lazy(() => import('@/pages/admin/AdminAiAssistantPage').then((m) => ({ default: m.AdminAiAssistantPage })))
+const AdminAssistantPage = lazy(() => import('@/pages/admin/AdminAssistantPage').then((m) => ({ default: m.AdminAssistantPage })))
 const WateringPage = lazy(() => import('@/pages/admin/WateringPage').then((m) => ({ default: m.WateringPage })))
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage').then((m) => ({ default: m.AdminReportsPage })))
 const ProductionSchedulePage = lazy(() => import('@/pages/admin/ProductionSchedulePage').then((m) => ({ default: m.ProductionSchedulePage })))
@@ -48,7 +49,6 @@ const FieldAiAssistantPage = lazy(() => import('@/pages/field/FieldAiAssistantPa
 const RoutesPage = lazy(() => import('@/pages/admin/RoutesPage').then((m) => ({ default: m.RoutesPage })))
 const ExecutionReviewPage = lazy(() => import('@/pages/admin/ExecutionReviewPage').then((m) => ({ default: m.ExecutionReviewPage })))
 const VehiclesPage = lazy(() => import('@/pages/admin/VehiclesPage').then((m) => ({ default: m.VehiclesPage })))
-const NurseryPage = lazy(() => import('@/pages/admin/NurseryPage').then((m) => ({ default: m.NurseryPage })))
 const DispatcherPage = lazy(() => import('@/pages/admin/DispatcherPage').then((m) => ({ default: m.DispatcherPage })))
 const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ default: m.KpiPage })))
 const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
@@ -137,12 +137,7 @@ export default function App() {
                   forRoles(<VehiclesPage />, ADMIN_ROUTE_ROLES.vehicles)
                 }
               />
-              <Route
-                path="nursery"
-                element={
-                  forRoles(<NurseryPage />, ADMIN_ROUTE_ROLES.nursery)
-                }
-              />
+              <Route path="nursery" element={<Navigate to="/admin/objects" replace />} />
               <Route path="watering" element={forRoles(<WateringPage />, ADMIN_ROUTE_ROLES.watering)} />
               <Route path="schedule" element={forRoles(<ProductionSchedulePage />, ADMIN_ROUTE_ROLES.schedule)} />
               <Route path="management" element={forRoles(<ManagementPage />, ADMIN_ROUTE_ROLES.management)} />
@@ -184,12 +179,9 @@ export default function App() {
                   forRoles(<ProductImportPage />, ADMIN_ROUTE_ROLES.productImport)
                 }
               />
-              <Route
-                path="ai-assistant"
-                element={
-                  forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)
-                }
-              />
+              <Route path="ai-director" element={forRoles(<AdminAiAssistantPage />, ADMIN_ROUTE_ROLES.aiDirector)} />
+              <Route path="assistant" element={forRoles(<AdminAssistantPage />, ADMIN_ROUTE_ROLES.aiAssistant)} />
+              <Route path="ai-assistant" element={<Navigate to="/admin/ai-director" replace />} />
               <Route path="seed" element={forRoles(<SeedPage />, ADMIN_ROUTE_ROLES.seed)} />
             </Route>
           </Routes>

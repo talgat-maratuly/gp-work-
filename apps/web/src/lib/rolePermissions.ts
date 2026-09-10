@@ -29,11 +29,11 @@ export const ADMIN_ROUTE_ROLES = {
   workDays: FIELD_MANAGERS,
   dailyReports: ['ADMIN', 'AKIMAT', 'ANTICOR'],
   vehicles: FIELD_MANAGERS,
-  nursery: FIELD_MANAGERS,
   warehouse: ['ADMIN', 'BRIGADIER'],
   warehouseExport: ['ADMIN'],
   productImport: ['ADMIN'],
   aiAssistant: ['ADMIN'],
+  aiDirector: ['ADMIN'],
   myTasks: ['BRIGADIER', 'AGRONOMIST'],
 } as const satisfies Record<string, readonly UserRole[]>
 

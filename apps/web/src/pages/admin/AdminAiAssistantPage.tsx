@@ -26,6 +26,7 @@ export function AdminAiAssistantPage() {
   const [risks, setRisks] = useState<AdminAiRisk[]>([])
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
+  const [fallback, setFallback] = useState(false)
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,6 +52,7 @@ export function AdminAiAssistantPage() {
     try {
       const result = await askAdminAi(question.trim())
       setAnswer(result.answer)
+      setFallback(result.fallback === true)
     } catch (err) {
       console.error('[admin-ai/question]', err)
       setError(AI_UNAVAILABLE_MESSAGE)
@@ -62,7 +64,7 @@ export function AdminAiAssistantPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">ИИ‑директор</h1>
+        <h1 className="text-2xl font-bold">ИИ-директор</h1>
         <p className="mt-1 text-sm text-slate-500">
           Управленческая сводка по людям, задачам, табелю, складу, качеству и рискам GP Work.
         </p>
@@ -139,6 +141,7 @@ export function AdminAiAssistantPage() {
               <input
                 className="min-w-0 flex-1 rounded-lg border px-3 py-2"
                 placeholder="Например: кто сегодня не ушел?"
+                maxLength={1000}
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
               />
@@ -151,8 +154,9 @@ export function AdminAiAssistantPage() {
               </button>
             </form>
             {answer && (
-              <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-                {answer}
+              <div aria-label="Ответ директора" aria-live="polite" className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+                <p className="whitespace-pre-wrap">{answer}</p>
+                {fallback && <p className="mt-3 text-xs text-slate-600">Ответ сформирован по данным GP Work без ИИ-модели: она сейчас недоступна.</p>}
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2 text-xs">

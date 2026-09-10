@@ -2,6 +2,8 @@ import { apiRequest } from './client'
 
 export type AdminAiRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
+export type AiAnswer = { answer: string; fallback?: boolean; model?: string }
+
 export type AdminAiSummary = {
   date: string
   completedWorksToday: number
@@ -76,8 +78,8 @@ export async function fetchAdminAiRisks(): Promise<AdminAiRisk[]> {
   return apiRequest<AdminAiRisk[]>('/admin-ai/risks')
 }
 
-export async function askAdminAi(question: string): Promise<{ answer: string }> {
-  return apiRequest<{ answer: string }>('/admin-ai/question', {
+export async function askAdminAi(question: string): Promise<AiAnswer> {
+  return apiRequest<AiAnswer>('/admin-ai/question', {
     method: 'POST',
     body: JSON.stringify({ question }),
   })
@@ -87,8 +89,8 @@ export async function fetchWorkerAiBrief(): Promise<WorkerAiBrief> {
   return apiRequest<WorkerAiBrief>('/admin-ai/worker/brief')
 }
 
-export async function askWorkerAi(question: string): Promise<{ answer: string }> {
-  return apiRequest<{ answer: string }>('/admin-ai/worker/question', {
+export async function askWorkerAi(question: string): Promise<AiAnswer> {
+  return apiRequest<AiAnswer>('/admin-ai/worker/question', {
     method: 'POST',
     body: JSON.stringify({ question }),
   })

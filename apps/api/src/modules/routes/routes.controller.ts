@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -20,8 +21,10 @@ export class RoutesController {
 
   @Get('my/today')
   @Roles(UserRole.WORKER, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WATER_CARRIER)
-  findMyToday(@CurrentUser() user: User) {
-    return this.routesService.findMyToday(user);
+  async findMyToday(@CurrentUser() user: User, @Res() response: Response) {
+    // Keep the nullable JSON contract: Nest sends an empty body for a bare null,
+    // which the web client cannot distinguish from a non-JSON response.
+    response.json(await this.routesService.findMyToday(user));
   }
 
   @Get(':id')

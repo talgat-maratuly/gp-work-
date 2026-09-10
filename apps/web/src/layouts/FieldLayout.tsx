@@ -32,6 +32,11 @@ export function FieldLayout() {
             {lastError && <p className="max-w-48 truncate text-red-700" title={lastError}>Ошибка синхронизации</p>}
           </div>
         </div>
+        <nav aria-label="ИИ-помощники" className="mt-3">
+          <NavLink to="/field/assistant" className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>
+            <span aria-hidden="true">✧</span>ИИ-ассистент
+          </NavLink>
+        </nav>
       </header>
 
       <main className="px-4 py-4"><Outlet /></main>

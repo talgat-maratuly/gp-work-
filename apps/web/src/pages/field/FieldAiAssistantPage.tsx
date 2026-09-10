@@ -13,6 +13,7 @@ export function FieldAiAssistantPage() {
   const [brief, setBrief] = useState<WorkerAiBrief | null>(null)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
+  const [fallback, setFallback] = useState(false)
   const [loading, setLoading] = useState(true)
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +33,7 @@ export function FieldAiAssistantPage() {
     try {
       const result = await askWorkerAi(question.trim())
       setAnswer(result.answer)
+      setFallback(result.fallback === true)
     } catch (err) {
       setError(toUserMessage(err, 'Не удалось получить ответ ИИ-ассистента'))
     } finally {
@@ -45,7 +47,7 @@ export function FieldAiAssistantPage() {
     <div className="space-y-4">
       <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-emerald-800 p-5 text-white shadow-lg">
         <p className="text-sm text-blue-100">Ваш помощник</p>
-        <h1 className="mt-1 text-2xl font-black">ИИ‑ассистент</h1>
+        <h1 className="mt-1 text-2xl font-black">ИИ-ассистент</h1>
         <p className="mt-3 text-sm text-white/90">{brief?.summary ?? 'Данные рабочего дня пока недоступны.'}</p>
       </section>
 
@@ -86,6 +88,7 @@ export function FieldAiAssistantPage() {
           <textarea
             className="min-h-24 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
             placeholder="Напишите вопрос о своей работе"
+            maxLength={1000}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
           />
@@ -96,7 +99,7 @@ export function FieldAiAssistantPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           {samples.map((sample) => <button key={sample} type="button" onClick={() => setQuestion(sample)} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-700">{sample}</button>)}
         </div>
-        {answer && <div className="mt-4 whitespace-pre-wrap rounded-xl bg-blue-50 p-3 text-sm text-blue-900">{answer}</div>}
+        {answer && <div aria-label="Ответ ассистента" aria-live="polite" className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-blue-900"><p className="whitespace-pre-wrap">{answer}</p>{fallback && <p className="mt-3 text-xs text-slate-600">Ответ сформирован по данным GP Work без ИИ-модели: она сейчас недоступна.</p>}</div>}
       </section>
 
       <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">ИИ‑ассистент подсказывает по вашим данным, но не меняет задачи и решения руководителя.</p>

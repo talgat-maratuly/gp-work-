@@ -67,4 +67,11 @@ test('section location: real form, GPS rejection, persistence, edit and unchange
   await row.getByRole('button', { name: 'Изменить', exact: true }).click()
   await expect(edit.getByLabel('Широта', { exact: true })).toHaveValue('51.2302')
   await edit.screenshot({ path: testInfo.outputPath('section-location.png') })
+  if (testInfo.project.name === 'mobile-chromium') {
+    await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
+  }
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+  await expect(page).toHaveURL(/\/login$/)
+  await page.goto('/admin/objects')
+  await expect(page).toHaveURL(/\/login$/)
 })

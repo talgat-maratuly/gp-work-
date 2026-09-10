@@ -64,12 +64,12 @@ export function AdminLayout() {
         <div className="border-t border-white/10 p-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p><button onClick={logout} className="mt-3 text-xs text-slate-400 hover:text-white">Выйти</button></div>
       </aside>
 
-      {mobileOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}><aside className="h-full w-72 overflow-y-auto bg-[#101b1e] p-4 text-white" onClick={(e) => e.stopPropagation()}><p className="mb-5 text-xl font-black"><span className="text-emerald-400">GP</span> WORK</p>{navigation}</aside></div>}
+      {mobileOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}><aside aria-label="Меню GP Work" className="flex h-full w-72 flex-col overflow-y-auto bg-[#101b1e] p-4 text-white" onClick={(e) => e.stopPropagation()}><div className="mb-5 flex items-center justify-between"><p className="text-xl font-black"><span className="text-emerald-400">GP</span> WORK</p><button type="button" aria-label="Закрыть меню" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2">✕</button></div><div className="mb-4 border-b border-white/10 pb-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p><button type="button" onClick={logout} className="mt-3 rounded-lg border border-white/20 px-4 py-2 text-sm">Выйти</button></div><nav>{navigation}</nav></aside></div>}
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur md:px-6">
-          <div className="flex items-center gap-3"><button onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 lg:hidden">☰</button><div><p className="font-bold text-slate-900">{getNurseryName()}</p><p className="text-xs text-slate-500">Управление полевыми работами</p></div></div>
-          <div className="flex items-center gap-3"><div className="hidden rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-500 md:block">Поиск объектов, сотрудников, задач…</div><div className="h-9 w-9 rounded-full bg-emerald-100 text-center font-bold leading-9 text-emerald-800">{user?.fullName?.charAt(0) ?? 'G'}</div></div>
+          <div className="flex items-center gap-3"><button aria-label="Открыть меню" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 lg:hidden">☰</button><div><p className="font-bold text-slate-900">{getNurseryName()}</p><p className="text-xs text-slate-500">Управление полевыми работами</p></div></div>
+          <div className="h-9 w-9 rounded-full bg-emerald-100 text-center font-bold leading-9 text-emerald-800">{user?.fullName?.charAt(0) ?? 'G'}</div>
         </header>
         <main className="w-full p-4 md:p-6 xl:p-8"><Outlet /></main>
       </div>

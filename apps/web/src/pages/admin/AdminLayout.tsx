@@ -80,7 +80,7 @@ export function AdminLayout() {
         <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
           <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
             <div className="flex items-center gap-3"><button aria-label="Открыть меню" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 lg:hidden">☰</button><div><p className="font-bold text-slate-900">{getNurseryName()}</p><p className="text-xs text-slate-500">Управление полевыми работами</p></div></div>
-            <div className="text-right"><p className="text-xs font-semibold text-emerald-800">{user ? ROLE_LABELS[user.role] : ''}</p><button type="button" onClick={logout} className="text-xs text-slate-600 underline">Выйти</button></div>
+            <div className="text-right"><p className="text-xs font-semibold text-emerald-800">{user ? ROLE_LABELS[user.role] : ''}</p>{!mobileOpen && <button type="button" onClick={logout} className="text-xs text-slate-600 underline lg:hidden">Выйти</button>}</div>
           </div>
           {aiLinks.length > 0 && <nav aria-label="ИИ-помощники" className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2 md:px-6">
             {aiLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800 hover:bg-blue-100'}`}><span aria-hidden="true">{item.icon}</span>{item.label}</NavLink>)}

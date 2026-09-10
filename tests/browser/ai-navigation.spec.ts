@@ -64,7 +64,7 @@ test('director: dedicated home, draft confirmation, real task delivery and mobil
   await page.screenshot({ path: info.outputPath('director-workspace.png'), fullPage: true })
   await page.goto('/admin')
   await expect(page).toHaveURL(/\/admin\/director$/)
-  await page.locator('header').getByRole('button', { name: 'Выйти', exact: true }).click()
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/\/login$/)
 })
 

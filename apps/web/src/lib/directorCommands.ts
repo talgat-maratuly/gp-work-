@@ -24,7 +24,7 @@ export function prepareDirectorCommand(text: string, catalog: CommandCatalog, to
   let assigneeUserId = uniqueId(catalog.assignees.filter((u) => contains(text, u.fullName)))
   let assignmentReason = assigneeUserId ? 'Исполнитель указан в поручении.' : ''
   // Only propose a known executor for this exact section and work type; never invent responsibility.
-  if (!assigneeUserId && !catalog.assignees.some((u) => contains(text, u.fullName)) && sectionId && workTypeId) {
+  if (contains(text, 'автоматически') && !assigneeUserId && !catalog.assignees.some((u) => contains(text, u.fullName)) && sectionId && workTypeId) {
     const known = new Set(catalog.tasks.filter((t) => t.sectionId === Number(sectionId) && t.workTypeId === Number(workTypeId) && t.status === 'VERIFIED').map((t) => t.assigneeUserId))
     const candidates = catalog.assignees.filter((u) => known.has(u.id))
     const load = (id: number) => catalog.tasks.filter((t) => t.assigneeUserId === id && !['VERIFIED', 'CANCELLED'].includes(t.status)).length

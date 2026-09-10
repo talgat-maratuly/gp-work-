@@ -48,9 +48,10 @@ test('recommends only active known verified executors and balances open workload
     { sectionId: 1, workTypeId: 1, assigneeUserId: 11, status: 'VERIFIED' },
     { sectionId: 1, workTypeId: 1, assigneeUserId: 10, status: 'IN_PROGRESS' },
   ]
-  assert.equal(prepare('Полив S-001', { ...catalog, tasks }).assigneeUserId, '11')
-  assert.equal(prepare('Полив S-002', { ...catalog, tasks }).assigneeUserId, '')
+  assert.equal(prepare('Полив S-001 автоматически', { ...catalog, tasks }).assigneeUserId, '11')
+  assert.equal(prepare('Полив S-001 Иван', { ...catalog, tasks }).assigneeUserId, '')
+  assert.equal(prepare('Полив S-002 автоматически', { ...catalog, tasks }).assigneeUserId, '')
   assert.equal(prepare('Полив S-001 Иван Иванов', { ...catalog, tasks }).assigneeUserId, '10')
-  assert.equal(prepare('Полив S-001 Иван Иванов Пётр Петров', { ...catalog, tasks }).assigneeUserId, '')
-  assert.equal(prepare('Полив S-001', { ...catalog, tasks, assignees: [] }).assigneeUserId, '')
+  assert.equal(prepare('Полив S-001 Иван Иванов Пётр Петров автоматически', { ...catalog, tasks }).assigneeUserId, '')
+  assert.equal(prepare('Полив S-001 автоматически', { ...catalog, tasks, assignees: [] }).assigneeUserId, '')
 })

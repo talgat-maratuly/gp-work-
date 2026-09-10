@@ -66,7 +66,7 @@ export function DirectorPage() {
       <textarea id="director-command" maxLength={4000} disabled={saving} value={text} onChange={(e) => changeText(e.target.value)} className={`${fieldClass} min-h-28`} placeholder="Например: Полив, участок S-001, Иван Иванов, завтра." />
       <VoiceDictation disabled={saving} onText={(value) => changeText(`${text} ${value}`.trim().slice(0, 4000))} />
       <button type="button" disabled={!catalog || loading || saving || !text.trim()} onClick={() => { if (catalog) { setDraft(prepareDirectorCommand(text, catalog)); setPrepared(true); setNotice('') } }} className="mt-3 rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white disabled:opacity-50">Подготовить поручение</button>
-      <p className="mt-2 text-xs text-slate-500">Автозаполнение по точным названиям и коду участка, без ИИ-модели. Срок: сегодня, завтра, послезавтра или ГГГГ-ММ-ДД. Неоднозначные данные уточняются ниже; само поручение ещё не отправлено.</p>
+      <p className="mt-2 text-xs text-slate-500">Автозаполнение по точным названиям и коду участка, без ИИ-модели. Для предложения исполнителя напишите «автоматически». Срок: сегодня, завтра, послезавтра или ГГГГ-ММ-ДД. Неоднозначные данные уточняются ниже; само поручение ещё не отправлено.</p>
       {prepared && catalog && <form className="mt-4 space-y-4 border-t pt-4" onSubmit={(e) => { e.preventDefault(); void send() }}>
         <h3 className="font-semibold">Проверьте назначение и заполните нераспознанное</h3>
         <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-2">

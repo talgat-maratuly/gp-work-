@@ -5,13 +5,18 @@ import { uploadWorkPhotos } from '@/api/uploadsApi'
 import { CameraCapture, type CameraShot } from '@/components/field/CameraCapture'
 import { LivenessCapture } from '@/components/field/LivenessCapture'
 import { useGeolocation } from '@/hooks/useGeolocation'
+import { fetchFormSettings } from '@/lib/formSettings'
+import type { FormFieldSetting } from '@/lib/types'
 
 type TaskResult = {
   percent: number
   actualVolume: string
   description: string
   incompleteReason: string
+  extra: Record<string, string>
 }
+
+const CORE_FIELD_IDS = ['actualVolume', 'description', 'incompleteReason']
 
 type DayTask = {
   id: number
@@ -31,6 +36,7 @@ const emptyResult = (): TaskResult => ({
   actualVolume: '',
   description: '',
   incompleteReason: '',
+  extra: {},
 })
 
 export function FieldScanPage() {
@@ -42,6 +48,23 @@ export function FieldScanPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<Record<number, TaskResult>>({})
+  const [formFields, setFormFields] = useState<FormFieldSetting[]>([])
+
+  useEffect(() => {
+    fetchFormSettings('field_day_form')
+      .then((s) => setFormFields(s.fields))
+      .catch(() => setFormFields([]))
+  }, [])
+
+  const cfg = (id: string) => formFields.find((f) => f.id === id)
+  const isVisible = (id: string, def = true) => cfg(id)?.visible ?? def
+  const isRequired = (id: string) => {
+    const c = cfg(id)
+    return !!(c && c.visible && c.required)
+  }
+  const labelOf = (id: string, def: string) => cfg(id)?.label || def
+  const hintOf = (id: string) => cfg(id)?.hint || ''
+  const extraFields = formFields.filter((f) => f.visible && !CORE_FIELD_IDS.includes(f.id))
 
   const load = useCallback(async () => {
     try {
@@ -57,13 +80,23 @@ export function FieldScanPage() {
   function validateResults(tasks: DayTask[]): boolean {
     for (const task of tasks) {
       const result = results[task.id] || emptyResult()
-      if (result.percent > 0 && !result.description.trim()) {
-        setMessage(`Для задачи «${task.description}» укажите, что выполнено`)
+      if (isRequired('description') && result.percent > 0 && !result.description.trim()) {
+        setMessage(`Для задачи «${task.description}» укажите «${labelOf('description', 'что выполнено')}»`)
         return false
       }
-      if (result.percent < 100 && !result.incompleteReason.trim()) {
-        setMessage(`Для задачи «${task.description}» укажите причину незавершения`)
+      if (isRequired('incompleteReason') && result.percent < 100 && !result.incompleteReason.trim()) {
+        setMessage(`Для задачи «${task.description}» укажите «${labelOf('incompleteReason', 'причину незавершения')}»`)
         return false
+      }
+      if (isRequired('actualVolume') && !result.actualVolume.trim()) {
+        setMessage(`Для задачи «${task.description}» укажите «${labelOf('actualVolume', 'объём')}»`)
+        return false
+      }
+      for (const f of extraFields) {
+        if (f.required && !(result.extra[f.id] || '').trim()) {
+          setMessage(`Для задачи «${task.description}» заполните «${f.label}»`)
+          return false
+        }
       }
     }
     return true
@@ -207,28 +240,42 @@ export function FieldScanPage() {
                     className="w-full"
                   />
                 </label>
-                <input
-                  value={result.actualVolume}
-                  onChange={(event) => set({ actualVolume: event.target.value })}
-                  placeholder="Фактический объём и единица"
-                  className="w-full rounded-lg border p-2"
-                />
-                <textarea
-                  required={result.percent > 0}
-                  value={result.description}
-                  onChange={(event) => set({ description: event.target.value })}
-                  placeholder="Что выполнено"
-                  className="w-full rounded-lg border p-2"
-                />
-                {result.percent < 100 && (
+                {isVisible('actualVolume') && (
+                  <input
+                    value={result.actualVolume}
+                    onChange={(event) => set({ actualVolume: event.target.value })}
+                    placeholder={hintOf('actualVolume') || labelOf('actualVolume', 'Фактический объём и единица')}
+                    className="w-full rounded-lg border p-2"
+                  />
+                )}
+                {isVisible('description') && (
                   <textarea
-                    required
+                    required={isRequired('description') && result.percent > 0}
+                    value={result.description}
+                    onChange={(event) => set({ description: event.target.value })}
+                    placeholder={labelOf('description', 'Что выполнено')}
+                    className="w-full rounded-lg border p-2"
+                  />
+                )}
+                {isVisible('incompleteReason') && result.percent < 100 && (
+                  <textarea
+                    required={isRequired('incompleteReason')}
                     value={result.incompleteReason}
                     onChange={(event) => set({ incompleteReason: event.target.value })}
-                    placeholder="Обязательная причина незавершения"
+                    placeholder={labelOf('incompleteReason', 'Причина незавершения')}
                     className="w-full rounded-lg border border-amber-400 p-2"
                   />
                 )}
+                {extraFields.map((f) => (
+                  <input
+                    key={f.id}
+                    required={f.required}
+                    value={result.extra[f.id] || ''}
+                    onChange={(event) => set({ extra: { ...result.extra, [f.id]: event.target.value } })}
+                    placeholder={f.hint || f.label}
+                    className="w-full rounded-lg border p-2"
+                  />
+                ))}
               </div>
             )
           })}

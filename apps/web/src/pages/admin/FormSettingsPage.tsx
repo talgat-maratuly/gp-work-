@@ -3,9 +3,14 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
-import { defaultFormSettings, fetchFormSettings, saveFormSettings } from '@/lib/formSettings'
+import { fetchFormSettings, getDefaultSettings, saveFormSettings, type FormKey } from '@/lib/formSettings'
 import { toUserMessage } from '@/api/client'
 import type { FormFieldSetting, FormFieldType, FormSettings } from '@/lib/types'
+
+const FORM_TABS: { key: FormKey; label: string }[] = [
+  { key: 'work_form', label: 'Форма отчёта по объекту' },
+  { key: 'field_day_form', label: 'Форма «Рабочий день»' },
+]
 
 const fieldTypeLabels: Record<FormFieldType, string> = {
   text: 'текст',
@@ -24,7 +29,8 @@ function normalizeOrders(fields: FormFieldSetting[]): FormFieldSetting[] {
 }
 
 export function FormSettingsPage() {
-  const [settings, setSettings] = useState<FormSettings>(defaultFormSettings)
+  const [activeForm, setActiveForm] = useState<FormKey>('work_form')
+  const [settings, setSettings] = useState<FormSettings>(getDefaultSettings('work_form'))
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<FormFieldType>('text')
   const [loading, setLoading] = useState(true)
@@ -33,11 +39,14 @@ export function FormSettingsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    void fetchFormSettings()
+    setLoading(true)
+    setSaved(false)
+    setError(null)
+    void fetchFormSettings(activeForm)
       .then(setSettings)
       .catch((err) => setError(toUserMessage(err, 'Не удалось загрузить настройки формы')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeForm])
 
   function updateSettings(patch: Partial<FormSettings>) {
     setSettings((prev) => ({ ...prev, ...patch }))
@@ -46,7 +55,13 @@ export function FormSettingsPage() {
   function updateField(id: string, patch: Partial<FormFieldSetting>) {
     setSettings((prev) => ({
       ...prev,
-      fields: prev.fields.map((field) => (field.id === id ? { ...field, ...patch } : field)),
+      fields: prev.fields.map((field) => {
+        if (field.id !== id) return field
+        const next = { ...field, ...patch }
+        // Скрытое поле не может быть обязательным.
+        if (next.visible === false) next.required = false
+        return next
+      }),
     }))
   }
 
@@ -98,15 +113,18 @@ export function FormSettingsPage() {
     setSaving(true)
     setError(null)
     try {
-      const savedSettings = await saveFormSettings({
-        ...settings,
-        formTitle: settings.formTitle.trim(),
-        formDescription: settings.formDescription?.trim() || null,
-        formSubmitText: settings.formSubmitText.trim(),
-        formSuccessText: settings.formSuccessText.trim(),
-        formHints: settings.formHints?.trim() || null,
-        fields: normalizeOrders(settings.fields),
-      })
+      const savedSettings = await saveFormSettings(
+        {
+          ...settings,
+          formTitle: settings.formTitle.trim(),
+          formDescription: settings.formDescription?.trim() || null,
+          formSubmitText: settings.formSubmitText.trim(),
+          formSuccessText: settings.formSuccessText.trim(),
+          formHints: settings.formHints?.trim() || null,
+          fields: normalizeOrders(settings.fields),
+        },
+        activeForm,
+      )
       setSettings(savedSettings)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -123,8 +141,25 @@ export function FormSettingsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Настройки формы</h1>
       <p className="text-sm text-slate-600">
-        Здесь настраиваются поля публичной QR-формы. Раздел «Виды работ» остается отдельным справочником.
+        Две независимые формы. Для каждой можно менять поля: добавлять, показывать/скрывать,
+        делать обязательными, менять порядок. Изменения сохраняются и применяются к форме.
       </p>
+
+      {/* Вкладки — независимые формы */}
+      <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1">
+        {FORM_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveForm(t.key)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              activeForm === t.key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <Input
@@ -277,7 +312,7 @@ export function FormSettingsPage() {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-emerald-700">Сохранено</p>}
+        {saved && <p className="text-sm text-emerald-700">Настройки успешно сохранены</p>}
         <Button type="submit" disabled={saving}>
           {saving ? 'Сохранение…' : 'Сохранить'}
         </Button>

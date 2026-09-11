@@ -8,6 +8,7 @@ import { Section, Task, User, WorkDaySession, WorkDayStatus, WorkExecution } fro
 import type { WorkDayTaskResult } from '../../entities/work-day-session.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { AttendanceService } from '../attendance/attendance.service';
+import { FormSettingsService } from '../form-settings/form-settings.service';
 import { assertFreshLivenessEvidence, distanceMeters } from './field-execution.rules';
 import { CloseWorkDayDto, ReviewWorkDayDto, StartWorkDayDto } from './dto/work-day.dto';
 
@@ -20,7 +21,18 @@ export class WorkDaysService {
     @InjectRepository(WorkExecution) private readonly executions: Repository<WorkExecution>,
     private readonly uploadsService: UploadsService,
     private readonly attendanceService: AttendanceService,
+    private readonly formSettingsService: FormSettingsService,
   ) {}
+
+  // Карта настраиваемых полей формы «Рабочий день»: id -> { visible, required, label }.
+  private async fieldDayFieldConfig() {
+    const settings = await this.formSettingsService.getSettings('field_day_form');
+    const map = new Map<string, { visible: boolean; required: boolean; label: string }>();
+    for (const f of settings.fields) {
+      map.set(f.id, { visible: f.visible, required: f.required, label: f.label });
+    }
+    return map;
+  }
 
   private assignedTasks(sectionId: number, user: User, includeExecution = false) {
     const query = this.tasks
@@ -202,15 +214,35 @@ export class WorkDaysService {
     }
     const resultMap = new Map(dto.results.map(r => [r.taskId, r]));
     const assignedMap = new Map(taskScope.map((task) => [task.taskId, task]));
+
+    // Обязательность полей формы «Рабочий день» задаётся в админке (по умолчанию —
+    // как раньше: «что выполнено» и «причина» обязательны).
+    const fieldCfg = await this.fieldDayFieldConfig();
+    const isReq = (id: string) => {
+      const c = fieldCfg.get(id);
+      return c ? c.visible && c.required : false;
+    };
+    const extraFields = [...fieldCfg.entries()].filter(
+      ([id, c]) => c.visible && !['actualVolume', 'description', 'incompleteReason'].includes(id),
+    );
+
     for (const result of dto.results) {
       if (!assignedMap.has(result.taskId)) {
         throw new BadRequestException(`Задача ${result.taskId} не относится к этой смене`);
       }
-      if (result.percent > 0 && !result.description?.trim()) {
+      if (isReq('description') && result.percent > 0 && !result.description?.trim()) {
         throw new BadRequestException(`Для задачи ${result.taskId} укажите, что выполнено`);
       }
-      if (result.percent < 100 && !result.incompleteReason?.trim()) {
+      if (isReq('incompleteReason') && result.percent < 100 && !result.incompleteReason?.trim()) {
         throw new BadRequestException(`Для незавершённой задачи ${result.taskId} укажите причину`);
+      }
+      if (isReq('actualVolume') && !result.actualVolume?.trim()) {
+        throw new BadRequestException(`Для задачи ${result.taskId} заполните «${fieldCfg.get('actualVolume')!.label}»`);
+      }
+      for (const [fid, cfg] of extraFields) {
+        if (cfg.required && !result.extra?.[fid]?.trim()) {
+          throw new BadRequestException(`Для задачи ${result.taskId} заполните «${cfg.label}»`);
+        }
       }
     }
     for (const task of taskScope) {
@@ -221,8 +253,17 @@ export class WorkDaysService {
     for (const execution of active) {
       const result = resultMap.get(execution.taskId);
       if (!result) throw new BadRequestException(`Для задачи ${execution.taskId} нет результата`);
-      if (result.percent < 100 && !result.incompleteReason?.trim()) throw new BadRequestException(`Для незавершённой задачи ${execution.taskId} укажите причину`);
+      if (isReq('incompleteReason') && result.percent < 100 && !result.incompleteReason?.trim()) throw new BadRequestException(`Для незавершённой задачи ${execution.taskId} укажите причину`);
     }
+    const cleanExtra = (extra?: Record<string, string>): Record<string, string> | null => {
+      if (!extra) return null;
+      const out: Record<string, string> = {};
+      for (const [fid] of extraFields) {
+        const v = extra[fid];
+        if (typeof v === 'string' && v.trim()) out[fid] = v.trim().slice(0, 1000);
+      }
+      return Object.keys(out).length ? out : null;
+    };
     const taskResults: WorkDayTaskResult[] = dto.results.map((result) => ({
       taskId: result.taskId,
       description: assignedMap.get(result.taskId)!.description,
@@ -230,6 +271,7 @@ export class WorkDaysService {
       actualVolume: result.actualVolume?.trim() || null,
       workDescription: result.description?.trim() || null,
       incompleteReason: result.percent < 100 ? result.incompleteReason?.trim() || null : null,
+      extra: cleanExtra(result.extra),
     }));
     const overall = Math.round(taskResults.reduce((sum, result) => sum + result.percent, 0) / taskResults.length);
     const now = new Date();

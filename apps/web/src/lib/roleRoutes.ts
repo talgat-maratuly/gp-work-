@@ -13,7 +13,8 @@ export function resolvePostLoginPath(role: UserRole, from?: string): string {
   if (!from.startsWith('/') || from.startsWith('//')) return homePathForRole(role)
   if (role === 'ACCOUNTANT' && !['/admin/attendance', '/admin/daily-reports'].includes(from.split('?')[0])) return homePathForRole(role)
   if (role !== 'WORKER' && from === '/field/assistant') return '/admin/assistant'
-  if (['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR'].includes(role) && from.startsWith('/field')) return homePathForRole(role)
+  const isSectionForm = /^\/field\/scan\/[^/?#]+(?:[?#].*)?$/.test(from)
+  if (['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR'].includes(role) && from.startsWith('/field') && !isSectionForm) return homePathForRole(role)
   if (role === 'DIRECTOR' && from === '/admin') return homePathForRole(role)
   if (role === 'WORKER' && (from.startsWith('/admin') || from.startsWith('/worker'))) {
     return homePathForRole(role)

@@ -24,6 +24,18 @@ test('director lands in own workspace including stale admin return link', () => 
   assert.equal(homePathForRole('ADMIN'), '/admin')
   assert.equal(homePathForRole('WORKER'), '/field/today')
 })
+test('section QR destinations survive login without granting access to other field screens', () => {
+  for (const role of ['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR']) {
+    for (const path of ['/field/scan/S-001', '/work-form/S-001', '/work-form?objectId=3&sectionId=8']) {
+      assert.equal(resolvePostLoginPath(role, path), path)
+    }
+    for (const path of ['/field/today', '/field/scan/', '/field/tasks/1']) {
+      assert.equal(resolvePostLoginPath(role, path), homePathForRole(role))
+    }
+  }
+  assert.equal(resolvePostLoginPath('ACCOUNTANT', '/field/scan/S-001'), '/admin/attendance')
+  assert.equal(resolvePostLoginPath('WORKER', '/work-form?sectionId=8'), '/work-form?sectionId=8')
+})
 test('recognizes explicit assignment, section code and tomorrow across year boundary', () => {
   const d = prepare('Полив S-001 Иван Иванов завтра', catalog, '2026-12-31')
   assert.equal(d.sectionId, '1'); assert.equal(d.workTypeId, '1')

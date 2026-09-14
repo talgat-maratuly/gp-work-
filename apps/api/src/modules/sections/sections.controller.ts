@@ -40,13 +40,13 @@ export class SectionsController {
   }
 
   @Get('code/:code')
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.AKIMAT, UserRole.ANTICOR)
   findByCode(@Param('code') code: string) {
     return this.sectionsService.findByCode(code);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER)
+  @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER, UserRole.AKIMAT, UserRole.ANTICOR)
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.sectionsService.findOne(id);
   }

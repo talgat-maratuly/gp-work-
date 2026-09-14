@@ -74,6 +74,10 @@ function forRoles(page: ReactNode, roles: readonly UserRole[]) {
   return <ProtectedRoute roles={roles}>{page}</ProtectedRoute>
 }
 
+// Section forms can be inspected by supervisors; recording a shift still
+// requires a field role in both the page and the API.
+const SECTION_FORM_ROLES: readonly UserRole[] = ['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR', 'WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']
+
 export default function App() {
   return (
     <AuthProvider>
@@ -82,9 +86,9 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<HomeRedirect />} />
-            <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
-            <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, ['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER'])} />
-            <Route path="/field/scan/:sectionCode" element={<ProtectedRoute roles={['WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']}><FieldScanPage /></ProtectedRoute>} />
+            <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
+            <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
+            <Route path="/field/scan/:sectionCode" element={forRoles(<FieldScanPage />, SECTION_FORM_ROLES)} />
             <Route
               path="/field"
               element={

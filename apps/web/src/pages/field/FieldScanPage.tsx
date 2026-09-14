@@ -6,6 +6,11 @@ import { CameraCapture, type CameraShot } from '@/components/field/CameraCapture
 import { LivenessCapture } from '@/components/field/LivenessCapture'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { hasSectionLocation } from '@/lib/sectionLocation'
+import { useAuth } from '@/context/AuthContext'
+import { AccountControls } from '@/components/AccountControls'
+import { homePathForRole } from '@/lib/roleRoutes'
+import { fetchSectionByCode } from '@/api/sectionsApi'
+import { buildQrImageUrl } from '@/lib/appConfig'
 
 type TaskResult = {
   percent: number
@@ -24,7 +29,7 @@ type DayState = {
   section: { code: string; name: string; latitude: number | null; longitude: number | null; radiusMeters: number | null; object?: { name: string } }
   session: null | { id: number; startedAt: string; status: string; reviewComment: string | null }
   tasks: DayTask[]
-  serverTime: string
+  serverTime?: string
 }
 
 const emptyResult = (): TaskResult => ({
@@ -36,6 +41,13 @@ const emptyResult = (): TaskResult => ({
 
 export function FieldScanPage() {
   const { sectionCode = '' } = useParams()
+  const { user } = useAuth()
+  return <SectionForm key={`${user!.id}:${user!.role}:${sectionCode}`} sectionCode={sectionCode} />
+}
+
+function SectionForm({ sectionCode }: { sectionCode: string }) {
+  const { user } = useAuth()
+  const preview = ['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR'].includes(user!.role)
   const { requestGeolocation } = useGeolocation()
   const [state, setState] = useState<DayState | null>(null)
   const [liveness, setLiveness] = useState<CameraShot[]>([])
@@ -45,17 +57,31 @@ export function FieldScanPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<Record<number, TaskResult>>({})
+  const loadRevision = useRef(0)
 
   const load = useCallback(async () => {
+    const revision = ++loadRevision.current
     try {
-      setState(await apiRequest<DayState>(`/field/scan/${encodeURIComponent(sectionCode)}`))
+      let next: DayState
+      if (preview) {
+        const section = await fetchSectionByCode(sectionCode)
+        if (!section.is_active || section.objects?.is_active === false) throw new Error('Участок или объект в архиве. Форма для отметки смены недоступна.')
+        next = { section: { code: section.code, name: section.name, latitude: section.latitude,
+          longitude: section.longitude, radiusMeters: section.radius_meters, object: section.objects }, session: null, tasks: [] }
+      } else {
+        next = await apiRequest<DayState>(`/field/scan/${encodeURIComponent(sectionCode)}`)
+      }
+      if (revision !== loadRevision.current) return
+      setState(next)
       setMessage('')
     } catch (error) {
+      if (revision !== loadRevision.current) return
+      setState(null)
       setMessage(toUserMessage(error))
     }
-  }, [sectionCode])
+  }, [sectionCode, preview])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load(); return () => { loadRevision.current++ } }, [load])
 
   function validateResults(tasks: DayTask[]): boolean {
     for (const task of tasks) {
@@ -73,7 +99,7 @@ export function FieldScanPage() {
   }
 
   async function submit(close: boolean) {
-    if (busy) return
+    if (busy || preview) return
     if (!prepared.current && state && !hasSectionLocation({ ...state.section, radius_meters: state.section.radiusMeters })) {
       setMessage('Местоположение участка не настроено. Обратитесь к руководителю.')
       return
@@ -143,18 +169,43 @@ export function FieldScanPage() {
     }
   }
 
-  if (!state) return <div className="p-5">{message || 'Проверяем QR…'}</div>
+  const navigation = <div className="flex items-center justify-between gap-4 rounded-2xl border bg-white p-3">
+    <Link to={preview ? '/admin/objects' : homePathForRole(user!.role)} className="text-sm font-semibold text-blue-700">{preview ? '← К объектам' : '← В кабинет'}</Link>
+    <AccountControls />
+  </div>
+  if (!state) return <main className="mx-auto max-w-xl space-y-4 p-4">
+    {navigation}
+    <p role={message ? 'alert' : 'status'}>{message || 'Проверяем QR…'}</p>
+    {message && <button type="button" onClick={() => void load()} className="rounded-xl border p-3">Повторить загрузку</button>}
+  </main>
   const locationReady = hasSectionLocation({ ...state.section, radius_meters: state.section.radiusMeters })
 
   return (
     <main className="mx-auto min-h-screen max-w-md space-y-4 bg-slate-50 p-4 pb-28">
+      {navigation}
       <div className="rounded-3xl bg-emerald-800 p-5 text-white">
+        <p className="mb-2 text-sm font-semibold">Форма участка</p>
         <div className="text-sm opacity-80">{state.section.object?.name}</div>
         <h1 className="text-2xl font-black">{state.section.name}</h1>
         <div className="mt-2 text-xs">
-          QR {state.section.code} · сервер {new Date(state.serverTime).toLocaleTimeString()}
+          QR {state.section.code}{state.serverTime && <> · сервер {new Date(state.serverTime).toLocaleTimeString()}</>}
         </div>
       </div>
+
+      {preview && <section aria-label="Просмотр формы участка" className="space-y-3 rounded-2xl border bg-white p-4 text-sm">
+        <h2 className="font-bold">Просмотр формы участка</h2>
+        <p>Вы просматриваете форму. Рабочий заполняет её под своим аккаунтом, чтобы смена и фотографии были записаны на него.</p>
+        <img src={buildQrImageUrl(sectionCode)} alt={`QR участка ${sectionCode}`} className="mx-auto h-40 w-40" />
+        <p>Сотрудник сканирует этот QR, входит в свой аккаунт и открывает форму данного участка.</p>
+        <ol className="list-decimal space-y-2 pl-5">
+          <li>Начало смены: точная геолокация, три кадра лица и фото участка до работы.</li>
+          <li>Работа: назначенные задачи, чек-лист и фотографии результата.</li>
+          <li>Завершение: повторный QR, геолокация, фото лица, результат и процент выполнения каждой задачи.</li>
+          <li>Руководитель проверяет фото и принимает работу или возвращает на доработку.</li>
+        </ol>
+        {locationReady && <p className="text-emerald-800">Местоположение настроено. Радиус участка: {state.section.radiusMeters ?? 150} м.</p>}
+        {['ADMIN', 'DIRECTOR'].includes(user!.role) && <Link to="/admin/objects" className="inline-block font-semibold text-blue-700 underline">Настроить местоположение участка</Link>}
+      </section>}
 
       {state.session && (
         <div className={`rounded-2xl p-4 ${state.session.status === 'RETURNED' ? 'bg-red-50 text-red-900' : 'bg-emerald-50'}`}>
@@ -188,10 +239,10 @@ export function FieldScanPage() {
       )}
 
       {!locationReady && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p>Местоположение участка не настроено. Попросите руководителя указать координаты и радиус в разделе «Объекты». До настройки начать или завершить смену нельзя.</p>
+        <p>Местоположение участка не настроено. {preview ? 'Укажите координаты и радиус в разделе «Объекты».' : 'Попросите руководителя указать координаты и радиус в разделе «Объекты».'} До настройки начать или завершить смену нельзя.</p>
         <button type="button" onClick={() => void load()} className="mt-3 font-semibold underline">Обновить данные участка</button>
       </div>}
-      <fieldset disabled={busy || !!prepared.current || !locationReady} className="space-y-4">
+      <fieldset disabled={preview || busy || !!prepared.current || !locationReady} className="space-y-4">
       <LivenessCapture key={`face-${captureRevision}`} onChange={setLiveness} />
       <CameraCapture key={`work-${captureRevision}`}
         label={state.session ? 'Фото результата' : 'Начальное фото участка'}
@@ -254,7 +305,7 @@ export function FieldScanPage() {
 
       </fieldset>
       <button
-        disabled={busy || (!locationReady && !prepared.current)}
+        disabled={preview || busy || (!locationReady && !prepared.current)}
         onClick={() => void submit(!!state.session)}
         className={`w-full rounded-2xl p-5 text-lg font-black text-white disabled:opacity-50 ${state.session ? 'bg-red-700' : 'bg-emerald-700'}`}
       >

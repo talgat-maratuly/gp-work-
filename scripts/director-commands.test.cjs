@@ -12,7 +12,7 @@ function load(file) {
   return exports
 }
 const { prepareDirectorCommand: prepare, businessDate } = load('directorCommands.ts')
-const { homePathForRole, resolvePostLoginPath } = load('roleRoutes.ts')
+const { homePathForRole, resolvePostLoginPath, isSectionFormPath } = load('roleRoutes.ts')
 const catalog = {
   sections: [{ id: 1, code: 'S-001', name: 'Север', objectName: 'Парк' }, { id: 2, code: 'S-002', name: 'Север', objectName: 'Сквер' }],
   workTypes: [{ id: 1, name: 'Полив' }],
@@ -25,6 +25,8 @@ test('director lands in own workspace including stale admin return link', () => 
   assert.equal(homePathForRole('WORKER'), '/field/today')
 })
 test('section QR destinations survive login without granting access to other field screens', () => {
+  for (const path of ['/field/scan/S-001', '/work-form/S-001', '/work-form?objectId=3&sectionId=8']) assert.equal(isSectionFormPath(path), true)
+  for (const path of [undefined, '/admin', '/field/scan/', '/work-form?sectionId=no', '/work-form?sectionId=0', '//other.example/work-form/S-001']) assert.equal(isSectionFormPath(path), false)
   for (const role of ['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR']) {
     for (const path of ['/field/scan/S-001', '/work-form/S-001', '/work-form?objectId=3&sectionId=8']) {
       assert.equal(resolvePostLoginPath(role, path), path)

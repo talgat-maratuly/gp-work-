@@ -70,6 +70,8 @@ for (const [index, role] of ['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR'].entries()
     await expect(form).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
     await form.getByRole('button', { name: 'Выйти', exact: true }).click()
     await expect(form).toHaveURL(/\/login$/)
+    // Deterministically cover navigation before the logout marker is consumed.
+    await form.evaluate(() => sessionStorage.setItem('gp-work_signed_out', '1'))
     await form.goto(`/work-form?objectId=${object.id}&sectionId=${section.id}`)
     await expect(form).toHaveURL(/\/login$/)
     await signIn(form, user.username)

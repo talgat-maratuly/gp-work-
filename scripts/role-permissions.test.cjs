@@ -32,8 +32,8 @@ test('director inherits every administrator route', () => {
   }
 })
 
-test('accountant can only open attendance and daily reports', () => {
+test('accountant can only open attendance, daily reports and measured improvement costs', () => {
   for (const [route, allowed] of Object.entries(ADMIN_ROUTE_ROLES)) {
-    assert.equal(canAccessRoles('ACCOUNTANT', allowed), ['attendance', 'dailyReports'].includes(route), route)
+    assert.equal(canAccessRoles('ACCOUNTANT', allowed), ['attendance', 'dailyReports', 'workflow'].includes(route), route)
   }
 })

@@ -1,5 +1,5 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link,useParams } from 'react-router-dom'
 import {
   addExecutionPhotos,
   captureFace,
@@ -146,7 +146,7 @@ export function FieldExecutionPage() {
   if (!execution) return <p className="py-16 text-center text-slate-500">Загрузка выполнения…</p>
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Работа #{execution.task.id}</p><FieldStatus status={execution.status} /></div><h1 className="mt-3 text-xl font-black">{execution.task.description || execution.task.workType?.name}</h1><p className="mt-2 font-bold text-emerald-800">{execution.section.object?.name}</p><p className="text-sm text-slate-500">{execution.section.name}{execution.arrivalDistanceMeters != null ? ` · прибытие ${Math.round(execution.arrivalDistanceMeters)} м от точки` : ''}</p></section>
+      <section className="rounded-3xl bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Работа #{execution.task.id}</p><FieldStatus status={execution.status} /></div><Link to={`/workflow/tasks/${execution.task.id}`} className="mt-3 block font-semibold text-blue-700 underline">Порядок работы · сообщить о препятствии</Link><h1 className="mt-3 text-xl font-black">{execution.task.description || execution.task.workType?.name}</h1><p className="mt-2 font-bold text-emerald-800">{execution.section.object?.name}</p><p className="text-sm text-slate-500">{execution.section.name}{execution.arrivalDistanceMeters != null ? ` · прибытие ${Math.round(execution.arrivalDistanceMeters)} м от точки` : ''}</p></section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between"><div><h2 className="font-bold">1. Face verification</h2><p className="text-xs text-slate-500">Три последовательных кадра: прямо, налево и направо</p></div>{face && <span className={`text-xs font-bold ${face.status === 'VERIFIED' ? 'text-emerald-700' : face.status === 'REJECTED' ? 'text-red-700' : 'text-amber-700'}`}>{face.status === 'VERIFIED' ? 'Подтверждено' : face.status === 'REJECTED' ? 'Отклонено' : 'На проверке'}</span>}</div>{face?.status === 'REJECTED' && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">Причина: {face.reviewComment || 'Лицо не подтверждено'}. Пройдите проверку заново.</p>}{(!face || face.status === 'REJECTED') && <div className="mt-3 space-y-3"><LivenessCapture onChange={setFaceShots} /><button disabled={busy || faceShots.length !== 3} onClick={() => void faceCapture()} className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white disabled:opacity-40">Отправить Face evidence</button></div>}</section>
 

@@ -17,6 +17,8 @@ const groups: NavGroup[] = [
     { to: '/admin/director', label: 'Кабинет директора', icon: '◆', roles: ['ADMIN', 'DIRECTOR'] },
     { to: '/admin/dispatcher', label: 'Диспетчерская', icon: '◎', roles: ADMIN_ROUTE_ROLES.dispatcher },
     { to: '/admin/executions', label: 'Приёмка работ', icon: '✓', roles: ADMIN_ROUTE_ROLES.executions },
+    { to: '/admin/workflow', label: 'Работа и улучшения', icon: '↥', roles: ADMIN_ROUTE_ROLES.workflow },
+    { to: '/field/workflow', label: 'Работа и улучшения', icon: '↥', roles: ['WATER_CARRIER'] },
     { to: '/admin/tasks', label: 'Задачи', icon: '▣', roles: ADMIN_ROUTE_ROLES.tasks },
     { to: '/admin/routes', label: 'Маршруты', icon: '↗', roles: ADMIN_ROUTE_ROLES.routes },
     { to: '/admin/map', label: 'Карта', icon: '⌖', roles: ADMIN_ROUTE_ROLES.map },
@@ -60,7 +62,7 @@ export function AdminLayout() {
   const aiLinks = aiLinksForRole(user?.role)
   const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
   const operationGroups = user?.role === 'DIRECTOR'
-    ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)).map((item) => item.to === '/admin' ? { ...item, to: '/admin/overview', label: 'Сводка компании' } : item) }))]
+    ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/field/workflow', '/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)).map((item) => item.to === '/admin' ? { ...item, to: '/admin/overview', label: 'Сводка компании' } : item) }))]
     : groups
   const allGroups: NavGroup[] = [...operationGroups, ...(aiLinks.length ? [{ label: 'ИИ-помощники', items: aiLinks }] : [])]
   const visible = allGroups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)) })).filter((group) => group.items.length)

@@ -23,6 +23,7 @@ export const ADMIN_ROUTE_ROLES = {
   seed: ['ADMIN'],
   brigades: ['ADMIN', 'BRIGADIER'],
   tasks: FIELD_MANAGERS,
+  workflow: [...FIELD_MANAGERS, 'ACCOUNTANT'],
   routes: FIELD_MANAGERS,
   executions: FIELD_MANAGERS,
   attendance: [...FIELD_MANAGERS, 'ACCOUNTANT'],

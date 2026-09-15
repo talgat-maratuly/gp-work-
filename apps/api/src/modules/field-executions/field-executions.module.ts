@@ -1,3 +1,4 @@
+import { WorkflowModule } from '../workflow/workflow.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
@@ -23,7 +24,7 @@ import { WorkDaysService } from './work-days.service';
 import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
-  imports: [
+  imports: [WorkflowModule,
     TypeOrmModule.forFeature([
       WorkExecution,
       WorkExecutionEvent,

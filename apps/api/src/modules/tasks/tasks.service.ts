@@ -1,3 +1,4 @@
+import { WorkflowService } from '../workflow/workflow.service';
 import { UploadsService } from '../uploads/uploads.service';
 import {
   BadRequestException,
@@ -24,6 +25,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 @Injectable()
 export class TasksService {
   constructor(
+    private readonly workflow: WorkflowService,
     private readonly uploadsService: UploadsService,
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
@@ -229,17 +231,21 @@ export class TasksService {
   async startTask(id: number, user: User) {
     this.assertCanUseMyTasks(user);
     const row = await this.getTaskForAssignee(id, user);
+    await this.workflow.requireFieldRoute(id);
     if (row.status !== TaskStatus.ACCEPTED) {
       throw new BadRequestException('Начать работу можно только после принятия задачи');
     }
-    row.status = TaskStatus.IN_PROGRESS;
-    await this.taskRepo.save(row);
+    await this.workflow.withStart(id, user, async manager => {
+      row.status = TaskStatus.IN_PROGRESS;
+      await manager.getRepository(Task).save(row);
+    });
     return this.findMyTask(id, user);
   }
 
   async completeTask(id: number, user: User, dto: CompleteTaskDto) {
     this.assertCanUseMyTasks(user);
     const row = await this.getTaskForAssignee(id, user);
+    await this.workflow.requireFieldRoute(id);
     if (row.status !== TaskStatus.IN_PROGRESS) {
       throw new BadRequestException('Завершить можно только задачу в статусе «В работе»');
     }
@@ -247,6 +253,7 @@ export class TasksService {
       throw new BadRequestException('Для завершения задачи обязательно прикрепите фото');
     }
 
+    await this.workflow.assertComplete(id);
     await this.uploadsService.assertOwnedPhotoUrls(dto.photoUrls, user);
     row.status = TaskStatus.COMPLETED;
     row.completedAt = new Date();
@@ -261,6 +268,8 @@ export class TasksService {
     if (!row) throw new NotFoundException('Задача не найдена');
     const mapped = this.mapTask(row);
     this.assertCanReview(mapped, reviewer);
+    await this.workflow.requireFieldRoute(id);
+    await this.workflow.assertReviewer(id, reviewer);
     if (row.status !== TaskStatus.COMPLETED) {
       throw new BadRequestException('Проверить можно только завершённую задачу');
     }
@@ -336,6 +345,12 @@ export class TasksService {
       });
       if (!row) throw new NotFoundException('Задача не найдена');
       this.assertCanManageTask(row, actor);
+      const planned = await manager.query('SELECT task_id FROM work_task_plans WHERE task_id=$1', [id]);
+      const assignmentChanged = [[dto.sectionId,row.sectionId],[dto.workTypeId,row.workTypeId],[dto.assigneeUserId,row.assigneeUserId],[dto.brigadeId,row.brigadeId]]
+        .some(([next,previous]) => next !== undefined && next !== previous);
+      if (planned.length && assignmentChanged) {
+        throw new BadRequestException('Для изменения назначения подготовленной задачи отмените её и создайте новую; история подготовки сохранится');
+      }
       if (row.status !== TaskStatus.ASSIGNED) {
         throw new BadRequestException('Изменять назначение можно только до принятия задачи');
       }

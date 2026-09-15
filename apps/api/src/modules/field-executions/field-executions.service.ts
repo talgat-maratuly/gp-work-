@@ -1,3 +1,4 @@
+import { WorkflowService } from '../workflow/workflow.service';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
@@ -52,6 +53,7 @@ function isUniqueViolation(error: unknown): boolean {
 @Injectable()
 export class FieldExecutionsService {
   constructor(
+    private readonly workflow: WorkflowService,
     @InjectRepository(WorkExecution) private readonly executionRepo: Repository<WorkExecution>,
     @InjectRepository(WorkExecutionEvent) private readonly eventRepo: Repository<WorkExecutionEvent>,
     @InjectRepository(WorkPhoto) private readonly photoRepo: Repository<WorkPhoto>,
@@ -204,8 +206,9 @@ export class FieldExecutionsService {
     user: User,
     payload: Record<string, unknown> = {},
     geo?: { latitude?: number; longitude?: number; accuracy?: number },
+    eventRepo: Repository<WorkExecutionEvent> = this.eventRepo,
   ) {
-    const existing = await this.eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
+    const existing = await eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
     if (existing) {
       if (existing.executionId !== execution.id || existing.actorUserId !== user.id || existing.type !== type) {
         throw new BadRequestException('Идентификатор операции уже использован для другого действия');
@@ -213,7 +216,7 @@ export class FieldExecutionsService {
       return existing;
     }
     try {
-      return await this.eventRepo.save(this.eventRepo.create({
+      return await eventRepo.save(eventRepo.create({
         clientOperationId: dto.clientOperationId,
         executionId: execution.id,
         actorUserId: user.id,
@@ -226,7 +229,7 @@ export class FieldExecutionsService {
       }));
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
-      const duplicate = await this.eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
+      const duplicate = await eventRepo.findOne({ where: { clientOperationId: dto.clientOperationId } });
       if (!duplicate || duplicate.executionId !== execution.id || duplicate.actorUserId !== user.id || duplicate.type !== type) {
         throw new BadRequestException('Идентификатор операции уже использован для другого действия');
       }
@@ -449,15 +452,17 @@ export class FieldExecutionsService {
     if (latestFace.status === FaceVerificationStatus.REJECTED) {
       throw new BadRequestException('Face verification отклонена. Пройдите проверку заново');
     }
-    execution.status = ExecutionStatus.STARTED;
-    execution.startedAt = execution.startedAt ?? new Date();
-    await this.executionRepo.save(execution);
-    if (execution.routeStopId) await this.stopRepo.update(execution.routeStopId, { status: RouteStopStatus.IN_PROGRESS });
-    if ([TaskStatus.ASSIGNED, TaskStatus.ACCEPTED, TaskStatus.REJECTED].includes(execution.task.status)) {
-      execution.task.status = TaskStatus.IN_PROGRESS;
-      await this.taskRepo.save(execution.task);
-    }
-    await this.recordEvent(execution, 'STARTED', dto, user, { comment: dto.comment });
+    await this.workflow.withStart(execution.taskId, user, async q => {
+      execution.status = ExecutionStatus.STARTED;
+      execution.startedAt = execution.startedAt ?? new Date();
+      await q.getRepository(WorkExecution).save(execution);
+      if (execution.routeStopId) await q.getRepository(RouteStop).update(execution.routeStopId, { status: RouteStopStatus.IN_PROGRESS });
+      if ([TaskStatus.ASSIGNED, TaskStatus.ACCEPTED, TaskStatus.REJECTED].includes(execution.task.status)) {
+        execution.task.status = TaskStatus.IN_PROGRESS;
+        await q.getRepository(Task).save(execution.task);
+      }
+      await this.recordEvent(execution, 'STARTED', dto, user, { comment: dto.comment }, undefined, q.getRepository(WorkExecutionEvent));
+    });
     return this.detailed(id);
   }
 
@@ -502,6 +507,7 @@ export class FieldExecutionsService {
     if (![ExecutionStatus.STARTED, ExecutionStatus.IN_PROGRESS, ExecutionStatus.REJECTED].includes(execution.status)) {
       throw new BadRequestException('Завершить можно только начатую работу');
     }
+    await this.workflow.assertComplete(execution.taskId);
     if (!dto.description.trim()) throw new BadRequestException('Укажите, что именно выполнено');
     const [beforeCount, afterCount, latestFace, requiredItems, answers] = await Promise.all([
       this.photoRepo.count({ where: { executionId: id, phase: WorkPhotoPhase.BEFORE } }),
@@ -600,6 +606,7 @@ export class FieldExecutionsService {
     const execution = await this.baseQuery().where('execution.id = :id', { id }).getOne();
     if (!execution) throw new NotFoundException('Выполнение работы не найдено');
     if (!this.canReview(execution, reviewer)) throw new ForbiddenException('Нет доступа к приёмке этой работы');
+    await this.workflow.assertReviewer(execution.taskId, reviewer);
     if (!dto.accepted && !dto.comment?.trim()) {
       throw new BadRequestException('При возврате на доработку обязательно укажите причину');
     }

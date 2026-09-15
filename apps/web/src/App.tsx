@@ -56,6 +56,9 @@ const KpiPage = lazy(() => import('@/pages/admin/KpiPage').then((m) => ({ defaul
 const EvidenceReportsPage = lazy(() => import('@/pages/admin/EvidenceReportsPage').then((m) => ({ default: m.EvidenceReportsPage })))
 const WorkDaysPage = lazy(() => import('@/pages/admin/WorkDaysPage').then((m) => ({ default: m.WorkDaysPage })))
 
+const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage').then(m=>({default:m.WorkflowPage})))
+const TaskFlowPage = lazy(() => import('@/pages/workflow/TaskFlowPage').then(m=>({default:m.TaskFlowPage})))
+
 function PageFallback() {
   return <div className="flex min-h-screen items-center justify-center text-slate-500">Загрузка…</div>
 }
@@ -84,6 +87,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
+            <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
@@ -98,6 +102,7 @@ export default function App() {
               }
             >
               <Route index element={<Navigate to="/field/today" replace />} />
+              <Route path="workflow" element={<WorkflowPage />} />
               <Route path="today" element={<FieldTodayPage />} />
               <Route path="route" element={<FieldRoutePage />} />
               <Route path="qr" element={<FieldQrPage />} />
@@ -129,6 +134,7 @@ export default function App() {
               }
             >
               <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
+              <Route path="workflow" element={forRoles(<WorkflowPage />, ADMIN_ROUTE_ROLES.workflow)} />
               <Route path="overview" element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
               <Route path="director" element={forRoles(<DirectorPage />, ['ADMIN', 'DIRECTOR'])} />
               <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />

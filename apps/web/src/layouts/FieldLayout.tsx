@@ -35,6 +35,7 @@ export function FieldLayout() {
             {lastError && <p className="max-w-48 truncate text-red-700" title={lastError}>Ошибка синхронизации</p>}
           </div>
         </div>
+        <Link to="/field/workflow" className="mt-3 block rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Работа и улучшения</Link>
         <nav aria-label="ИИ-помощники" className="mt-3 flex flex-wrap gap-2">
           <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
           <NavLink to={aiLinksForRole(user?.role)[0]?.to ?? '/field/assistant'} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>

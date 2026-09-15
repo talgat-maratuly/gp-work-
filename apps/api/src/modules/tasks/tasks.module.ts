@@ -1,3 +1,4 @@
+import { WorkflowModule } from '../workflow/workflow.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -10,7 +11,7 @@ import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 
 @Module({
-  imports: [UploadsModule, TypeOrmModule.forFeature([Task, Section, WorkType, User, Brigade])],
+  imports: [WorkflowModule,UploadsModule, TypeOrmModule.forFeature([Task, Section, WorkType, User, Brigade])],
   controllers: [TasksController],
   providers: [TasksService],
   exports: [TasksService],

@@ -11,6 +11,7 @@ import { AccountControls } from '@/components/AccountControls'
 import { homePathForRole } from '@/lib/roleRoutes'
 import { fetchSectionByCode } from '@/api/sectionsApi'
 import { buildQrImageUrl } from '@/lib/appConfig'
+import { SectionLocationEditor } from '@/components/SectionLocationEditor'
 
 type TaskResult = {
   percent: number
@@ -26,7 +27,7 @@ type DayTask = {
 }
 
 type DayState = {
-  section: { code: string; name: string; latitude: number | null; longitude: number | null; radiusMeters: number | null; object?: { name: string } }
+  section: { id: number; code: string; name: string; latitude: number | null; longitude: number | null; radiusMeters: number | null; object?: { name: string } }
   session: null | { id: number; startedAt: string; status: string; reviewComment: string | null }
   tasks: DayTask[]
   serverTime?: string
@@ -66,7 +67,7 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
       if (preview) {
         const section = await fetchSectionByCode(sectionCode)
         if (!section.is_active || section.objects?.is_active === false) throw new Error('Участок или объект в архиве. Форма для отметки смены недоступна.')
-        next = { section: { code: section.code, name: section.name, latitude: section.latitude,
+        next = { section: { id: section.id, code: section.code, name: section.name, latitude: section.latitude,
           longitude: section.longitude, radiusMeters: section.radius_meters, object: section.objects }, session: null, tasks: [] }
       } else {
         next = await apiRequest<DayState>(`/field/scan/${encodeURIComponent(sectionCode)}`)
@@ -204,7 +205,14 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
           <li>Руководитель проверяет фото и принимает работу или возвращает на доработку.</li>
         </ol>
         {locationReady && <p className="text-emerald-800">Местоположение настроено. Радиус участка: {state.section.radiusMeters ?? 150} м.</p>}
-        {['ADMIN', 'DIRECTOR'].includes(user!.role) && <Link to="/admin/objects" className="inline-block font-semibold text-blue-700 underline">Настроить местоположение участка</Link>}
+        {['ADMIN', 'DIRECTOR'].includes(user!.role) && <SectionLocationEditor
+          key={state.section.id}
+          section={{ ...state.section, radius_meters: state.section.radiusMeters }}
+          onSaved={(updated) => setState(current => current && ({
+            ...current,
+            section: { ...current.section, latitude: updated.latitude, longitude: updated.longitude, radiusMeters: updated.radius_meters },
+          }))}
+        />}
       </section>}
 
       {state.session && (
@@ -239,7 +247,7 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
       )}
 
       {!locationReady && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p>Местоположение участка не настроено. {preview ? 'Укажите координаты и радиус в разделе «Объекты».' : 'Попросите руководителя указать координаты и радиус в разделе «Объекты».'} До настройки начать или завершить смену нельзя.</p>
+        <p>Местоположение участка не настроено. {['ADMIN', 'DIRECTOR'].includes(user!.role) ? 'Нажмите «Настроить местоположение участка» выше и сохраните координаты и радиус.' : 'Попросите руководителя указать координаты и радиус участка.'} До настройки начать или завершить смену нельзя.</p>
         <button type="button" onClick={() => void load()} className="mt-3 font-semibold underline">Обновить данные участка</button>
       </div>}
       <fieldset disabled={preview || busy || !!prepared.current || !locationReady} className="space-y-4">

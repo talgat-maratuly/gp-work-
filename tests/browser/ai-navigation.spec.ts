@@ -74,7 +74,7 @@ test('director: dedicated home, draft confirmation, real task delivery and mobil
   await expect(page).toHaveURL(/\/login$/)
 })
 
-test('accountant: attendance and reports only, with API enforcement', async ({ page, context, request }, info) => {
+test('accountant: attendance, reports and measured costs, with API enforcement', async ({ page, context, request }, info) => {
   const ip = info.project.name.startsWith('mobile') ? '10.35.41.1' : '10.35.40.1'
   await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
   const suffix = `${Date.now()}-accountant-${info.project.name}`
@@ -91,9 +91,12 @@ test('accountant: attendance and reports only, with API enforcement', async ({ p
   expect(auth.ok()).toBeTruthy()
   const { accessToken } = await auth.json()
   const headers = { Authorization: `Bearer ${accessToken}`, 'X-Forwarded-For': ip }
-  for (const path of ['/attendance', '/admin-reports']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(200)
-  for (const path of ['/users', '/tasks', '/field/work-days', '/admin-ai/summary']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(403)
+  for (const path of ['/attendance', '/admin-reports', '/workflow/summary']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(200)
+  for (const path of ['/users', '/tasks', '/field/work-days', '/admin-ai/summary', '/workflow/board', '/workflow/catalog', '/workflow/tools']) expect((await request.get(`${api}${path}`, { headers })).status()).toBe(403)
   for (const path of ['/users', '/tasks', '/admin-reports']) expect((await request.post(`${api}${path}`, { headers, data: {} })).status()).toBe(403)
+  await page.goto('/admin/workflow')
+  await expect(page.getByRole('heading', { name: 'Измерения расходов', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Сохранить новую версию', exact: true })).toHaveCount(0)
   await page.goto('/admin/users')
   await expect(page).toHaveURL(/\/admin\/attendance$/)
 })

@@ -36,9 +36,11 @@ test('manager configures a standard; worker prepares, retries a report and sees 
   await page.goto(taskUrl)
   await signIn(username, adminPassword)
   await expect(page.getByRole('heading', { name: task.description, exact: true })).toBeVisible()
-  await page.getByLabel('Стандарт задачи', { exact: true }).selectOption(String(standard.id))
-  await page.getByLabel('Отвечает за результат', { exact: true }).selectOption(String(login.user.id))
-  await page.getByLabel('Принимает работу', { exact: true }).selectOption(String(reviewer.id))
+  const standardField = page.getByRole('combobox', { name: 'Стандарт задачи', exact: true })
+  await expect(standardField).toBeVisible()
+  await standardField.selectOption(String(standard.id))
+  await page.getByRole('combobox', { name: 'Отвечает за результат', exact: true }).selectOption(String(login.user.id))
+  await page.getByRole('combobox', { name: 'Принимает работу', exact: true }).selectOption(String(reviewer.id))
   await page.getByRole('button', { name: 'Сохранить порядок работы', exact: true }).click()
   await expect(page.getByRole('heading', { name: `${standard.title} · версия 1`, exact: true })).toBeVisible()
   await page.reload()
@@ -56,7 +58,7 @@ test('manager configures a standard; worker prepares, retries a report and sees 
 
   const obstacleUrl = `**/api/workflow/tasks/${task.id}/obstacles`
   await page.route(obstacleUrl, route => route.abort('failed'))
-  await page.getByLabel('Что мешает', { exact: true }).selectOption('WATER')
+  await page.getByRole('combobox', { name: 'Что мешает', exact: true }).selectOption('WATER')
   await page.getByLabel('Что произошло', { exact: true }).fill('Вода не доставлена на участок')
   await page.getByRole('button', { name: 'Сообщить о препятствии', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Не удалось связаться с сервером')

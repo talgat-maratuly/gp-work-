@@ -13,7 +13,7 @@ import { BusinessProcessService } from './business-process.service';
 export class BusinessProcessController {
   constructor(private readonly service: BusinessProcessService) {}
   @Get('definitions') @Roles(UserRole.ADMIN, UserRole.BRIGADIER, UserRole.AGRONOMIST)
-  catalog() { return this.service.catalog(); }
+  catalog(@CurrentUser() user: User) { return this.service.catalog(user); }
   @Post('definitions') @Roles(UserRole.ADMIN)
   publish(@Body() dto: PublishBusinessProcessDto, @CurrentUser() user: User) { return this.service.publish(dto, user); }
   @Put('definitions/:id/archive') @Roles(UserRole.ADMIN)

@@ -15,9 +15,16 @@ export class BusinessProcessService {
   private assertAdmin(user: User) {
     if (!['ADMIN', 'DIRECTOR'].includes(user.role)) throw new ForbiddenException('Конструктор доступен администратору и директору');
   }
-  async catalog() {
-    return this.db.query(`SELECT DISTINCT ON(d.process_id) d.*, p.archived FROM business_process_definitions d
+  async catalog(user: User) {
+    const definitions: Definition[] = await this.db.query(`SELECT DISTINCT ON(d.process_id) d.*, p.archived FROM business_process_definitions d
       JOIN business_processes p ON p.id=d.process_id ORDER BY d.process_id, d.version DESC`);
+    return definitions.map(d => {
+      const fields = d.schema.fields.filter(f => canReadField(user.role, f));
+      const ids = new Set(fields.map(f => f.id));
+      return { ...d, schema: { ...d.schema, fields,
+        stages: d.schema.stages.map(s => ({ ...s, requiredFields: s.requiredFields.filter(id => ids.has(id)) })),
+      } };
+    });
   }
   async publish(dto: PublishBusinessProcessDto, user: User) {
     this.assertAdmin(user);

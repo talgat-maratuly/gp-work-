@@ -5,14 +5,14 @@ import { DataSource } from 'typeorm';
 
 describe('Business process builder with persisted tasks and permissions', () => {
   let app: INestApplication, db: DataSource;
-  let admin: any, worker: any, outsider: any, director: any, task: any, definition: any, instance: any, section: any, workType: any;
+  let admin: any, worker: any, outsider: any, director: any, brigadier: any, task: any, definition: any, instance: any, section: any, workType: any;
   const headers = (user: any) => ({ Authorization: `Bearer ${user.token}`, 'X-Forwarded-For': `10.91.0.${user.id % 200 + 1}` });
   const post = async (path: string, data: object, user = admin, status = 201) => (await request(app.getHttpServer()).post('/api/business-processes' + path).set(headers(user)).send(data).expect(res => { if (res.status !== status) throw new Error(`${path}: ${res.status} ${JSON.stringify(res.body)}`) })).body;
   const get = async (path: string, user = admin, status = 200) => (await request(app.getHttpServer()).get('/api/business-processes' + path).set(headers(user)).expect(status)).body;
   const create = async (path: string, data: object) => (await request(app.getHttpServer()).post('/api' + path).set(headers(admin)).send(data).expect(res => { if (res.status !== 201) throw new Error(`${path}: ${res.status} ${JSON.stringify(res.body)}`); })).body;
   const login = async (username: string, password: string) => { const res = await request(app.getHttpServer()).post('/api/auth/login').set('X-Forwarded-For', `10.92.0.${Math.floor(Math.random() * 200) + 1}`).send({ username, password }).expect(201); return { ...res.body.user, token: res.body.accessToken }; };
   const schema = () => ({ title: 'Согласование участка', description: 'Бизнес-поля задачи', initialStageId: 'start', fields: [
-    { id: 'area', label: 'Площадь, м²', type: 'number', hint: '', options: [], readRoles: ['ADMIN', 'WORKER'], editRoles: ['ADMIN', 'WORKER'] },
+    { id: 'area', label: 'Площадь, м²', type: 'number', hint: '', options: [], readRoles: ['ADMIN', 'WORKER', 'BRIGADIER'], editRoles: ['ADMIN', 'WORKER'] },
     { id: 'ready', label: 'Доступ есть', type: 'boolean', hint: '', options: [], readRoles: ['ADMIN', 'WORKER'], editRoles: ['WORKER'] },
     { id: 'budget', label: 'Внутренний бюджет', type: 'number', hint: '', options: [], readRoles: ['ADMIN'], editRoles: ['ADMIN'] },
   ], stages: [
@@ -27,7 +27,7 @@ describe('Business process builder with persisted tasks and permissions', () => 
     admin = await login(process.env.ADMIN_USERNAME!, process.env.ADMIN_PASSWORD!);
     const suffix = crypto.randomUUID().slice(0, 8); const password = 'business-process-test';
     async function person(role: string) { const username = `bp-${role}-${crypto.randomUUID().slice(0, 8)}`; await create('/users', { username, password, fullName: username, role }); return login(username, password); }
-    worker = await person('WORKER'); outsider = await person('WORKER'); director = await person('DIRECTOR');
+    worker = await person('WORKER'); outsider = await person('WORKER'); director = await person('DIRECTOR'); brigadier = await person('BRIGADIER');
     const object = await create('/objects', { name: `BP object ${suffix}` }); section = await create('/sections', { objectId: object.id, name: `BP section ${suffix}`, latitude: 51.23, longitude: 51.37 });
     workType = await create('/work-types', { name: `BP work ${suffix}` }); task = await newTask();
   });
@@ -38,6 +38,7 @@ describe('Business process builder with persisted tasks and permissions', () => 
   it('protects the builder and validates nested configuration', async () => {
     await request(app.getHttpServer()).get('/api/business-processes/definitions').expect(401);
     await post('/definitions', schema(), worker, 403);
+    await post('/definitions', schema(), brigadier, 403);
     await post('/definitions', { ...schema(), fields: [{ ...schema().fields[0], editRoles: ['SUPERADMIN'] }] }, admin, 400);
     await post('/definitions', { ...schema(), fields: [{ ...schema().fields[0], malicious: 'extra' }] }, admin, 400);
     definition = await post('/definitions', schema(), director); expect(definition.version).toBe(1);
@@ -50,6 +51,14 @@ describe('Business process builder with persisted tasks and permissions', () => 
     await post(`/tasks/${task.id}`, { definitionId: definition.id }, worker, 403);
     const [view] = await get(`/tasks/${task.id}`, worker); expect(view.schema.fields.map((f: any) => f.id)).toEqual(['area', 'ready']);
     expect(view.allowedTransitions).toEqual(['review']);
+    const template = (await get('/definitions', brigadier)).find((d: any) => d.id === definition.id);
+    expect(template.schema.fields.map((f: any) => f.id)).toEqual(['area']);
+    expect(template.schema.stages[0].requiredFields).toEqual(['area']);
+    expect(template.schema.stages[2].requiredFields).toEqual([]);
+    expect(JSON.stringify(template)).not.toContain('budget');
+    expect(JSON.stringify(template)).not.toContain('Внутренний бюджет');
+    const fullTemplate = (await get('/definitions', director)).find((d: any) => d.id === definition.id);
+    expect(fullTemplate.schema.fields).toHaveLength(3);
   });
   it('rejects missing values, invalid types and field permission bypass', async () => {
     await action({}, 1, 'review', worker, 400);

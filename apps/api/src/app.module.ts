@@ -1,4 +1,5 @@
 import { WorkflowModule } from './modules/workflow/workflow.module';
+import { BusinessProcessModule } from './modules/business-processes/business-process.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -72,7 +73,7 @@ import {
 } from './entities';
 
 @Module({
-  imports: [WorkflowModule,
+  imports: [WorkflowModule, BusinessProcessModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [

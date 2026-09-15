@@ -19,7 +19,13 @@ test('admin builds fields and stages; a worker fills a task process and a direct
   const title = `Согласование ${suffix}`
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))
   async function signIn(name: string, pass: string) { await page.getByLabel('Логин', { exact: true }).fill(name); await page.getByLabel('Пароль', { exact: true }).fill(pass); await page.getByRole('button', { name: 'Войти', exact: true }).click() }
-  async function signOut() { await page.getByRole('button', { name: 'Выйти', exact: true }).click(); await expect(page).toHaveURL(/\/login$/) }
+  async function signOut() {
+    await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('heading', { name: 'Вход в систему', exact: true })).toBeVisible()
+    // Reproduce a fresh task link arriving before the logout marker is consumed.
+    await page.evaluate(() => sessionStorage.setItem('gp-work_signed_out', '1'))
+  }
   await page.goto('/admin/business-processes'); await signIn(username, password)
   await expect(page.getByRole('heading', { name: 'Бизнес-процессы', exact: true })).toBeVisible()
   await page.getByLabel('Название процесса', { exact: true }).fill(title)
@@ -45,6 +51,8 @@ test('admin builds fields and stages; a worker fills a task process and a direct
   await panel.getByRole('button', { name: 'Подключить процесс', exact: true }).click()
   await expect(panel.getByRole('heading', { name: `${title} · версия 1`, exact: true })).toBeVisible()
   await signOut(); await page.goto(`/workflow/tasks/${task.id}`); await signIn(worker.username, workerPassword)
+  await expect(page).toHaveURL(new RegExp(`/workflow/tasks/${task.id}$`))
+  await expect(panel.getByRole('heading', { name: `${title} · версия 1`, exact: true })).toBeVisible()
   await expect(panel.getByRole('button', { name: 'Подключить процесс', exact: true })).toHaveCount(0)
   await panel.getByRole('button', { name: 'Перейти: Согласование', exact: true }).click()
   await expect(panel.getByRole('alert')).toContainText('Заполните обязательные поля')
@@ -60,6 +68,8 @@ test('admin builds fields and stages; a worker fills a task process and a direct
   await expect(panel.getByRole('button', { name: 'Перейти: Завершено', exact: true })).toHaveCount(0)
   await page.reload(); await expect(panel.getByLabel('Площадь, м²', { exact: true })).toHaveValue('0')
   await signOut(); await page.goto(`/workflow/tasks/${task.id}`); await signIn(director.username, workerPassword)
+  await expect(page).toHaveURL(new RegExp(`/workflow/tasks/${task.id}$`))
+  await expect(panel.getByRole('heading', { name: `${title} · версия 1`, exact: true })).toBeVisible()
   await panel.getByRole('button', { name: 'Перейти: Завершено', exact: true }).click()
   await expect(panel.getByText('Этап: Завершено', { exact: true })).toBeVisible()
   await expect(panel.getByRole('button', { name: 'Сохранить поля', exact: true })).toHaveCount(0)

@@ -3,7 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { login } from '@/api/authApi'
 import { toUserMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
-import { isSectionFormPath, resolvePostLoginPath } from '@/lib/roleRoutes'
+import { returnPathAfterLogout, resolvePostLoginPath } from '@/lib/roleRoutes'
 
 export function LoginPage() {
   const { user, loading, refresh } = useAuth()
@@ -17,11 +17,11 @@ export function LoginPage() {
 
   const [afterLogout] = useState(() => sessionStorage.getItem('gp-work_signed_out') === '1')
   // A protected route may redirect during logout before router navigation settles.
-  // Discard the previous account's cabinet, but retain a section QR: it is
-  // valid for the next account too and its form applies that account's rights.
-  // A new QR can arrive before the logout page consumes its session marker.
+  // Discard the previous account's cabinet, but retain shared section/task links.
+  // A new link can arrive before the logout page consumes its session marker;
+  // the resource still applies the next account's rights.
   const requestedFrom = (location.state as { from?: string } | null)?.from
-  const from = afterLogout && !isSectionFormPath(requestedFrom) ? undefined : requestedFrom
+  const from = afterLogout ? returnPathAfterLogout(requestedFrom) : requestedFrom
   useEffect(() => {
     if (afterLogout) {
       sessionStorage.removeItem('gp-work_signed_out')

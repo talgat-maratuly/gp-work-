@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { QrPrintModal } from '@/components/QrPrintModal'
 import { QrCanvas } from '@/components/QrCanvas'
 import { ArchiveSectionDialog } from '@/components/DeleteSectionDialog'
@@ -6,12 +7,13 @@ import { Toast } from '@/components/Toast'
 import { Button } from '@/components/ui/Button'
 import { fetchSections } from '@/api/sectionsApi'
 import { API_ORIGIN, toUserMessage } from '@/api/client'
-import { buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
+import { buildWorkFormPathBySectionCode, buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
 import { downloadQrPrintCardPng } from '@/lib/downloadQrCard'
 import { onSectionsChanged } from '@/lib/sectionEvents'
 import type { Section } from '@/lib/types'
 
 export function QrPage() {
+  const navigate = useNavigate()
   const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -114,9 +116,9 @@ export function QrPage() {
                     <td className="px-3 py-3">{s.name}</td>
                     <td className="px-3 py-3 font-mono text-xs">{s.code}</td>
                     <td className="px-3 py-3">
-                      <a href={formUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline break-all">
+                      <Link to={buildWorkFormPathBySectionCode(s.code)} className="text-blue-700 underline break-all">
                         {formUrl}
-                      </a>
+                      </Link>
                     </td>
                     <td className="px-3 py-3">
                       <QrCanvas value={formUrl} className="h-[90px] w-[90px]" size={90} />
@@ -130,7 +132,7 @@ export function QrPage() {
                         >
                           {downloadingKey === `section-${s.code}` ? 'Скачивание…' : 'Скачать PNG'}
                         </Button>
-                        <Button onClick={() => window.open(formUrl, '_blank')}>Открыть форму</Button>
+                        <Button onClick={() => navigate(buildWorkFormPathBySectionCode(s.code))}>Открыть форму</Button>
                         <Button variant="ghost" onClick={() => openPrint(s)}>
                           Печать
                         </Button>

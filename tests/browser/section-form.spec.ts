@@ -32,16 +32,17 @@ for (const [index, role] of ['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR'].entries()
     await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
     const { user, section, object, headers } = await fixture(request, `${Date.now()}-${role}-${info.project.name}`, ip, role)
     const errors: string[] = []
+    page.on('pageerror', e => errors.push(e.message))
     context.on('page', p => p.on('pageerror', e => errors.push(e.message)))
     await page.goto('/login')
     await signIn(page, user.username)
     await expect(page).not.toHaveURL(/\/login$/)
     await page.goto('/admin/objects')
     const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: section.name, exact: true }) })
-    const newPage = context.waitForEvent('page')
     await row.getByRole('link', { name: 'открыть', exact: true }).click()
-    const form = await newPage
+    const form = page
     await expect(form).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
+    expect(context.pages()).toHaveLength(1)
     await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
     await expect(form.getByRole('heading', { name: 'Просмотр формы участка', exact: true })).toBeVisible()
     await expect(form.getByRole('alert')).toContainText('Местоположение участка не настроено')
@@ -64,6 +65,21 @@ for (const [index, role] of ['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR'].entries()
     await form.screenshot({ path: info.outputPath('section-form.png'), fullPage: true })
     await form.getByRole('link', { name: '← К объектам', exact: true }).click()
     await expect(form).toHaveURL(/\/admin\/objects$/)
+
+    if (role === 'ADMIN') {
+      await form.goto('/admin/qr')
+      const qrRow = form.getByRole('row').filter({ has: form.getByRole('cell', { name: section.name, exact: true }) })
+      await qrRow.getByRole('button', { name: 'Открыть форму', exact: true }).click()
+      await expect(form).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
+      await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+      expect(context.pages()).toHaveLength(1)
+      await form.getByRole('link', { name: '← К объектам', exact: true }).click()
+      await form.goto('/admin/qr')
+      await qrRow.getByRole('link').click()
+      await expect(form).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
+      await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+      expect(context.pages()).toHaveLength(1)
+    }
 
     // Both printed legacy QR formats must reach the same section.
     await form.goto(`/work-form/${section.code}`)

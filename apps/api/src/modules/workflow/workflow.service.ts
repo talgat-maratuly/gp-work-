@@ -31,6 +31,11 @@ export class WorkflowService {
     if (!this.manages(t,user) && !this.executes(t,user)) throw new ForbiddenException('Нет доступа к задаче');
     return t;
   }
+  async managedTask(id: number, user: User, q: EntityManager = this.db.manager) {
+    const task = await this.task(id, user, q);
+    this.assertManager(task, user);
+    return task;
+  }
   private async plan(id: number, q: EntityManager = this.db.manager): Promise<PlanRow | undefined> {
     const [p] = await q.query(`SELECT p.*, s.steps, s.preparation, s.acceptance, s.title, s.version,
       a.full_name accountable_name, r.full_name reviewer_name FROM work_task_plans p

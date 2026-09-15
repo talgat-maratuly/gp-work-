@@ -1,0 +1,67 @@
+import { test, expect } from 'playwright/test'
+
+test('admin builds fields and stages; a worker fills a task process and a director approves it', async ({ page, context, request }, info) => {
+  const api = 'http://localhost:3002/api'
+  const ip = `10.93.${info.project.name.startsWith('mobile') ? 2 : 1}.1`
+  await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
+  const username = process.env.ADMIN_USERNAME || 'e2e-admin', password = process.env.ADMIN_PASSWORD || 'e2e-admin-password'
+  const auth = await request.post(`${api}/auth/login`, { headers: { 'X-Forwarded-For': ip }, data: { username, password } })
+  expect(auth.ok()).toBeTruthy()
+  const login = await auth.json(), headers = { Authorization: `Bearer ${login.accessToken}`, 'X-Forwarded-For': ip }
+  async function create(path: string, data: unknown) { const result = await request.post(api + path, { headers, data }); expect(result.ok(), await result.text()).toBeTruthy(); return result.json() }
+  const suffix = `${Date.now()}-${info.project.name}`, workerPassword = 'business-browser-only-test'
+  const worker = await create('/users', { username: `bp-worker-${suffix}`, fullName: `Рабочий ${suffix}`, password: workerPassword, role: 'WORKER' })
+  const director = await create('/users', { username: `bp-director-${suffix}`, fullName: `Директор ${suffix}`, password: workerPassword, role: 'DIRECTOR' })
+  const object = await create('/objects', { name: `BP object ${suffix}` })
+  const section = await create('/sections', { objectId: object.id, name: `BP section ${suffix}`, latitude: 51.23, longitude: 51.37 })
+  const workType = await create('/work-types', { name: `BP work ${suffix}` })
+  const task = await create('/tasks', { sectionId: section.id, workTypeId: workType.id, assigneeUserId: worker.id, description: `BP task ${suffix}`, dueDate: '2026-09-16' })
+  const title = `Согласование ${suffix}`
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))
+  async function signIn(name: string, pass: string) { await page.getByLabel('Логин', { exact: true }).fill(name); await page.getByLabel('Пароль', { exact: true }).fill(pass); await page.getByRole('button', { name: 'Войти', exact: true }).click() }
+  async function signOut() { await page.getByRole('button', { name: 'Выйти', exact: true }).click(); await expect(page).toHaveURL(/\/login$/) }
+  await page.goto('/admin/business-processes'); await signIn(username, password)
+  await expect(page.getByRole('heading', { name: 'Бизнес-процессы', exact: true })).toBeVisible()
+  await page.getByLabel('Название процесса', { exact: true }).fill(title)
+  await page.getByRole('button', { name: 'Добавить поле', exact: true }).click()
+  await page.getByLabel('Название поля 1', { exact: true }).fill('Площадь, м²')
+  await page.getByLabel('Тип поля 1', { exact: true }).selectOption('number')
+  await page.getByRole('group', { name: 'Обязательные поля этапа 1', exact: true }).getByLabel('Площадь, м²', { exact: true }).check()
+  await page.getByRole('button', { name: 'Опубликовать процесс', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Опубликована версия 1')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('business-process-builder.png'), fullPage: true })
+  await page.reload()
+  const template = page.locator('aside article').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+  await expect(template).toContainText('Версия 1')
+  const catalog = await request.get(`${api}/business-processes/definitions`, { headers }); const definition = (await catalog.json()).find((d: any) => d.schema.title === title)
+  await page.goto(`/workflow/tasks/${task.id}`)
+  const panel = page.getByRole('region', { name: 'Бизнес-процессы задачи', exact: true })
+  await panel.getByLabel('Процесс для задачи', { exact: true }).selectOption(String(definition.id))
+  await panel.getByRole('button', { name: 'Подключить процесс', exact: true }).click()
+  await expect(panel.getByRole('heading', { name: `${title} · версия 1`, exact: true })).toBeVisible()
+  await signOut(); await page.goto(`/workflow/tasks/${task.id}`); await signIn(worker.username, workerPassword)
+  await expect(panel.getByRole('button', { name: 'Подключить процесс', exact: true })).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Перейти: Согласование', exact: true }).click()
+  await expect(panel.getByRole('alert')).toContainText('Заполните обязательные поля')
+  await panel.getByLabel('Площадь, м²', { exact: true }).fill('0')
+  const actionUrl = `**/api/business-processes/tasks/${task.id}/*/actions`
+  await page.route(actionUrl, route => route.abort('failed'))
+  await panel.getByRole('button', { name: 'Сохранить поля', exact: true }).click()
+  await expect(panel.getByRole('alert')).toContainText('Не удалось связаться с сервером')
+  await expect(panel.getByLabel('Площадь, м²', { exact: true })).toHaveValue('0')
+  await page.unroute(actionUrl)
+  await panel.getByRole('button', { name: 'Перейти: Согласование', exact: true }).click()
+  await expect(panel.getByText('Этап: Согласование', { exact: true })).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Перейти: Завершено', exact: true })).toHaveCount(0)
+  await page.reload(); await expect(panel.getByLabel('Площадь, м²', { exact: true })).toHaveValue('0')
+  await signOut(); await page.goto(`/workflow/tasks/${task.id}`); await signIn(director.username, workerPassword)
+  await panel.getByRole('button', { name: 'Перейти: Завершено', exact: true }).click()
+  await expect(panel.getByText('Этап: Завершено', { exact: true })).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Сохранить поля', exact: true })).toHaveCount(0)
+  await panel.getByText('История процесса', { exact: true }).click()
+  await expect(panel.getByText('Подготовка → Согласование', { exact: false })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('business-process-completed.png'), fullPage: true })
+  expect(errors).toEqual([])
+})

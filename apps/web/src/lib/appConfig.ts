@@ -20,8 +20,12 @@ function getApiOrigin(): string {
   return getAppBaseUrl()
 }
 
+export function buildWorkFormPathBySectionCode(sectionCode: string): string {
+  return `/field/scan/${encodeURIComponent(sectionCode)}`
+}
+
 export function buildWorkFormUrlBySectionCode(sectionCode: string): string {
-  return `${getAppBaseUrl()}/field/scan/${encodeURIComponent(sectionCode)}`
+  return `${getAppBaseUrl()}${buildWorkFormPathBySectionCode(sectionCode)}`
 }
 
 export function buildWorkFormUrl(objectId: number, sectionId: number): string {

@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { SectionLocationFields } from '@/components/SectionLocationFields'
 import { emptyLocation, hasSectionLocation, locationDraft, locationPayload } from '@/lib/sectionLocation'
 import { QrPrintModal } from '@/components/QrPrintModal'
@@ -12,7 +13,7 @@ import {
   fetchSections,
   updateSection,
 } from '@/api/sectionsApi'
-import { buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
+import { buildWorkFormPathBySectionCode, buildWorkFormUrlBySectionCode } from '@/lib/appConfig'
 import { onSectionsChanged } from '@/lib/sectionEvents'
 import type { NurseryObject, Section } from '@/lib/types'
 
@@ -478,14 +479,12 @@ export function ObjectsPage() {
                       </span> : <span className="text-amber-800">Не настроено — смена недоступна</span>}
                     </td>
                     <td className="px-3 py-2">
-                      {s.is_active ? <a
-                        href={buildWorkFormUrlBySectionCode(s.code)}
-                        target="_blank"
-                        rel="noreferrer"
+                      {s.is_active ? <Link
+                        to={buildWorkFormPathBySectionCode(s.code)}
                         className="text-blue-700 underline"
                       >
                         открыть
-                      </a> : '—'}
+                      </Link> : '—'}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-2">

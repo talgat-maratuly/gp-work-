@@ -22,6 +22,7 @@ import { FieldExecutionsService } from './field-executions.service';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { WorkDaysService } from './work-days.service';
 import { UploadsModule } from '../uploads/uploads.module';
+import { FormSettingsModule } from '../form-settings/form-settings.module';
 
 @Module({
   imports: [WorkflowModule,
@@ -43,6 +44,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     ]),
     AttendanceModule,
     UploadsModule,
+    FormSettingsModule,
   ],
   controllers: [FieldExecutionsController],
   providers: [FieldExecutionsService, WorkDaysService],

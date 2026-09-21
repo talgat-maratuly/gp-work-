@@ -8,6 +8,13 @@ export function isSectionFormPath(path?: string): boolean {
   return Number.isInteger(sectionId) && sectionId > 0
 }
 
+export function returnPathAfterLogout(path?: string): string | undefined {
+  // Shared resource links are re-authorized for the next account by the API.
+  // Cabinet URLs belong to the previous session and must be discarded.
+  return isSectionFormPath(path) || (path && /^\/workflow\/tasks\/[1-9]\d*(?:[?#].*)?$/.test(path))
+    ? path : undefined
+}
+
 export function homePathForRole(role: UserRole): string {
   if (role === 'DIRECTOR') return '/admin/director'
   if (role === 'ACCOUNTANT') return '/admin/attendance'

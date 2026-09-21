@@ -8,5 +8,6 @@ import { FormSettingsService } from './form-settings.service';
   imports: [TypeOrmModule.forFeature([FormSetting])],
   controllers: [FormSettingsController],
   providers: [FormSettingsService],
+  exports: [FormSettingsService],
 })
 export class FormSettingsModule {}

@@ -21,6 +21,7 @@ const fieldTypeLabels: Record<FormFieldType, string> = {
 const fieldTypeOptions = Object.entries(fieldTypeLabels).map(([value, label]) => ({ value, label }))
 
 const FORM_TABS: { key: FormKey; label: string }[] = [
+  { key: 'field_day_form', label: 'Форма «Рабочий день»' },
   { key: 'work_form', label: 'Форма отчёта по объекту' },
   { key: 'checkout_form', label: 'Форма отметки ухода' },
 ]
@@ -30,11 +31,13 @@ function normalizeOrders(fields: FormFieldSetting[]): FormFieldSetting[] {
 }
 
 export function FormSettingsPage() {
-  const [activeForm, setActiveForm] = useState<FormKey>('work_form')
-  const [settings, setSettings] = useState<FormSettings>(getDefaultSettings('work_form'))
+  const [activeForm, setActiveForm] = useState<FormKey>('field_day_form')
+  const [settings, setSettings] = useState<FormSettings>(getDefaultSettings('field_day_form'))
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [newFieldType, setNewFieldType] = useState<FormFieldType>('text')
   const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -43,15 +46,19 @@ export function FormSettingsPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoaded(false)
+    setToast(null)
+    setNewFieldType('text')
+    setNewFieldLabel('')
     setError(null)
     fetchFormSettings(activeForm)
-      .then((s) => !cancelled && setSettings(s))
+      .then((s) => { if (!cancelled) { setSettings(s); setLoaded(true) } })
       .catch((err) => !cancelled && setError(toUserMessage(err, 'Не удалось загрузить настройки формы')))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [activeForm])
+  }, [activeForm, loadAttempt])
 
   function updateSettings(patch: Partial<FormSettings>) {
     setSettings((prev) => ({ ...prev, ...patch }))
@@ -115,6 +122,7 @@ export function FormSettingsPage() {
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
+    if (!loaded || loading || saving) return
     setSaving(true)
     setError(null)
     try {
@@ -141,6 +149,8 @@ export function FormSettingsPage() {
 
   const sortedFields = [...settings.fields].sort((a, b) => a.order - b.order)
   const isCheckout = activeForm === 'checkout_form'
+  const isFieldDay = activeForm === 'field_day_form'
+  const allowedFieldTypes = fieldTypeOptions.filter(option => !isFieldDay || option.value !== 'photo')
 
   return (
     <div className="space-y-5">
@@ -152,6 +162,7 @@ export function FormSettingsPage() {
           <button
             key={t.key}
             type="button"
+            disabled={saving}
             onClick={() => setActiveForm(t.key)}
             className={`rounded-lg px-4 py-2 text-sm font-medium ${
               activeForm === t.key ? 'bg-blue-700 text-white' : 'text-slate-600 hover:bg-slate-100'
@@ -163,12 +174,15 @@ export function FormSettingsPage() {
       </div>
 
       <p className="text-sm text-slate-600">
-        {isCheckout
+        {isFieldDay
+          ? 'Эти поля заполняет сотрудник по каждой задаче при завершении рабочего дня. Можно менять подписи, порядок и обязательность, добавлять свои поля. Процент, QR, GPS, фото лица и фото результата остаются обязательной частью рабочего цикла.'
+          : isCheckout
           ? 'Сохранённые настройки прежней формы «Отметка ухода». Теперь QR открывает рабочий день: процент рассчитывается по результатам назначенных задач. Эти настройки не изменяют текущий рабочий день.'
           : 'Сохранённые настройки прежней формы отчёта. Теперь QR открывает рабочий день с назначенными задачами. Эти настройки не изменяют текущий рабочий день.'}
       </p>
 
       <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <fieldset disabled={loading || saving || !loaded} className="space-y-4">
         <Input
           label="Заголовок формы"
           value={settings.formTitle}
@@ -209,7 +223,7 @@ export function FormSettingsPage() {
           ) : (
             <div className="mt-4 space-y-3">
               {sortedFields.map((field, index) => (
-                <div key={field.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                <div key={field.id} role="group" aria-label={`Поле ${field.label}`} className="rounded-xl border border-slate-200 bg-white p-3">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="font-medium">{field.label || 'Без названия'}</p>
@@ -239,21 +253,24 @@ export function FormSettingsPage() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <Input
                       label="Название поля"
+                      id={`${activeForm}-${field.id}-label`}
                       value={field.label}
                       onChange={(e) => updateField(field.id, { label: e.target.value })}
                       required
                     />
                     <Select
                       label="Тип поля"
+                      id={`${activeForm}-${field.id}-type`}
                       value={field.type}
                       onChange={(e) => updateField(field.id, { type: e.target.value as FormFieldType })}
-                      options={fieldTypeOptions}
+                      options={allowedFieldTypes}
                       disabled={field.system}
                     />
                   </div>
 
                   <Textarea
                     label="Подсказка"
+                    id={`${activeForm}-${field.id}-hint`}
                     value={field.hint ?? ''}
                     onChange={(e) => updateField(field.id, { hint: e.target.value })}
                     className="mt-3"
@@ -262,6 +279,7 @@ export function FormSettingsPage() {
                   {field.type === 'select' && (
                     <Textarea
                       label="Варианты списка"
+                      id={`${activeForm}-${field.id}-options`}
                       value={(field.options ?? []).join('\n')}
                       onChange={(e) =>
                         updateField(field.id, {
@@ -313,16 +331,18 @@ export function FormSettingsPage() {
               label="Тип"
               value={newFieldType}
               onChange={(e) => setNewFieldType(e.target.value as FormFieldType)}
-              options={fieldTypeOptions}
+              options={allowedFieldTypes}
             />
             <Button onClick={addField}>Добавить</Button>
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || !loaded}>
           {saving ? 'Сохранение…' : 'Сохранить'}
         </Button>
+        </fieldset>
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {!loaded && !loading && <Button onClick={() => setLoadAttempt(value => value + 1)}>Повторить загрузку</Button>}
       </form>
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}

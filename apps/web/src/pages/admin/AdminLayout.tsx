@@ -48,6 +48,7 @@ const groups: NavGroup[] = [
     { to: '/admin/daily-reports', label: 'Отчёты', icon: '▥', roles: ADMIN_ROUTE_ROLES.dailyReports },
     { to: '/admin/export', label: 'Экспорт Excel', icon: '⇧', roles: ADMIN_ROUTE_ROLES.export },
     { to: '/admin/form-settings', label: 'Настройки формы', icon: '⚙', roles: ADMIN_ROUTE_ROLES.formSettings },
+    { to: '/admin/business-processes', label: 'Бизнес-процессы', icon: '◇', roles: ADMIN_ROUTE_ROLES.businessProcesses },
     { to: '/admin/seed', label: 'Системные данные', icon: '◫', roles: ADMIN_ROUTE_ROLES.seed },
   ]},
 ]

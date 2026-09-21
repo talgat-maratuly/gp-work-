@@ -14,6 +14,8 @@ export interface WorkDayTaskResult extends WorkDayTaskScope {
   actualVolume: string | null;
   workDescription: string | null;
   incompleteReason: string | null;
+  extra?: Record<string, string>;
+  extraLabels?: Record<string, string>;
 }
 
 @Entity('work_day_sessions')

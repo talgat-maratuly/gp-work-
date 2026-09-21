@@ -10,6 +10,9 @@ import { UploadsService } from '../uploads/uploads.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { assertFreshLivenessEvidence, assertInsideGeofence } from './field-execution.rules';
 import { CloseWorkDayDto, ReviewWorkDayDto, StartWorkDayDto } from './dto/work-day.dto';
+import { FormSettingsService } from '../form-settings/form-settings.service';
+import { normalizedExtra, validateFieldDayResult } from './field-day-form.rules';
+import { isDeepStrictEqual } from 'node:util';
 
 @Injectable()
 export class WorkDaysService {
@@ -20,6 +23,7 @@ export class WorkDaysService {
     @InjectRepository(WorkExecution) private readonly executions: Repository<WorkExecution>,
     private readonly uploadsService: UploadsService,
     private readonly attendanceService: AttendanceService,
+    private readonly formSettingsService: FormSettingsService,
   ) {}
 
   private assignedTasks(sectionId: number, user: User, includeExecution = false) {
@@ -99,6 +103,7 @@ export class WorkDaysService {
       section,
       session,
       tasks,
+      formSettings: await this.formSettingsService.getSettings('field_day_form'),
       serverTime: new Date().toISOString(),
       action: session?.status === WorkDayStatus.RETURNED
         ? 'CORRECT_AND_CLOSE'
@@ -154,13 +159,14 @@ export class WorkDaysService {
         actualVolume: result.actualVolume?.trim() || null,
         workDescription: result.description?.trim() || null,
         incompleteReason: result.percent < 100 ? result.incompleteReason?.trim() || null : null,
+        ...(Object.keys(normalizedExtra(result.extra)).length ? { extra: normalizedExtra(result.extra) } : {}),
       }));
       if (
         session.endQr !== dto.sectionCode.trim() ||
         session.endSelfieUrl !== dto.selfieUrl ||
         JSON.stringify(session.endLivenessEvidenceUrls) !== JSON.stringify(dto.livenessEvidenceUrls) ||
         JSON.stringify(session.resultPhotoUrls) !== JSON.stringify(dto.resultPhotoUrls) ||
-        JSON.stringify(session.taskResults.map(({ description: _description, ...result }) => result)) !== JSON.stringify(repeatedResults)
+        !isDeepStrictEqual(session.taskResults.map(({ description: _description, extraLabels: _labels, ...result }) => result), repeatedResults)
       ) {
         throw new BadRequestException('Смена уже закрыта с другими итоговыми данными');
       }
@@ -198,16 +204,12 @@ export class WorkDaysService {
     }
     const resultMap = new Map(dto.results.map(r => [r.taskId, r]));
     const assignedMap = new Map(taskScope.map((task) => [task.taskId, task]));
+    const formSettings = await this.formSettingsService.getSettings('field_day_form');
     for (const result of dto.results) {
       if (!assignedMap.has(result.taskId)) {
         throw new BadRequestException(`Задача ${result.taskId} не относится к этой смене`);
       }
-      if (result.percent > 0 && !result.description?.trim()) {
-        throw new BadRequestException(`Для задачи ${result.taskId} укажите, что выполнено`);
-      }
-      if (result.percent < 100 && !result.incompleteReason?.trim()) {
-        throw new BadRequestException(`Для незавершённой задачи ${result.taskId} укажите причину`);
-      }
+      validateFieldDayResult(formSettings.fields, result);
     }
     for (const task of taskScope) {
       if (!resultMap.has(task.taskId)) {
@@ -217,7 +219,6 @@ export class WorkDaysService {
     for (const execution of active) {
       const result = resultMap.get(execution.taskId);
       if (!result) throw new BadRequestException(`Для задачи ${execution.taskId} нет результата`);
-      if (result.percent < 100 && !result.incompleteReason?.trim()) throw new BadRequestException(`Для незавершённой задачи ${execution.taskId} укажите причину`);
     }
     const taskResults: WorkDayTaskResult[] = dto.results.map((result) => ({
       taskId: result.taskId,
@@ -226,11 +227,12 @@ export class WorkDaysService {
       actualVolume: result.actualVolume?.trim() || null,
       workDescription: result.description?.trim() || null,
       incompleteReason: result.percent < 100 ? result.incompleteReason?.trim() || null : null,
+      ...validateFieldDayResult(formSettings.fields, result),
     }));
     const overall = Math.round(taskResults.reduce((sum, result) => sum + result.percent, 0) / taskResults.length);
     const now = new Date();
     const closingEvent = session.status === WorkDayStatus.RETURNED ? 'RESUBMITTED' : 'CLOSED';
-    Object.assign(session, { status: WorkDayStatus.CLOSED, closedAt: now, endQr: dto.sectionCode.trim(), endLatitude: dto.latitude, endLongitude: dto.longitude, endAccuracy: dto.accuracy ?? null, endDistanceMeters: distance, endSelfieUrl: dto.selfieUrl, endLivenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls, taskResults, overallPercent: overall, summary: dto.summary?.trim() || null, incompleteReasons: Object.fromEntries(taskResults.filter(r => r.percent < 100).map(r => [String(r.taskId), r.incompleteReason!])), reviewedById: null, reviewedAt: null, reviewComment: null, events: [...session.events, { type: closingEvent, at: now.toISOString(), results: taskResults, selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls }] });
+    Object.assign(session, { status: WorkDayStatus.CLOSED, closedAt: now, endQr: dto.sectionCode.trim(), endLatitude: dto.latitude, endLongitude: dto.longitude, endAccuracy: dto.accuracy ?? null, endDistanceMeters: distance, endSelfieUrl: dto.selfieUrl, endLivenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls, taskResults, overallPercent: overall, summary: dto.summary?.trim() || null, incompleteReasons: Object.fromEntries(taskResults.filter(r => r.percent < 100 && r.incompleteReason).map(r => [String(r.taskId), r.incompleteReason!])), reviewedById: null, reviewedAt: null, reviewComment: null, events: [...session.events, { type: closingEvent, at: now.toISOString(), results: taskResults, selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls }] });
     return this.sessions.manager.transaction(async (manager) => {
       const saved = await manager.getRepository(WorkDaySession).save(session);
       await this.attendanceService.syncOnWorkDayClosed(saved, user, manager);

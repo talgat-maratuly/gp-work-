@@ -12,7 +12,7 @@ function load(file) {
   return exports
 }
 const { prepareDirectorCommand: prepare, businessDate } = load('directorCommands.ts')
-const { homePathForRole, resolvePostLoginPath, isSectionFormPath } = load('roleRoutes.ts')
+const { homePathForRole, resolvePostLoginPath, isSectionFormPath, returnPathAfterLogout } = load('roleRoutes.ts')
 const catalog = {
   sections: [{ id: 1, code: 'S-001', name: 'Север', objectName: 'Парк' }, { id: 2, code: 'S-002', name: 'Север', objectName: 'Сквер' }],
   workTypes: [{ id: 1, name: 'Полив' }],
@@ -37,6 +37,16 @@ test('section QR destinations survive login without granting access to other fie
   }
   assert.equal(resolvePostLoginPath('ACCOUNTANT', '/field/scan/S-001'), '/admin/attendance')
   assert.equal(resolvePostLoginPath('WORKER', '/work-form?sectionId=8'), '/work-form?sectionId=8')
+})
+test('logout preserves shared task and QR links but discards old cabinets and invalid destinations', () => {
+  for (const path of ['/workflow/tasks/29', '/workflow/tasks/29?tab=process#history', '/field/scan/S-001', '/work-form?sectionId=8']) {
+    assert.equal(returnPathAfterLogout(path), path)
+    for (const role of ['ADMIN', 'DIRECTOR', 'WORKER']) assert.equal(resolvePostLoginPath(role, returnPathAfterLogout(path)), path)
+  }
+  for (const path of [undefined, '/admin/business-processes', '/field/today', '/workflow/tasks/', '/workflow/tasks/0', '/workflow/tasks/-1', '/workflow/tasks/29/edit', '//other.example/workflow/tasks/29', 'https://other.example/workflow/tasks/29']) {
+    assert.equal(returnPathAfterLogout(path), undefined)
+  }
+  assert.equal(resolvePostLoginPath('ACCOUNTANT', returnPathAfterLogout('/workflow/tasks/29')), '/admin/attendance')
 })
 test('recognizes explicit assignment, section code and tomorrow across year boundary', () => {
   const d = prepare('Полив S-001 Иван Иванов завтра', catalog, '2026-12-31')

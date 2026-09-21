@@ -8,6 +8,8 @@ type TaskResult = {
   actualVolume: string | null
   workDescription: string | null
   incompleteReason: string | null
+  extra?: Record<string, string>
+  extraLabels?: Record<string, string>
 }
 
 type Day = {
@@ -144,6 +146,9 @@ export function WorkDaysPage() {
                       </div>
                       {result.actualVolume && <p>Фактический объём: {result.actualVolume}</p>}
                       {result.workDescription && <p>Выполнено: {result.workDescription}</p>}
+                      {Object.entries(result.extra ?? {}).map(([id, value]) => <p key={id} className="break-words">
+                        {result.extraLabels?.[id] || id}: {value === 'true' ? 'Да' : value === 'false' ? 'Нет' : value}
+                      </p>)}
                       {result.incompleteReason && (
                         <p className="text-amber-800">Причина: {result.incompleteReason}</p>
                       )}

@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -32,6 +33,7 @@ export class TaskResultDto {
   @IsOptional() @IsString() @MaxLength(200) actualVolume?: string;
   @IsOptional() @IsString() @MaxLength(1000) description?: string;
   @IsOptional() @IsString() @MaxLength(1000) incompleteReason?: string;
+  @IsOptional() @IsObject() extra?: Record<string, string>;
 }
 
 export class CloseWorkDayDto {

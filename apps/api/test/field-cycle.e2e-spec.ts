@@ -737,12 +737,25 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       'end-center.jpg', 'end-left.jpg', 'end-right.jpg', 'result-work.jpg',
     ]);
     const endFaces = [endCenter, endLeft, endRight];
+    const daySettingsUrl = '/api/form-settings?form=field_day_form';
+    const originalDaySettings = (await request(app.getHttpServer()).get(daySettingsUrl).set(auth(adminToken)).expect(200)).body;
+    await request(app.getHttpServer()).get(daySettingsUrl).set(auth(token)).expect(403);
+    await request(app.getHttpServer()).put(daySettingsUrl).set(auth(token)).send(originalDaySettings).expect(403);
+    const extraFields = [
+      { id: 'liters', label: 'Расход воды', type: 'number', visible: true, required: true, order: 40 },
+      { id: 'checked', label: 'Проверено', type: 'boolean', visible: true, required: true, order: 50 },
+    ];
+    await request(app.getHttpServer()).put(daySettingsUrl).set(auth(adminToken))
+      .send({ ...originalDaySettings, fields: [...originalDaySettings.fields, ...extraFields] }).expect(200);
+    const configuredState = (await request(app.getHttpServer()).get(`/api/field/scan/${section.code}`).set(auth(token)).expect(200)).body;
+    expect(configuredState.formSettings.fields).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'liters', required: true })]));
     const validResult = {
       taskId: task.id,
       percent: 75,
       actualVolume: '150 м²',
       description: 'Полив выполнен, территория очищена частично',
       incompleteReason: 'Не хватило воды для последней зоны',
+      extra: { liters: '0', checked: 'false' },
     };
     const closeBody = {
       sessionId: session.id,
@@ -774,6 +787,10 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
 
     await request(app.getHttpServer()).post('/api/field/work-days/close').set(auth(token))
       .send({ ...closeBody, accuracy: 1000000 }).expect(400);
+    for (const extra of [{}, { liters: {}, checked: 'false' }, { liters: 'NaN', checked: 'false' }, { liters: '1', checked: 'no' }]) {
+      await request(app.getHttpServer()).post('/api/field/work-days/close').set(auth(token))
+        .send({ ...closeBody, results: [{ ...validResult, extra }] }).expect(400);
+    }
     const closed = (await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))
@@ -788,13 +805,21 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       actualVolume: '150 м²',
       workDescription: validResult.description,
       incompleteReason: validResult.incompleteReason,
+      extra: validResult.extra,
+      extraLabels: { liters: 'Расход воды', checked: 'Проверено' },
     }]);
+    // A retry uses the saved result even if the administrator renamed a field.
+    await request(app.getHttpServer()).put(daySettingsUrl).set(auth(adminToken))
+      .send({ ...originalDaySettings, fields: [...originalDaySettings.fields, ...extraFields.map(f => ({ ...f, label: `${f.label} новое` }))] }).expect(200);
     const repeatedClose = (await request(app.getHttpServer())
       .post('/api/field/work-days/close')
       .set(auth(token))
       .send(closeBody)
       .expect(201)).body;
     expect(repeatedClose.id).toBe(session.id);
+    expect(repeatedClose.taskResults[0].extraLabels.liters).toBe('Расход воды');
+    await request(app.getHttpServer()).post('/api/field/work-days/close').set(auth(token))
+      .send({ ...closeBody, results: [{ ...validResult, extra: { liters: '1', checked: 'false' } }] }).expect(400);
     const closedAttendance = (await request(app.getHttpServer())
       .get(`/api/attendance?dateFrom=${businessDate()}&dateTo=${businessDate()}`)
       .set(auth(adminToken))
@@ -881,6 +906,7 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .send({ accepted: true, comment: 'Исправление принято' })
       .expect(201)).body;
     expect(reviewed.status).toBe('REVIEWED');
+    await request(app.getHttpServer()).put(daySettingsUrl).set(auth(adminToken)).send(originalDaySettings).expect(200);
   });
   it('keeps both form settings independent and requires administrator access', async () => {
     await request(app.getHttpServer()).get('/api/form-settings?form=checkout_form').expect(401);
@@ -900,6 +926,16 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .toMatchObject({ visible: false, required: false });
     expect((await request(app.getHttpServer()).get('/api/form-settings?form=work_form')
       .set(auth(adminToken)).expect(200)).body).toEqual(work);
+    const day = (await request(app.getHttpServer()).get('/api/form-settings?form=field_day_form')
+      .set(auth(adminToken)).expect(200)).body;
+    for (const fields of [[...day.fields, day.fields[0]], [...day.fields, { id: 'picture', label: 'Фото', type: 'photo' }]]) {
+      await request(app.getHttpServer()).put('/api/form-settings?form=field_day_form')
+        .set(auth(adminToken)).send({ ...day, fields }).expect(400);
+    }
+    await request(app.getHttpServer()).put('/api/form-settings?form=unknown')
+      .set(auth(adminToken)).send(day).expect(400);
+    expect((await request(app.getHttpServer()).get('/api/form-settings?form=checkout_form')
+      .set(auth(adminToken)).expect(200)).body).toEqual(saved);
   });
 
   it('backfills only unambiguous legacy photo owners without changing evidence', async () => {

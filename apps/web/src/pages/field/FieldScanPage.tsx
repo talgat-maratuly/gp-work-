@@ -12,12 +12,14 @@ import { homePathForRole } from '@/lib/roleRoutes'
 import { fetchSectionByCode } from '@/api/sectionsApi'
 import { buildQrImageUrl } from '@/lib/appConfig'
 import { SectionLocationEditor } from '@/components/SectionLocationEditor'
+import type { FormFieldSetting, FormSettings } from '@/lib/types'
 
 type TaskResult = {
   percent: number
   actualVolume: string
   description: string
   incompleteReason: string
+  extra: Record<string, string>
 }
 
 type DayTask = {
@@ -31,6 +33,7 @@ type DayState = {
   session: null | { id: number; startedAt: string; status: string; reviewComment: string | null }
   tasks: DayTask[]
   serverTime?: string
+  formSettings?: FormSettings
 }
 
 const emptyResult = (): TaskResult => ({
@@ -38,6 +41,7 @@ const emptyResult = (): TaskResult => ({
   actualVolume: '',
   description: '',
   incompleteReason: '',
+  extra: {},
 })
 
 export function FieldScanPage() {
@@ -59,6 +63,13 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<Record<number, TaskResult>>({})
   const loadRevision = useRef(0)
+  const formSettings = state?.formSettings
+  const formFields = formSettings?.fields ?? []
+  const coreFields = ['actualVolume', 'description', 'incompleteReason']
+  const visibleFields = (result: TaskResult) => formFields.filter(field => field.visible &&
+    (field.id !== 'incompleteReason' || result.percent < 100)).sort((a, b) => a.order - b.order)
+  const valueOf = (result: TaskResult, field: FormFieldSetting) => coreFields.includes(field.id)
+    ? result[field.id as 'actualVolume' | 'description' | 'incompleteReason'] : result.extra[field.id] ?? ''
 
   const load = useCallback(async () => {
     const revision = ++loadRevision.current
@@ -85,15 +96,23 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
   useEffect(() => { void load(); return () => { loadRevision.current++ } }, [load])
 
   function validateResults(tasks: DayTask[]): boolean {
+    if (!formSettings) { setMessage('Не удалось загрузить поля формы. Обновите данные участка.'); return false }
     for (const task of tasks) {
       const result = results[task.id] || emptyResult()
-      if (result.percent > 0 && !result.description.trim()) {
-        setMessage(`Для задачи «${task.description}» укажите, что выполнено`)
-        return false
-      }
-      if (result.percent < 100 && !result.incompleteReason.trim()) {
-        setMessage(`Для задачи «${task.description}» укажите причину незавершения`)
-        return false
+      for (const field of visibleFields(result)) {
+        const value = valueOf(result, field).trim()
+        if (field.required && !(field.id === 'description' && result.percent === 0) && !value) {
+          setMessage(field.id === 'incompleteReason'
+            ? `Для задачи «${task.description}» укажите причину незавершения`
+            : `Для задачи «${task.description}» заполните «${field.label}»`)
+          return false
+        }
+        if (value && ['number', 'percent'].includes(field.type) &&
+          (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value)) ||
+            (field.type === 'percent' && (Number(value) < 0 || Number(value) > 100)))) {
+          setMessage(`В поле «${field.label}» укажите корректное число${field.type === 'percent' ? ' от 0 до 100' : ''}`)
+          return false
+        }
       }
     }
     return true
@@ -138,10 +157,11 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
               ...evidence,
               sessionId: state!.session!.id,
               resultPhotoUrls: photoUrls,
-              results: state!.tasks.map((task) => ({
-                taskId: task.id,
-                ...(results[task.id] || emptyResult()),
-              })),
+              results: state!.tasks.map((task) => {
+                const result = results[task.id] || emptyResult()
+                return { taskId: task.id, ...result, extra: Object.fromEntries(Object.entries(result.extra)
+                  .filter(([id]) => formFields.some(field => field.id === id && field.visible))) }
+              }),
             }),
           }
         } else {
@@ -161,7 +181,7 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
       setWorkPhoto(null)
       setResults({})
       await load()
-      setMessage(close ? 'Рабочий день завершён' : 'Рабочий день открыт по серверному времени')
+      setMessage(close ? formSettings?.formSuccessText || 'Рабочий день завершён' : 'Рабочий день открыт по серверному времени')
     } catch (error) {
       if (error instanceof ApiError && error.status && error.status < 500) prepared.current = null
       setMessage(toUserMessage(error))
@@ -259,7 +279,10 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
 
       {state.session && (
         <div className="rounded-2xl bg-white p-4">
-          <b>Результат каждой задачи</b>
+          <b>{formSettings?.formTitle || 'Результат каждой задачи'}</b>
+          {formSettings?.formDescription && <p className="text-sm text-slate-600">{formSettings.formDescription}</p>}
+          {formSettings?.formHints && <p className="text-sm text-slate-600">{formSettings.formHints}</p>}
+          <button type="button" className="text-sm text-blue-700 underline" onClick={() => void load()}>Обновить поля формы</button>
           {state.tasks.map((task) => {
             const result = results[task.id] || emptyResult()
             const set = (value: Partial<TaskResult>) => setResults((old) => ({
@@ -283,28 +306,24 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
                     className="w-full"
                   />
                 </label>
-                <input
-                  value={result.actualVolume}
-                  onChange={(event) => set({ actualVolume: event.target.value })}
-                  placeholder="Фактический объём и единица"
-                  className="w-full rounded-lg border p-2"
-                />
-                <textarea
-                  required={result.percent > 0}
-                  value={result.description}
-                  onChange={(event) => set({ description: event.target.value })}
-                  placeholder="Что выполнено"
-                  className="w-full rounded-lg border p-2"
-                />
-                {result.percent < 100 && (
-                  <textarea
-                    required
-                    value={result.incompleteReason}
-                    onChange={(event) => set({ incompleteReason: event.target.value })}
-                    placeholder="Обязательная причина незавершения"
-                    className="w-full rounded-lg border border-amber-400 p-2"
-                  />
-                )}
+                {visibleFields(result).map(field => {
+                  const required = field.required && !(field.id === 'description' && result.percent === 0)
+                  const change = (value: string) => coreFields.includes(field.id)
+                    ? set({ [field.id]: value }) : set({ extra: { ...result.extra, [field.id]: value } })
+                  const props = { value: valueOf(result, field), required,
+                    className: 'w-full rounded-lg border p-2', 'aria-label': field.label }
+                  return <label key={field.id} className="block text-sm">
+                    <span>{field.label}{required ? ' *' : ''}</span>
+                    {field.type === 'comment' ? <textarea {...props} maxLength={1000} placeholder={field.hint || field.label} onChange={event => change(event.target.value)} />
+                      : ['select', 'boolean'].includes(field.type) ? <select {...props} onChange={event => change(event.target.value)}>
+                        <option value="">Выберите</option>
+                        {(field.type === 'boolean' ? [{ value: 'true', label: 'Да' }, { value: 'false', label: 'Нет' }]
+                          : (field.options ?? []).map(value => ({ value, label: value }))).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select> : <input {...props} type={['number', 'percent'].includes(field.type) ? 'number' : 'text'}
+                        step="any" min={field.type === 'percent' ? 0 : undefined} max={field.type === 'percent' ? 100 : undefined}
+                        maxLength={field.id === 'actualVolume' ? 200 : 1000} placeholder={field.hint || field.label} onChange={event => change(event.target.value)} />}
+                  </label>
+                })}
               </div>
             )
           })}
@@ -324,7 +343,7 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
             : state.session?.status === 'RETURNED'
             ? 'Исправить и повторно отправить'
             : state.session
-              ? 'Завершить рабочий день'
+              ? formSettings?.formSubmitText || 'Завершить рабочий день'
               : 'Начать рабочий день'}
       </button>
       {message && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{message}</div>}

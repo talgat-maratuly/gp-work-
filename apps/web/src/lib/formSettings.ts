@@ -1,11 +1,12 @@
 import type { FormSettings } from './types'
 import { apiRequest } from '@/api/client'
 
-export type FormKey = 'work_form' | 'checkout_form'
+export type FormKey = 'work_form' | 'checkout_form' | 'field_day_form'
 
 const STORAGE_KEYS: Record<FormKey, string> = {
   work_form: 'nursery_form_settings',
   checkout_form: 'nursery_checkout_form_settings',
+  field_day_form: 'gp_work_field_day_form_settings',
 }
 
 // ---- Форма отчёта по объекту ----
@@ -65,6 +66,15 @@ export const defaultCheckoutFormSettings: FormSettings = {
 }
 
 export function getDefaultSettings(form: FormKey): FormSettings {
+  if (form === 'field_day_form') return {
+    formTitle: 'Результат каждой задачи', formDescription: 'Заполните результат по каждой задаче при завершении рабочего дня',
+    formSubmitText: 'Завершить рабочий день', formSuccessText: 'Рабочий день завершён', formHints: null,
+    fields: [
+      { id: 'actualVolume', label: 'Фактический объём', type: 'text', hint: 'Фактический объём и единица', required: false, visible: true, order: 10, system: true },
+      { id: 'description', label: 'Что выполнено', type: 'comment', hint: null, required: true, visible: true, order: 20, system: true },
+      { id: 'incompleteReason', label: 'Причина незавершения', type: 'comment', hint: 'Обязательная причина незавершения', required: true, visible: true, order: 30, system: true },
+    ],
+  }
   return form === 'checkout_form' ? defaultCheckoutFormSettings : defaultFormSettings
 }
 
@@ -115,8 +125,8 @@ export async function fetchFormSettings(form: FormKey = 'work_form'): Promise<Fo
     storeFormSettings(settings, form)
     return settings
   } catch (err) {
-    console.error('[form-settings/load]', err)
-    return readStoredFormSettings(form)
+    // Do not allow stale/default settings to overwrite the saved server form.
+    throw err
   }
 }
 

@@ -3,6 +3,9 @@ import { test, expect, type Page } from 'playwright/test'
 const api = 'http://localhost:3002/api'
 const adminName = process.env.ADMIN_USERNAME || 'e2e-admin'
 const adminPassword = process.env.ADMIN_PASSWORD || 'e2e-admin-password'
+// A separate simulated client keeps this scenario's repeated logins from using
+// another scenario's rate-limit budget. Production throttling stays enabled.
+test.use({ extraHTTPHeaders: { 'X-Forwarded-For': '10.30.0.45' } })
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOUaXJkoCVgoqnpoxaMWjBqwagFoxaMWjBqwagFoxaMWjBqARUBAB7RAR8ze0hjAAAAAElFTkSuQmCC', 'base64')
 
 async function login(page: Page, username: string, password: string) {
@@ -53,7 +56,12 @@ test('configured day fields: admin authoring, persisted worker values, retry and
     await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
     await expect(page.getByText('Настройки успешно сохранены', { exact: true })).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('textbox', { name: 'Название поля', exact: true }).and(page.locator('input[value="Расход воды"]'))).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Поле Расход воды', exact: true })
+      .getByRole('textbox', { name: 'Название поля', exact: true })).toHaveValue('Расход воды')
+    expect(await page.locator('main [id]').evaluateAll(elements => {
+      const ids = elements.map(element => element.id)
+      return ids.length === new Set(ids).size
+    })).toBeTruthy()
     const configured = await (await request.get(settingsUrl, { headers })).json()
     const litersId = configured.fields.find((f: { label: string }) => f.label === 'Расход воды').id
     const checkedId = configured.fields.find((f: { label: string }) => f.label === 'Проверено').id

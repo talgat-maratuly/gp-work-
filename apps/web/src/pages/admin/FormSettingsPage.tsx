@@ -253,12 +253,14 @@ export function FormSettingsPage() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <Input
                       label="Название поля"
+                      id={`${activeForm}-${field.id}-label`}
                       value={field.label}
                       onChange={(e) => updateField(field.id, { label: e.target.value })}
                       required
                     />
                     <Select
                       label="Тип поля"
+                      id={`${activeForm}-${field.id}-type`}
                       value={field.type}
                       onChange={(e) => updateField(field.id, { type: e.target.value as FormFieldType })}
                       options={allowedFieldTypes}
@@ -268,6 +270,7 @@ export function FormSettingsPage() {
 
                   <Textarea
                     label="Подсказка"
+                    id={`${activeForm}-${field.id}-hint`}
                     value={field.hint ?? ''}
                     onChange={(e) => updateField(field.id, { hint: e.target.value })}
                     className="mt-3"
@@ -276,6 +279,7 @@ export function FormSettingsPage() {
                   {field.type === 'select' && (
                     <Textarea
                       label="Варианты списка"
+                      id={`${activeForm}-${field.id}-options`}
                       value={(field.options ?? []).join('\n')}
                       onChange={(e) =>
                         updateField(field.id, {

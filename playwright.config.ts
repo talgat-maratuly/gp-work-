@@ -21,6 +21,9 @@ export default defineConfig({
   ],
   webServer: [
     { command: 'node apps/api/dist/main.js', url: 'http://localhost:3002/api/health', reuseExistingServer: !process.env.CI, timeout: 60_000, env: { NODE_ENV: 'test', FRONTEND_URL: 'http://localhost:5173', PORT: '3002', DB_MIGRATE: 'true' } },
-    { command: 'npm run dev -w @gp-work/web -- --host localhost', url: 'http://localhost:5173', reuseExistingServer: !process.env.CI, timeout: 60_000 },
+    { command: process.env.GP_WEB_PRODUCTION === 'true'
+      ? 'npm run preview -w @gp-work/web -- --host localhost --port 5173 --strictPort'
+      : 'npm run dev -w @gp-work/web -- --host localhost',
+      url: 'http://localhost:5173', reuseExistingServer: !process.env.CI, timeout: 60_000 },
   ],
 })

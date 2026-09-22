@@ -59,7 +59,7 @@ jobs:
       - run: npm run test:web:roles
       - run: npm run test:web:actions
       - run: npm run test:web:location
-      - run: node --test scripts/director-commands.test.cjs scripts/attendance-summary.test.cjs
+      - run: node --test scripts/director-commands.test.cjs scripts/attendance-summary.test.cjs scripts/section-form-routes.test.cjs
       - run: npm run test:e2e:typecheck -w @gp-work/api
       - name: Verify additive migration source
         shell: bash
@@ -147,6 +147,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser worker-day regression (real API and PostgreSQL)
         run: npm run test:browser
+      - name: Section navigation in production build with real service worker
+        run: npm run test:browser -- tests/browser/production-section-form.spec.ts --output=test-results-production
+        env:
+          GP_WEB_PRODUCTION: 'true'
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-production
       - name: Preserve browser diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -155,4 +160,6 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            playwright-report-production/
+            test-results-production/
           retention-days: 7

@@ -4,9 +4,10 @@ import { login } from '@/api/authApi'
 import { toUserMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
 import { returnPathAfterLogout, resolvePostLoginPath } from '@/lib/roleRoutes'
+import { AuthRecovery } from '@/components/AuthRecovery'
 
 export function LoginPage() {
-  const { user, loading, refresh } = useAuth()
+  const { user, loading, error: authError, refresh } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [username, setUsername] = useState('')
@@ -37,6 +38,8 @@ export function LoginPage() {
     )
   }
 
+  if (authError) return <AuthRecovery />
+
   if (user) {
     const target = resolvePostLoginPath(user.role, from)
     return <Navigate to={target} replace />
@@ -47,9 +50,9 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      const loggedIn = await login(username.trim(), password)
-      await refresh()
-      navigate(resolvePostLoginPath(loggedIn.role, from), { replace: true })
+      await login(username.trim(), password)
+      const verified = await refresh()
+      if (verified) navigate(resolvePostLoginPath(verified.role, from), { replace: true })
     } catch (err) {
       console.error('[login]', err)
       setError(toUserMessage(err, 'Не удалось войти'))

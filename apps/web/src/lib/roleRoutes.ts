@@ -2,9 +2,10 @@ import type { UserRole } from '@/lib/auth'
 
 export function isSectionFormPath(path?: string): boolean {
   if (!path) return false
-  if (/^\/(?:field\/scan|work-form)\/[^/?#]+(?:[?#].*)?$/.test(path)) return true
-  if (!path.startsWith('/work-form?')) return false
-  const sectionId = Number(new URLSearchParams(path.slice('/work-form?'.length).split('#')[0]).get('sectionId'))
+  if (/^\/(?:field\/scan|work-form)\/[^/?#]+\/?(?:[?#].*)?$/.test(path)) return true
+  const legacyQuery = path.match(/^\/work-form\/?\?([^#]*)/)
+  if (!legacyQuery) return false
+  const sectionId = Number(new URLSearchParams(legacyQuery[1]).get('sectionId'))
   return Number.isInteger(sectionId) && sectionId > 0
 }
 

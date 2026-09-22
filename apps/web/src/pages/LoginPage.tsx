@@ -22,13 +22,14 @@ export function LoginPage() {
   // A new link can arrive before the logout page consumes its session marker;
   // the resource still applies the next account's rights.
   const requestedFrom = (location.state as { from?: string } | null)?.from
+  const passwordChanged = Boolean((location.state as { passwordChanged?: boolean } | null)?.passwordChanged)
   const from = afterLogout ? returnPathAfterLogout(requestedFrom) : requestedFrom
   useEffect(() => {
     if (afterLogout) {
       sessionStorage.removeItem('gp-work_signed_out')
-      navigate('/login', { replace: true, state: from ? { from } : null })
+      navigate('/login', { replace: true, state: { from, passwordChanged } })
     }
-  }, [afterLogout, from, navigate])
+  }, [afterLogout, from, passwordChanged, navigate])
 
   if (loading) {
     return (
@@ -41,6 +42,7 @@ export function LoginPage() {
   if (authError) return <AuthRecovery />
 
   if (user) {
+    if (user.mustChangePassword) return <Navigate to="/change-password" replace state={{ from }} />
     const target = resolvePostLoginPath(user.role, from)
     return <Navigate to={target} replace />
   }
@@ -52,7 +54,7 @@ export function LoginPage() {
     try {
       await login(username.trim(), password)
       const verified = await refresh()
-      if (verified) navigate(resolvePostLoginPath(verified.role, from), { replace: true })
+      if (verified) navigate(verified.mustChangePassword ? '/change-password' : resolvePostLoginPath(verified.role, from), { replace: true, state: verified.mustChangePassword ? { from } : null })
     } catch (err) {
       console.error('[login]', err)
       setError(toUserMessage(err, 'Не удалось войти'))
@@ -110,6 +112,7 @@ export function LoginPage() {
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {passwordChanged && <p role="status" className="mt-3 text-sm text-emerald-800">Пароль изменён. Войдите с новым паролем.</p>}
 
         <button
           type="submit"
@@ -118,6 +121,7 @@ export function LoginPage() {
         >
           {submitting ? 'Вход…' : 'Войти'}
         </button>
+        <p className="mt-4 text-sm text-slate-600">Забыли пароль? Обратитесь к администратору за временным паролем.</p>
       </form>
     </div>
   )

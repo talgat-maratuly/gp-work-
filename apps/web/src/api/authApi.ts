@@ -5,6 +5,12 @@ import { clearAuth, getToken, setAuth, setStoredUser } from '@/lib/auth'
 let pendingLogout: Promise<void> = Promise.resolve()
 let loggingOut = false
 
+export function changeOwnPassword(newPassword: string, currentPassword?: string) {
+  return apiRequest<{ ok: boolean }>('/auth/password', {
+    method: 'PATCH', body: JSON.stringify({ newPassword, currentPassword }), signal: AbortSignal.timeout(30_000),
+  })
+}
+
 export async function login(username: string, password: string) {
   await pendingLogout
   const data = await apiRequest<{ accessToken: string; user: AuthUser; role: AuthUser['role'] }>(

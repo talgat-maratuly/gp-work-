@@ -1,7 +1,8 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { ALLOW_PASSWORD_CHANGE } from '../decorators/allow-password-change.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -42,6 +43,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
     if (err || !user) {
       throw new UnauthorizedException('Сессия истекла. Войдите заново.');
+    }
+    const canChange = context && this.reflector.getAllAndOverride<boolean>(ALLOW_PASSWORD_CHANGE, [context.getHandler(), context.getClass()]);
+    if ((user as { mustChangePassword?: boolean }).mustChangePassword && !canChange) {
+      throw new ForbiddenException('Установите свой пароль, чтобы продолжить работу.');
     }
     return user;
   }

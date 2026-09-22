@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { ROLE_LABELS } from '@/lib/auth'
 import { returnPathAfterLogout } from '@/lib/roleRoutes'
@@ -11,6 +11,7 @@ export function AccountControls() {
     <p className="max-w-40 truncate font-semibold text-slate-900" title={user?.fullName}>{user?.fullName}</p>
     <p className="text-emerald-800">{user ? ROLE_LABELS[user.role] : ''}</p>
     {user?.positionName && <p className="max-w-40 truncate text-slate-600" title={user.positionName}>{user.positionName}</p>}
+    <Link to="/change-password" state={{ from: location.pathname + location.search + location.hash }} className="mt-1 block text-blue-700 underline">Сменить пароль</Link>
     <button type="button" onClick={() => {
       const from = returnPathAfterLogout(location.pathname + location.search + location.hash)
       logout()

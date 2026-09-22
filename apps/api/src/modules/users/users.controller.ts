@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   Param,
   ParseIntPipe,
@@ -10,6 +11,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -37,6 +39,7 @@ export class UsersController {
         positionName: u.position?.name ?? null,
         brigadeId: u.brigadeId,
         isActive: u.isActive,
+        mustChangePassword: Boolean(u.mustChangePassword),
         createdAt: u.createdAt,
       })),
     );
@@ -70,11 +73,20 @@ export class UsersController {
   }
 
   @Patch(':id/password')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   changePassword(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ChangeUserPasswordDto,
+    @CurrentUser() actor: User,
   ) {
-    return this.usersService.changePassword(id, dto.password);
+    return this.usersService.changePassword(id, dto.password, actor);
+  }
+
+  @Post(':id/password-reset')
+  @Header('Cache-Control', 'no-store')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  resetPassword(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: User) {
+    return this.usersService.resetPassword(id, actor);
   }
 
   @Delete(':id')

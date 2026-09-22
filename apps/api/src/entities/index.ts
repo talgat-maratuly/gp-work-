@@ -5,6 +5,7 @@ export { WorkType } from './work-type.entity';
 export { WorkLog } from './work-log.entity';
 export { SectionCodeCounter } from './section-code-counter.entity';
 export { User } from './user.entity';
+export { JobPosition } from './job-position.entity';
 export { AttendanceRecord } from './attendance-record.entity';
 export { Brigade } from './brigade.entity';
 export { BrigadeMember } from './brigade-member.entity';

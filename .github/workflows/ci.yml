@@ -82,6 +82,7 @@ jobs:
             'apps/api/src/database/migrations/1732400000000-AddPhotoOwnership.ts',
             'apps/api/src/database/migrations/1732600000000-AddWorkImprovementFlow.ts',
             'apps/api/src/database/migrations/1732700000000-AddBusinessProcesses.ts',
+            'apps/api/src/database/migrations/1732800000000-AddJobPositions.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -113,6 +114,7 @@ jobs:
             'AddPhotoOwnership1732400000000',
             'AddWorkImprovementFlow1732600000000',
             'AddBusinessProcesses1732700000000',
+            'AddJobPositions1732800000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

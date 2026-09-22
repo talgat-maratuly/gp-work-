@@ -9,12 +9,15 @@ import {
 import { fetchBrigades } from '@/api/brigadesApi'
 import { toUserMessage } from '@/api/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
+import { fetchJobPositions, type JobPosition } from '@/api/jobPositionsApi'
+import { JobPositionsEditor } from '@/components/JobPositionsEditor'
 
 type UserForm = {
   fullName: string
   username: string
   password: string
   role: UserRole
+  positionId: string
   brigadeId: string
   isActive: boolean
 }
@@ -24,6 +27,7 @@ const emptyForm = (): UserForm => ({
   username: '',
   password: '',
   role: 'WORKER',
+  positionId: '',
   brigadeId: '',
   isActive: true,
 })
@@ -38,11 +42,25 @@ export function UsersPage() {
   const [showEditPassword, setShowEditPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [positions, setPositions] = useState<JobPosition[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   async function reload() {
-    const [u, b] = await Promise.all([fetchUsers(), fetchBrigades()])
-    setUsers(u)
-    setBrigades(b.map((x) => ({ id: x.id, name: x.name })))
+    setLoading(true)
+    setLoadFailed(false)
+    try {
+      const [u, b, p] = await Promise.all([fetchUsers(), fetchBrigades(), fetchJobPositions()])
+      setUsers(u)
+      setBrigades(b.map((x) => ({ id: x.id, name: x.name })))
+      setPositions(p)
+    } catch (err) {
+      setLoadFailed(true)
+      throw err
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -56,6 +74,7 @@ export function UsersPage() {
       username: user.username,
       password: '',
       role: user.role,
+      positionId: user.positionId != null ? String(user.positionId) : '',
       brigadeId: user.brigadeId != null ? String(user.brigadeId) : '',
       isActive: user.isActive,
     })
@@ -72,6 +91,8 @@ export function UsersPage() {
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
+    if (loading || loadFailed || saving) return
+    setSaving(true)
     setError(null)
     setSuccess(null)
     try {
@@ -80,6 +101,7 @@ export function UsersPage() {
         username: createForm.username.trim(),
         password: createForm.password,
         role: createForm.role,
+        positionId: createForm.positionId ? Number(createForm.positionId) : null,
         brigadeId: createForm.brigadeId ? Number(createForm.brigadeId) : undefined,
         isActive: createForm.isActive,
       })
@@ -90,12 +112,15 @@ export function UsersPage() {
     } catch (err) {
       console.error('[users/create]', err)
       setError(toUserMessage(err))
+    } finally {
+      setSaving(false)
     }
   }
 
   async function handleUpdate(e: FormEvent) {
     e.preventDefault()
-    if (editingId == null) return
+    if (editingId == null || loading || loadFailed || saving) return
+    setSaving(true)
     setError(null)
     setSuccess(null)
     try {
@@ -103,6 +128,7 @@ export function UsersPage() {
         fullName: editForm.fullName.trim(),
         username: editForm.username.trim(),
         role: editForm.role,
+        positionId: editForm.positionId ? Number(editForm.positionId) : null,
         brigadeId: editForm.brigadeId ? Number(editForm.brigadeId) : null,
         isActive: editForm.isActive,
       })
@@ -115,6 +141,8 @@ export function UsersPage() {
     } catch (err) {
       console.error('[users/update]', err)
       setError(toUserMessage(err))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -137,6 +165,7 @@ export function UsersPage() {
     className?: string,
   ) {
     return (
+      <label className="flex min-w-0 flex-col gap-1 text-sm">Роль доступа
       <select
         className={className ?? 'rounded-lg border px-3 py-2'}
         value={value}
@@ -148,6 +177,7 @@ export function UsersPage() {
           </option>
         ))}
       </select>
+      </label>
     )
   }
 
@@ -157,7 +187,7 @@ export function UsersPage() {
     className?: string,
   ) {
     return (
-      <select
+      <select aria-label="Бригада"
         className={className ?? 'rounded-lg border px-3 py-2'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -172,6 +202,33 @@ export function UsersPage() {
     )
   }
 
+  function positionSaved(position: JobPosition) {
+    if (!positions.some(row => row.id === position.id)) {
+      if (editingId != null) setEditForm(form => ({ ...form, positionId: String(position.id) }))
+      else setCreateForm(form => ({ ...form, positionId: String(position.id) }))
+    }
+    setPositions(rows => [...rows.filter(row => row.id !== position.id), position]
+      .sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name, 'ru')))
+    setUsers(rows => rows.map(row => row.positionId === position.id ? { ...row, positionName: position.name } : row))
+    if (!position.isActive && createForm.positionId === String(position.id)) {
+      setCreateForm(form => ({ ...form, positionId: '' }))
+    }
+    const assignedPositionId = users.find(user => user.id === editingId)?.positionId
+    if (!position.isActive && editForm.positionId === String(position.id) && assignedPositionId !== position.id) {
+      setEditForm(form => ({ ...form, positionId: assignedPositionId != null ? String(assignedPositionId) : '' }))
+    }
+  }
+
+  function renderPositionSelect(value: string, onChange: (id: string) => void, assignedId?: number | null) {
+    return <label className="flex min-w-0 flex-col gap-1 text-sm">Должность
+      <select className="min-w-0 rounded-lg border px-3 py-2" value={value} onChange={e => onChange(e.target.value)} disabled={loading || loadFailed}>
+        <option value="">— Не назначена —</option>
+        {positions.filter(position => position.isActive || position.id === assignedId).map(position =>
+          <option key={position.id} value={position.id}>{position.name}{position.isActive ? '' : ' (в архиве)'}</option>)}
+      </select>
+    </label>
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -181,8 +238,16 @@ export function UsersPage() {
         </p>
       </div>
 
-      <form onSubmit={handleCreate} autoComplete="off" className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+      <JobPositionsEditor positions={positions} onSaved={positionSaved} disabled={loading || loadFailed || saving} />
+      {loading && <p role="status" className="text-sm text-slate-600">Загрузка сотрудников и должностей…</p>}
+      {loadFailed && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
+        Не удалось загрузить сотрудников и должности.
+        <button type="button" className="ml-2 underline" onClick={() => { setError(null); void reload().catch(err => setError(toUserMessage(err))) }}>Повторить загрузку</button>
+      </div>}
+
+      <form aria-label="Создание сотрудника" onSubmit={handleCreate} autoComplete="off" className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
         <input
+          aria-label="ФИО"
           className="rounded-lg border px-3 py-2"
           placeholder="ФИО *"
           value={createForm.fullName}
@@ -190,6 +255,7 @@ export function UsersPage() {
           required
         />
         <input
+          aria-label="Логин сотрудника"
           className="rounded-lg border px-3 py-2"
           placeholder="Логин *"
           value={createForm.username}
@@ -200,6 +266,7 @@ export function UsersPage() {
         />
         <div className="flex rounded-lg border bg-white">
           <input
+            aria-label="Пароль сотрудника"
             className="min-w-0 flex-1 rounded-l-lg px-3 py-2 outline-none"
             type={showCreatePassword ? 'text' : 'password'}
             placeholder="Пароль *"
@@ -219,6 +286,7 @@ export function UsersPage() {
           </button>
         </div>
         {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => ({ ...f, role })))}
+        {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })))}
         {renderBrigadeSelect(createForm.brigadeId, (brigadeId) =>
           setCreateForm((f) => ({ ...f, brigadeId })),
         )}
@@ -230,15 +298,16 @@ export function UsersPage() {
           />
           Активен
         </label>
-        <button type="submit" className="rounded-lg bg-blue-700 px-4 py-2 text-white sm:col-span-2">
+        <button type="submit" disabled={loading || loadFailed || saving} className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50 sm:col-span-2">
           Создать пользователя
         </button>
       </form>
 
       {editingId != null && (
-        <form onSubmit={handleUpdate} autoComplete="off" className="grid gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
+        <form aria-label="Редактирование сотрудника" onSubmit={handleUpdate} autoComplete="off" className="grid gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
           <p className="text-sm font-medium text-blue-900 sm:col-span-2">Редактирование пользователя</p>
           <input
+            aria-label="ФИО"
             className="rounded-lg border px-3 py-2"
             placeholder="ФИО *"
             value={editForm.fullName}
@@ -246,6 +315,7 @@ export function UsersPage() {
             required
           />
           <input
+            aria-label="Логин сотрудника"
             className="rounded-lg border px-3 py-2"
             placeholder="Логин *"
             value={editForm.username}
@@ -274,6 +344,7 @@ export function UsersPage() {
             </button>
           </div>
           {renderRoleSelect(editForm.role, (role) => setEditForm((f) => ({ ...f, role })))}
+          {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), users.find(user => user.id === editingId)?.positionId)}
           {renderBrigadeSelect(editForm.brigadeId, (brigadeId) =>
             setEditForm((f) => ({ ...f, brigadeId })),
           )}
@@ -286,7 +357,7 @@ export function UsersPage() {
             Активен
           </label>
           <div className="flex gap-2 sm:col-span-2">
-            <button type="submit" className="rounded-lg bg-blue-700 px-4 py-2 text-white">
+            <button type="submit" disabled={loading || loadFailed || saving} className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50">
               Сохранить
             </button>
             <button
@@ -300,8 +371,8 @@ export function UsersPage() {
         </form>
       )}
 
-      {error && <p className="text-red-600">{error}</p>}
-      {success && <p className="text-emerald-700">{success}</p>}
+      {error && <p role="alert" className="text-red-600">{error}</p>}
+      {success && <p role="status" className="text-emerald-700">{success}</p>}
 
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="min-w-full text-sm">
@@ -309,7 +380,8 @@ export function UsersPage() {
             <tr>
               <th className="px-3 py-2 text-left">ФИО</th>
               <th className="px-3 py-2 text-left">Логин</th>
-              <th className="px-3 py-2 text-left">Роль</th>
+              <th className="px-3 py-2 text-left">Должность</th>
+              <th className="px-3 py-2 text-left">Роль доступа</th>
               <th className="px-3 py-2 text-left">Бригада</th>
               <th className="px-3 py-2 text-left">Статус</th>
               <th className="px-3 py-2 text-left">Действия</th>
@@ -320,6 +392,7 @@ export function UsersPage() {
               <tr key={u.id} className={editingId === u.id ? 'bg-blue-50/50' : undefined}>
                 <td className="px-3 py-2">{u.fullName}</td>
                 <td className="px-3 py-2 font-mono text-xs">{u.username}</td>
+                <td className="px-3 py-2">{u.positionName ?? '—'}{u.positionId != null && positions.some(position => position.id === u.positionId && !position.isActive) && <span className="ml-1 text-xs text-slate-500">(в архиве)</span>}</td>
                 <td className="px-3 py-2">{ROLE_LABELS[u.role]}</td>
                 <td className="px-3 py-2">{brigades.find((b) => b.id === u.brigadeId)?.name ?? '—'}</td>
                 <td className="px-3 py-2">

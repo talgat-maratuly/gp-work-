@@ -8,6 +8,7 @@ export function AccountControls() {
   return <div aria-label="Текущий аккаунт" className="min-w-0 text-right text-xs">
     <p className="max-w-40 truncate font-semibold text-slate-900" title={user?.fullName}>{user?.fullName}</p>
     <p className="text-emerald-800">{user ? ROLE_LABELS[user.role] : ''}</p>
+    {user?.positionName && <p className="max-w-40 truncate text-slate-600" title={user.positionName}>{user.positionName}</p>}
     <button type="button" onClick={() => { logout(); navigate('/login', { replace: true }) }}
       className="mt-1 rounded-lg border border-slate-200 px-3 py-2 font-semibold text-slate-700">Выйти</button>
   </div>

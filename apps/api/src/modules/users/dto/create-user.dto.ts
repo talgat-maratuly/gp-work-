@@ -8,6 +8,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { UserRole } from '../../../common/enums/user-role.enum';
@@ -34,6 +35,11 @@ export class CreateUserDto {
 
   @IsEnum(UserRole)
   role!: UserRole;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  positionId?: number | null;
 
   @IsOptional()
   @Type(() => Number)

@@ -11,6 +11,7 @@ import {
 import { UserRole } from '../common/enums/user-role.enum';
 import { Brigade } from './brigade.entity';
 import { BrigadeMember } from './brigade-member.entity';
+import { JobPosition } from './job-position.entity';
 
 @Entity('users')
 export class User {
@@ -28,6 +29,13 @@ export class User {
 
   @Column({ type: 'varchar', length: 32, default: UserRole.WORKER })
   role!: UserRole;
+
+  @Column({ name: 'position_id', type: 'int', nullable: true })
+  positionId!: number | null;
+
+  @ManyToOne(() => JobPosition, { nullable: true, eager: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'position_id' })
+  position!: JobPosition | null;
 
   @Column({ name: 'brigade_id', type: 'int', nullable: true })
   brigadeId!: number | null;

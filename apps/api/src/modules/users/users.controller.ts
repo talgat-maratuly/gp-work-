@@ -33,6 +33,8 @@ export class UsersController {
         fullName: u.fullName,
         username: u.username,
         role: u.role,
+        positionId: u.positionId ?? null,
+        positionName: u.position?.name ?? null,
         brigadeId: u.brigadeId,
         isActive: u.isActive,
         createdAt: u.createdAt,

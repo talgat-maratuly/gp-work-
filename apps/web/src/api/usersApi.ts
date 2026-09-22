@@ -6,6 +6,8 @@ export type ApiUser = {
   fullName: string
   username: string
   role: UserRole
+  positionId: number | null
+  positionName: string | null
   brigadeId: number | null
   isActive: boolean
   createdAt: string
@@ -30,6 +32,7 @@ export async function createUser(payload: {
   username: string
   password: string
   role: UserRole
+  positionId?: number | null
   brigadeId?: number
   isActive?: boolean
 }): Promise<ApiUser> {
@@ -43,6 +46,7 @@ export async function updateUser(
     username: string
     password: string
     role: UserRole
+    positionId: number | null
     brigadeId: number | null
     isActive: boolean
   }>

@@ -22,6 +22,7 @@ export class AuthService {
     const user = await this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.position', 'position')
       .where('user.username = :username', { username: username.trim() })
       .getOne();
     if (!user) {
@@ -97,6 +98,8 @@ export class AuthService {
       fullName: user.fullName,
       username: user.username,
       role: user.role,
+      positionId: user.positionId ?? null,
+      positionName: user.position?.name ?? null,
       brigadeId: user.brigadeId,
       isActive: user.isActive,
       createdAt: user.createdAt,

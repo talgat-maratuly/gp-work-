@@ -11,6 +11,7 @@ import { UserRole } from '../../common/enums/user-role.enum';
 import { Brigade } from '../../entities/brigade.entity';
 import { BrigadeMember } from '../../entities/brigade-member.entity';
 import { User } from '../../entities/user.entity';
+import { JobPosition } from '../../entities/job-position.entity';
 import { AuthService } from '../auth/auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -38,8 +39,17 @@ export class UsersService {
     }
   }
 
-  private saveWithMembership(row: User) {
+  private saveWithMembership(row: User, validatePosition = false) {
     return this.userRepo.manager.transaction(async (manager) => {
+      if (validatePosition) {
+        row.position = row.positionId == null ? null : await manager.getRepository(JobPosition).findOne({
+          where: { id: row.positionId, isActive: true },
+          lock: { mode: 'pessimistic_read' },
+        });
+        if (row.positionId != null && !row.position) {
+          throw new BadRequestException('Выберите действующую должность. Она не найдена или перенесена в архив.');
+        }
+      }
       const saved = await manager.getRepository(User).save(row);
       const memberships = manager.getRepository(BrigadeMember);
       await memberships.delete({ userId: saved.id });
@@ -84,10 +94,11 @@ export class UsersService {
       username: dto.username.trim(),
       passwordHash,
       role: dto.role,
+      positionId: dto.positionId ?? null,
       brigadeId: dto.brigadeId ?? null,
       isActive: dto.isActive ?? true,
     });
-    const saved = await this.saveWithMembership(row);
+    const saved = await this.saveWithMembership(row, true);
     return this.authService.toPublicUser(saved);
   }
 
@@ -107,6 +118,7 @@ export class UsersService {
 
   async update(id: number, dto: UpdateUserDto, actor: User) {
     const row = await this.findOne(id);
+    const positionChanged = dto.positionId !== undefined && dto.positionId !== row.positionId;
     if (dto.brigadeId !== undefined && dto.brigadeId !== row.brigadeId) {
       await this.assertActiveBrigade(dto.brigadeId);
     }
@@ -131,11 +143,12 @@ export class UsersService {
     }
     if (dto.fullName !== undefined) row.fullName = dto.fullName.trim();
     if (dto.role !== undefined) row.role = dto.role;
+    if (dto.positionId !== undefined) row.positionId = dto.positionId;
     if (dto.brigadeId !== undefined) row.brigadeId = dto.brigadeId;
     if (dto.isActive !== undefined) row.isActive = dto.isActive;
     if (dto.password) row.passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const saved = await this.saveWithMembership(row);
+    const saved = await this.saveWithMembership(row, positionChanged);
     return this.authService.toPublicUser(saved);
   }
 

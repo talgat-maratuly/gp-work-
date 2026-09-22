@@ -19,6 +19,8 @@ export interface AuthUser {
   fullName: string
   username: string
   role: UserRole
+  positionId?: number | null
+  positionName?: string | null
   brigadeId: number | null
   isActive: boolean
   createdAt: string

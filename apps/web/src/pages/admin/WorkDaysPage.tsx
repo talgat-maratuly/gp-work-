@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiRequest, resolveAssetUrl, toUserMessage } from '@/api/client'
+import { Link } from 'react-router-dom'
 
 type TaskResult = {
   taskId: number
@@ -89,6 +90,7 @@ export function WorkDaysPage() {
       <div>
         <h1 className="text-3xl font-black">Рабочие дни</h1>
         <p className="text-slate-500">QR, GPS, селфи, результаты задач и итоговая приёмка</p>
+        <Link to="/admin/attendance" className="mt-2 inline-block text-sm font-semibold text-blue-700 underline">Часы и число сотрудников — в табеле →</Link>
       </div>
       {error && <div className="rounded-xl bg-red-50 p-3 text-red-700">{error}</div>}
       {loading && <div className="rounded-xl bg-white p-8 text-center text-slate-500">Загрузка смен…</div>}

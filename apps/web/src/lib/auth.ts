@@ -14,6 +14,8 @@ export type UserRole =
   | 'AKIMAT'
   | 'ANTICOR'
 
+export const EMPLOYEE_ROLES: readonly UserRole[] = ['ADMIN', 'DIRECTOR', 'ACCOUNTANT', 'BRIGADIER', 'AGRONOMIST', 'WORKER', 'WATER_CARRIER']
+
 export interface AuthUser {
   id: number
   fullName: string

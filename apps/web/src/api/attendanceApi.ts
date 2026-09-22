@@ -12,8 +12,10 @@ export type AttendanceRecord = {
   lastActivityTime: string
   checkInLatitude: number | null
   checkInLongitude: number | null
+  checkInAccuracy: number | null
   checkOutLatitude: number | null
   checkOutLongitude: number | null
+  checkOutAccuracy: number | null
   workedHours: number | null
   status: AttendanceStatus
   reportCount: number
@@ -23,6 +25,22 @@ export type AttendanceRecord = {
   createdAt: string
   updatedAt: string
 }
+
+export interface MyWorkDay {
+  today: string
+  serverTime: string
+  current: AttendanceRecord | null
+  recent: AttendanceRecord[]
+  fieldSession: { sectionCode: string; status: 'OPEN' | 'RETURNED' } | null
+}
+
+export type AttendanceLocation = { latitude: number; longitude: number; accuracy: number }
+
+export const fetchMyWorkDay = () => apiRequest<MyWorkDay>('/attendance/me')
+export const startMyWorkDay = (location: AttendanceLocation) =>
+  apiRequest<AttendanceRecord>('/attendance/me/start', { method: 'POST', body: JSON.stringify(location) })
+export const finishMyWorkDay = (id: number, location: AttendanceLocation) =>
+  apiRequest<AttendanceRecord>(`/attendance/me/${id}/finish`, { method: 'POST', body: JSON.stringify(location) })
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   ON_DUTY: 'На работе',

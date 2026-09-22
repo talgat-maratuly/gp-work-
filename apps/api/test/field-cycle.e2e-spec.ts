@@ -696,6 +696,8 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     await dataSource.query('UPDATE sections SET latitude = NULL WHERE id = $1', [section.id]);
     await request(app.getHttpServer()).post('/api/field/work-days/start').set(auth(token)).send(startBody).expect(400);
     await dataSource.query('UPDATE sections SET latitude = $1 WHERE id = $2', [51.2301, section.id]);
+    const clockAttendance = (await request(app.getHttpServer()).post('/api/attendance/me/start')
+      .set(auth(token)).send({ latitude: 51.2301, longitude: 51.3701, accuracy: 5 }).expect(201)).body;
     const session = (await request(app.getHttpServer())
       .post('/api/field/work-days/start')
       .set(auth(token))
@@ -726,12 +728,19 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
       .set(auth(adminToken))
       .expect(200)).body.find((row: { userId: number }) => row.userId === worker.id);
     expect(openAttendance).toMatchObject({
+      id: clockAttendance.id,
+      checkInTime: clockAttendance.checkInTime,
+      checkInAccuracy: 5,
       userId: worker.id,
       workerFullName: worker.fullName,
       status: 'ON_DUTY',
       checkOutTime: null,
       reportCount: 0,
     });
+    const personalDay = (await request(app.getHttpServer()).get('/api/attendance/me').set(auth(token)).expect(200)).body;
+    expect(personalDay.fieldSession).toMatchObject({ sectionCode: section.code, status: 'OPEN' });
+    await request(app.getHttpServer()).post(`/api/attendance/me/${openAttendance.id}/finish`).set(auth(token))
+      .send({ latitude: 51.2301, longitude: 51.3701, accuracy: 5 }).expect(400);
 
     const [endCenter, endLeft, endRight, resultPhoto] = await uploadMany([
       'end-center.jpg', 'end-left.jpg', 'end-right.jpg', 'result-work.jpg',
@@ -828,6 +837,10 @@ describe('GP Work evidence field cycle (PostgreSQL)', () => {
     expect(closedAttendance.checkOutTime).toBeTruthy();
     expect(closedAttendance.checkOutLatitude).toBeCloseTo(51.2301);
     expect(closedAttendance.checkOutLongitude).toBeCloseTo(51.3701);
+    const commonFinish = (await request(app.getHttpServer()).post(`/api/attendance/me/${closedAttendance.id}/finish`)
+      .set(auth(token)).send({ latitude: 0, longitude: 0, accuracy: 1 }).expect(201)).body;
+    expect(commonFinish).toMatchObject({ id: clockAttendance.id, checkOutTime: closedAttendance.checkOutTime, checkOutAccuracy: 5 });
+    expect(commonFinish.checkOutLongitude).toBeCloseTo(51.3701);
     await request(app.getHttpServer())
       .post(`/api/field/work-days/${session.id}/review`)
       .set(auth(outsiderToken))

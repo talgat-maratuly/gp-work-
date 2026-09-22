@@ -4,7 +4,7 @@ import { AccountControls } from '@/components/AccountControls'
 import { homePathForRole } from '@/lib/roleRoutes'
 import { getNurseryName } from '@/lib/appConfig'
 import { useAuth } from '@/context/AuthContext'
-import { ROLE_LABELS, type UserRole } from '@/lib/auth'
+import { EMPLOYEE_ROLES, ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
 import { aiLinksForRole } from '@/lib/aiNavigation'
 
@@ -27,6 +27,7 @@ const groups: NavGroup[] = [
     { to: '/admin/watering', label: 'Полив и водовозы', icon: '◇', roles: ADMIN_ROUTE_ROLES.watering },
   ]},
   { label: 'Объекты и люди', items: [
+    { to: '/my-work-day', label: 'Мой рабочий день', icon: '◷', roles: EMPLOYEE_ROLES },
     { to: '/admin/objects', label: 'Объекты', icon: '▤', roles: ADMIN_ROUTE_ROLES.objects },
     { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ADMIN_ROUTE_ROLES.users },
     { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ADMIN_ROUTE_ROLES.brigades },
@@ -88,6 +89,7 @@ export function AdminLayout() {
           </div>
           <nav aria-label="ИИ-помощники" className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2 md:px-6">
             <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
+            {user && EMPLOYEE_ROLES.includes(user.role) && <Link to="/my-work-day" className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Мой рабочий день</Link>}
             {aiLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800 hover:bg-blue-100'}`}><span aria-hidden="true">{item.icon}</span>{item.label}</NavLink>)}
           </nav>
         </header>

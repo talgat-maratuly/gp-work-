@@ -5,7 +5,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
 import { useAuth } from '@/context/AuthContext'
-import type { UserRole } from '@/lib/auth'
+import { EMPLOYEE_ROLES, type UserRole } from '@/lib/auth'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
@@ -26,6 +26,7 @@ const BusinessProcessesPage = lazy(() => import('@/pages/admin/BusinessProcesses
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })))
+const MyWorkDayPage = lazy(() => import('@/pages/MyWorkDayPage').then(m => ({ default: m.MyWorkDayPage })))
 const BrigadesPage = lazy(() => import('@/pages/admin/BrigadesPage').then((m) => ({ default: m.BrigadesPage })))
 const TasksPage = lazy(() => import('@/pages/admin/TasksPage').then((m) => ({ default: m.TasksPage })))
 const MyTasksPage = lazy(() => import('@/pages/MyTasksPage').then((m) => ({ default: m.MyTasksPage })))
@@ -88,6 +89,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
+            <Route path="/my-work-day" element={forRoles(<MyWorkDayPage />, EMPLOYEE_ROLES)} />
             <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<HomeRedirect />} />

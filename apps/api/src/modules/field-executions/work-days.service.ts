@@ -142,6 +142,7 @@ export class WorkDaysService {
     }
     const now = new Date();
     return this.sessions.manager.transaction(async (manager) => {
+      await this.attendanceService.lockEmployee(manager, user.id);
       const saved = await manager.getRepository(WorkDaySession).save(manager.getRepository(WorkDaySession).create({ clientSessionId: dto.clientSessionId, userId: user.id, sectionId: section.id, shiftDate: businessDateString(), status: WorkDayStatus.OPEN, startedAt: now, closedAt: null, startQr: section.code, endQr: null, startLatitude: dto.latitude, startLongitude: dto.longitude, startAccuracy: dto.accuracy ?? null, startDistanceMeters: distance, endLatitude: null, endLongitude: null, endAccuracy: null, endDistanceMeters: null, startSelfieUrl: dto.selfieUrl, endSelfieUrl: null, startLivenessEvidenceUrls: dto.livenessEvidenceUrls, endLivenessEvidenceUrls: [], startPhotoUrl: dto.startPhotoUrl, resultPhotoUrls: [], taskScope: assignedTasks.map((task) => ({ taskId: task.id, description: task.description })), taskResults: [], overallPercent: 0, summary: null, incompleteReasons: {}, events: [{ type: 'STARTED', at: now.toISOString(), selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, startPhotoUrl: dto.startPhotoUrl }], reviewedById: null, reviewedAt: null, reviewComment: null }));
       await this.attendanceService.syncOnWorkDayStarted(saved, user, manager);
       return saved;
@@ -234,6 +235,7 @@ export class WorkDaysService {
     const closingEvent = session.status === WorkDayStatus.RETURNED ? 'RESUBMITTED' : 'CLOSED';
     Object.assign(session, { status: WorkDayStatus.CLOSED, closedAt: now, endQr: dto.sectionCode.trim(), endLatitude: dto.latitude, endLongitude: dto.longitude, endAccuracy: dto.accuracy ?? null, endDistanceMeters: distance, endSelfieUrl: dto.selfieUrl, endLivenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls, taskResults, overallPercent: overall, summary: dto.summary?.trim() || null, incompleteReasons: Object.fromEntries(taskResults.filter(r => r.percent < 100 && r.incompleteReason).map(r => [String(r.taskId), r.incompleteReason!])), reviewedById: null, reviewedAt: null, reviewComment: null, events: [...session.events, { type: closingEvent, at: now.toISOString(), results: taskResults, selfieUrl: dto.selfieUrl, livenessEvidenceUrls: dto.livenessEvidenceUrls, resultPhotoUrls: dto.resultPhotoUrls }] });
     return this.sessions.manager.transaction(async (manager) => {
+      await this.attendanceService.lockEmployee(manager, user.id);
       const saved = await manager.getRepository(WorkDaySession).save(session);
       await this.attendanceService.syncOnWorkDayClosed(saved, user, manager);
       return saved;

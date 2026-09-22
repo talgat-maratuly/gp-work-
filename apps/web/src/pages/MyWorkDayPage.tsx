@@ -157,7 +157,7 @@ export function MyWorkDayPage() {
         {data.recent.length === 0 && <p className="text-sm text-slate-600">Пока нет отметок.</p>}
         {data.recent.map(row => <article key={row.id} className="flex flex-wrap justify-between gap-3 rounded-xl border bg-white p-4">
           <div><p className="font-semibold">{dayLabel(row.workDate)}</p><p className="mt-1 text-sm text-slate-600">{timeLabel(row.checkInTime)} — {row.checkOutTime ? timeLabel(row.checkOutTime) : 'день открыт'}</p></div>
-          <p className="font-semibold">{row.workedHours != null ? durationLabel(row.workedHours) : 'На работе'}</p>
+          <p className="font-semibold">{row.workedHours != null ? durationLabel(row.workedHours) : 'Не завершён'}</p>
         </article>)}
       </section>}
     </main>

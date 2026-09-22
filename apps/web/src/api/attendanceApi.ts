@@ -5,6 +5,7 @@ export type AttendanceStatus = 'ON_DUTY' | 'COMPLETED'
 export type AttendanceRecord = {
   id: number
   userId: number | null
+  clockManaged: boolean
   workDate: string
   workerFullName: string
   checkInTime: string

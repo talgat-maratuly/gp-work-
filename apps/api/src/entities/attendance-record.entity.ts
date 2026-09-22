@@ -25,6 +25,9 @@ export class AttendanceRecord {
   @Column({ name: 'user_id', type: 'int', nullable: true })
   userId!: number | null;
 
+  @Column({ name: 'clock_managed', default: false })
+  clockManaged!: boolean;
+
   @Column({ name: 'check_in_time', type: 'timestamptz' })
   checkInTime!: Date;
 

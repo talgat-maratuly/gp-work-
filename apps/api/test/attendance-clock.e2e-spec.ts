@@ -123,4 +123,24 @@ describe('Employee day clock (real API/database)', () => {
     expect(repeatedStart).toMatchObject({ id: next.id, status: 'COMPLETED' });
     expect((await mine(worker.token)).recent).toHaveLength(2);
   });
+
+  it('keeps historical report-only rows intact without treating them as a live shift', async () => {
+    const employee = await create('WORKER');
+    const oldTime = new Date(Date.now() - 30 * 86_400_000);
+    const [legacy] = await db.query(`INSERT INTO attendance_records
+      (user_id, worker_full_name, work_date, check_in_time, last_activity_time)
+      VALUES ($1, $2, $3, $4, $4) RETURNING id`, [employee.id, 'Legacy report', businessDateString(oldTime), oldTime]);
+    const before = await mine(employee.token);
+    expect(before.current).toBeNull();
+    expect(before.recent).toHaveLength(1);
+    const today = (await start(employee.token).expect(201)).body;
+    expect(today.id).not.toBe(legacy.id);
+    expect(today).toMatchObject({ workDate: businessDateString(), clockManaged: true, status: 'ON_DUTY' });
+    await finish(employee.token, legacy.id).expect(400);
+    const closed = (await finish(employee.token, today.id).expect(201)).body;
+    expect(closed.workedHours).toBeLessThan(0.1);
+    const [old] = await db.query('SELECT check_out_time, worked_hours, clock_managed FROM attendance_records WHERE id = $1', [legacy.id]);
+    expect(old).toEqual({ check_out_time: null, worked_hours: null, clock_managed: false });
+    expect((await mine(employee.token)).recent).toHaveLength(2);
+  });
 });

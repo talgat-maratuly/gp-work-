@@ -38,6 +38,7 @@ export class AttendanceService {
       workDate: row.workDate,
       workerFullName: row.workerFullName,
       userId: row.userId,
+      clockManaged: row.clockManaged ?? false,
       checkInTime: row.checkInTime,
       checkOutTime: row.checkOutTime,
       lastActivityTime: row.lastActivityTime,
@@ -65,10 +66,22 @@ export class AttendanceService {
       .setLock('pessimistic_write').getOneOrFail();
   }
 
+  private activeDay(repo: Repository<AttendanceRecord>, userId: number, today = businessDateString()) {
+    return repo.createQueryBuilder('attendance')
+      .where('attendance.userId = :userId AND attendance.status = :status', { userId, status: AttendanceStatus.ON_DUTY })
+      // Historical report-only rows do not prove a still-running shift.
+      .andWhere(`(attendance.clock_managed = true OR attendance.work_date = :today OR EXISTS (
+        SELECT 1 FROM work_day_sessions field_day
+        WHERE field_day.user_id = attendance.user_id AND field_day.shift_date = attendance.work_date
+          AND field_day.status IN ('OPEN', 'RETURNED')
+      ))`, { today })
+      .orderBy('attendance.checkInTime', 'ASC').getOne();
+  }
+
   async getMyDay(user: User) {
     const today = businessDateString();
     const [open, todayRecord, recent, fieldSession] = await Promise.all([
-      this.attendanceRepo.findOne({ where: { userId: user.id, status: AttendanceStatus.ON_DUTY }, order: { checkInTime: 'ASC' } }),
+      this.activeDay(this.attendanceRepo, user.id, today),
       this.attendanceRepo.findOne({ where: { userId: user.id, workDate: today } }),
       this.attendanceRepo.find({ where: { userId: user.id }, order: { workDate: 'DESC', checkInTime: 'DESC' }, take: 31 }),
       this.attendanceRepo.manager.getRepository(WorkDaySession).findOne({
@@ -90,15 +103,21 @@ export class AttendanceService {
     return this.attendanceRepo.manager.transaction(async manager => {
       await this.lockEmployee(manager, user.id);
       const repo = manager.getRepository(AttendanceRecord);
-      const open = await repo.findOne({ where: { userId: user.id, status: AttendanceStatus.ON_DUTY }, order: { checkInTime: 'ASC' } });
-      if (open) return this.mapRecord(open);
+      const open = await this.activeDay(repo, user.id);
+      if (open) {
+        if (!open.clockManaged) {
+          open.clockManaged = true;
+          await repo.save(open);
+        }
+        return this.mapRecord(open);
+      }
       const now = new Date();
       const workDate = businessDateString(now);
       const existing = await repo.findOne({ where: { userId: user.id, workDate } });
       // A repeated or delayed request cannot reopen a completed day.
       if (existing) return this.mapRecord(existing);
       return this.mapRecord(await repo.save(repo.create({
-        userId: user.id, workerFullName: normalizeName(user.fullName), workDate,
+        userId: user.id, workerFullName: normalizeName(user.fullName), workDate, clockManaged: true,
         checkInTime: now, lastActivityTime: now, checkInLatitude: dto.latitude,
         checkInLongitude: dto.longitude, checkInAccuracy: dto.accuracy,
         checkOutTime: null, checkOutLatitude: null, checkOutLongitude: null, checkOutAccuracy: null,
@@ -121,10 +140,14 @@ export class AttendanceService {
       ] });
       if (field) throw new BadRequestException('Завершите рабочий день в форме участка: QR, фото и результат работы. Табель обновится автоматически.');
       const now = new Date();
+      if (!row.clockManaged && row.workDate !== businessDateString(now)) {
+        throw new BadRequestException('Это старая запись по отчёту без отметки начала смены. Начните текущий рабочий день.');
+      }
       Object.assign(row, {
         checkOutTime: now, lastActivityTime: now, checkOutLatitude: dto.latitude,
         checkOutLongitude: dto.longitude, checkOutAccuracy: dto.accuracy,
         workedHours: String(calcWorkedHours(row.checkInTime, now)), status: AttendanceStatus.COMPLETED,
+        clockManaged: true,
       });
       return this.mapRecord(await repo.save(row));
     });
@@ -153,7 +176,7 @@ export class AttendanceService {
         ? { workDate, userId: workLog.userId }
         : { workDate, workerFullName },
     });
-    if (!row && workLog.userId) row = await repo.findOne({ where: { userId: workLog.userId, status: AttendanceStatus.ON_DUTY }, order: { checkInTime: 'ASC' } });
+    if (!row && workLog.userId) row = await this.activeDay(repo, workLog.userId, workDate);
 
     if (!row) {
       row = repo.create({
@@ -192,7 +215,7 @@ export class AttendanceService {
       }
       return this.mapRecord(row);
     }
-    const previous = await repo.findOne({ where: { userId: user.id, status: AttendanceStatus.ON_DUTY } });
+    const previous = await this.activeDay(repo, user.id, session.shiftDate);
     if (previous) throw new BadRequestException('Сначала завершите предыдущий рабочий день в разделе «Мой рабочий день»');
     row = repo.create({
       workDate: session.shiftDate,

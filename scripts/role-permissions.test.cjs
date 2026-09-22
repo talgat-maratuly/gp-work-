@@ -12,6 +12,13 @@ const moduleExports = {}
 new Function('exports', 'module', compiled)(moduleExports, { exports: moduleExports })
 const { ADMIN_ROUTE_ROLES, canAccessRoles } = moduleExports
 
+test('director cabinet belongs only to the director, not the administrator', () => {
+  for (const role of ['ADMIN', 'ACCOUNTANT', 'WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR']) {
+    assert.equal(canAccessRoles(role, ADMIN_ROUTE_ROLES.director), false, role)
+  }
+  assert.equal(canAccessRoles('DIRECTOR', ADMIN_ROUTE_ROLES.director), true)
+})
+
 test('water carrier can open watering but cannot open dashboard or management pages', () => {
   assert.equal(canAccessRoles('WATER_CARRIER', ADMIN_ROUTE_ROLES.watering), true)
   assert.equal(canAccessRoles('WATER_CARRIER', ADMIN_ROUTE_ROLES.dashboard), false)

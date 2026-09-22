@@ -68,6 +68,10 @@ export type FieldExecution = {
   startedAt: string | null
   completedAt: string | null
   acceptedAt: string | null
+  qrVerifiedAt: string | null
+  arrivalLatitude: number | null
+  arrivalLongitude: number | null
+  arrivalAccuracy: number | null
   arrivalDistanceMeters: number | null
   completionPercent: number | null
   actualVolume: string | null

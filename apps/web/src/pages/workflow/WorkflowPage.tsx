@@ -1,21 +1,47 @@
 import { useCallback,useEffect,useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { toUserMessage } from '@/api/client'
 import { workflowGet,workflowPost,STAGES,CATEGORIES,IMPROVEMENT_STATUS,type BoardTask,type Catalog,type ToolItem,type Summary } from '@/api/workflowApi'
 import { ToolsPanel } from '@/components/workflow/ToolsPanel'
 import { Label,inputClass,buttonClass,panelClass } from '@/components/workflow/Controls'
+import { TaskBoardGuide } from '@/components/workflow/WorkflowGuide'
+import { getBusinessDefinitions, type BusinessDefinition } from '@/api/businessProcessesApi'
 export function WorkflowPage() {
   const {user}=useAuth();const global=['ADMIN','DIRECTOR'].includes(user!.role);const accountant=user!.role==='ACCOUNTANT'
+  const [params] = useSearchParams()
+  const processId = Number(params.get('process'))
+  const canAttach = ['ADMIN', 'DIRECTOR', 'BRIGADIER', 'AGRONOMIST'].includes(user!.role)
+  const choosing = canAttach && Number.isSafeInteger(processId) && processId > 0
+  const [process, setProcess] = useState<BusinessDefinition | null>(null)
+  const [processError, setProcessError] = useState('')
+  useEffect(() => {
+    let active = true
+    setProcess(null); setProcessError('')
+    if (choosing) void getBusinessDefinitions().then(rows => {
+      if (!active) return
+      const selected = rows.find(row => row.id === processId && !row.archived)
+      setProcess(selected ?? null)
+      if (!selected) setProcessError('Этот шаблон обновлён или архивирован. Выберите действующий процесс в конструкторе.')
+    }).catch(e => { if (active) setProcessError(toUserMessage(e)) })
+    return () => { active = false }
+  }, [choosing, processId])
   const [tab,setTab]=useState('board');const [tasks,setTasks]=useState<BoardTask[]>([]);const [catalog,setCatalog]=useState<Catalog|null>(null);const [tools,setTools]=useState<ToolItem[]>([]);const [summary,setSummary]=useState<Summary|null>(null);const [error,setError]=useState('');const [loading,setLoading]=useState(true)
   const load=useCallback(async()=>{setError('');try {const s=await workflowGet<Summary>('/summary');setSummary(s);if(!accountant){const [b,c,t]=await Promise.all([workflowGet<BoardTask[]>('/board'),workflowGet<Catalog>('/catalog'),workflowGet<ToolItem[]>('/tools')]);setTasks(b);setCatalog(c);setTools(t)}}catch(e){setError(toUserMessage(e));throw e}finally{setLoading(false)}},[accountant])
   useEffect(()=>{void load().catch(()=>undefined)},[load])
   return <div className="space-y-5"><div><h1 className="text-2xl font-bold">Работа и улучшения</h1><p className="mt-1 text-slate-600">Подготовка, выполнение, помощь и проверенный результат.</p></div>
+    {!accountant && <TaskBoardGuide />}
+    {choosing && <section aria-label="Подключение процесса" className="space-y-2 rounded-xl bg-blue-50 p-4">
+      <h2 className="font-bold">Шаг 1 из 2: выберите задачу</h2>
+      {processError ? <p role="alert">{processError}</p> : process ? <p>Процесс: <b>{process.schema.title} · версия {process.version}</b>. Откройте нужную карточку ниже; в ней останется подтвердить подключение.</p> : <p role="status">Загрузка выбранного процесса…</p>}
+      <Link className="text-sm text-blue-700 underline" to="/admin/workflow">Выйти из подключения</Link>
+    </section>}
+    {canAttach && <Link to="/admin/tasks" className="inline-block font-semibold text-blue-700 underline">Создать или назначить задачу →</Link>}
     {error&&<div role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}<button type="button" className="ml-3 underline" onClick={()=>void load().catch(()=>undefined)}>Повторить загрузку</button></div>}
     {loading?<p role="status">Загрузка…</p>:accountant?<section className={panelClass}><h2 className="font-bold">Измерения расходов</h2><p className="text-sm">Значения внесены участниками проверок. Они требуют сверки с учётом и не изменяют бухгалтерские проводки.</p>{!summary?.financial?.length?<p>Проверок с показателем в тенге пока нет.</p>:summary.financial.map(i=><article key={i.id} className="rounded-lg border p-3"><b>#{i.id} · {i.metric}</b><p>Было: {i.baseline} тг · После: {i.observed} тг</p><p>{IMPROVEMENT_STATUS[i.status]}</p><p>{i.evidence}</p><p>{i.decision}</p></article>)}</section>:<>
     <nav aria-label="Разделы работы" className="flex flex-wrap gap-2">{[['board','Задачи'],['tools','Инструмент'],['standards','Стандарты'],['summary','Причины задержек']].map(([id,label])=><button key={id} type="button" onClick={()=>setTab(id)} aria-pressed={tab===id} className={`rounded-lg px-4 py-2 font-semibold ${tab===id?'bg-emerald-700 text-white':'border bg-white'}`}>{label}</button>)}</nav>
-    {tab==='board'&&<><p className="text-sm text-slate-600">Статусы следуют реальным действиям и приёмке. Лимит незавершённых задач задаётся при подготовке, включая работы на приёмке.</p>{!tasks.length?<p className={panelClass}>Назначенных задач пока нет.</p>:<div className="grid gap-4" style={{gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 16rem), 1fr))"}}>{Object.entries(STAGES).filter(([stage])=>stage!=='CANCELLED'||tasks.some(t=>t.stage===stage)).map(([stage,label])=><section key={stage} className="rounded-xl bg-slate-100 p-3"><h2 className="mb-3 font-bold">{label} · {tasks.filter(t=>t.stage===stage).length}</h2><div className="space-y-3">{tasks.filter(t=>t.stage===stage).map(t=><Link to={`/workflow/tasks/${t.id}`} key={t.id} className="block min-w-0 space-y-2 break-words rounded-xl border bg-white p-3 hover:border-emerald-600"><h3 className="font-semibold">#{t.id} · {t.description}</h3><p className="text-sm">{t.objectName} · {t.sectionName}</p><p className="text-xs text-slate-600">Исполнитель: {t.assigneeName||'Не назначен'}<br/>За результат: {t.accountableName||'Не назначен'}<br/>Принимает: {t.reviewerName||'Не назначен'}</p>{!!t.obstacleCount&&<p className="text-sm text-red-700">Препятствий: {t.obstacleCount}</p>}{!t.configured&&<p className="text-xs text-amber-800">Стандарт ещё не назначен</p>}</Link>)}</div></section>)}</div>}</>}
-    {tab==='tools'&&<ToolsPanel tools={tools} tasks={tasks} onChanged={load}/>}
+    {tab==='board'&&<><p className="text-sm text-slate-600">Статусы следуют реальным действиям и приёмке. Лимит незавершённых задач задаётся при подготовке, включая работы на приёмке.</p>{!tasks.length?<p className={panelClass}>Назначенных задач пока нет.</p>:<div className="grid gap-4" style={{gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 16rem), 1fr))"}}>{Object.entries(STAGES).filter(([stage])=>stage!=='CANCELLED'||tasks.some(t=>t.stage===stage)).map(([stage,label])=><section key={stage} className="rounded-xl bg-slate-100 p-3"><h2 className="mb-3 font-bold">{label} · {tasks.filter(t=>t.stage===stage).length}</h2><div className="space-y-3">{tasks.filter(t=>t.stage===stage).map(t=><Link to={`/workflow/tasks/${t.id}${process && !['VERIFIED', 'CANCELLED'].includes(t.status) ? `?process=${process.id}#business-processes` : ''}`} key={t.id} className="block min-w-0 space-y-2 break-words rounded-xl border bg-white p-3 hover:border-emerald-600"><h3 className="font-semibold">#{t.id} · {t.description}</h3><p className="text-sm">{t.objectName} · {t.sectionName}</p><p className="text-xs text-slate-600">Исполнитель: {t.assigneeName||'Не назначен'}<br/>За результат: {t.accountableName||'Не назначен'}<br/>Принимает: {t.reviewerName||'Не назначен'}</p>{!!t.obstacleCount&&<p className="text-sm text-red-700">Препятствий: {t.obstacleCount}</p>}{!t.configured&&<p className="text-xs text-amber-800">Стандарт ещё не назначен</p>}{choosing && <p className="text-sm font-semibold text-blue-700">{['VERIFIED', 'CANCELLED'].includes(t.status) ? 'Закрытая задача — только просмотр' : 'Выбрать для подключения →'}</p>}</Link>)}</div></section>)}</div>}</>}
+    {tab==='tools'&&<><p className="text-sm text-slate-600">Здесь учитываются место хранения, исправность, выдача и возврат инструмента. Руководитель указывает необходимый комплект в карточке задачи.</p><ToolsPanel tools={tools} tasks={tasks} onChanged={load}/></>}
     {tab==='standards'&&catalog&&<><p className="text-sm text-slate-600">Новая редакция применяется при подготовке следующих задач. У начатых работ сохраняется назначенная версия.</p>{global&&<StandardForm catalog={catalog} onChanged={load}/>} {!catalog.standards.length&&<p className={panelClass}>Стандартов пока нет. Директор может создать инструкцию для вида работ.</p>}{catalog.standards.map(s=><article key={s.id} className={panelClass}><h2 className="font-bold">{s.title} · версия {s.version}</h2><p>{s.work_type_name}</p><b>Перед началом</b><ul className="list-disc pl-5">{s.preparation.map((v,i)=><li key={i}>{v}</li>)}</ul><b>Порядок работы</b><ol className="list-decimal pl-5">{s.steps.map((v,i)=><li key={i}>{v}</li>)}</ol><p><b>Приёмка:</b> {s.acceptance}</p></article>)}</>}
     {tab==='summary'&&summary&&<section className={panelClass}><h2 className="text-lg font-bold">Что задерживало работу за {summary.periodDays} дней</h2><p>{summary.interpretation}</p>{!summary.waitingByCategory?.length?<p>Препятствий за период не зарегистрировано. Данных для выбора главной причины задержек пока нет.</p>:<table className="w-full text-left"><thead><tr><th className="py-2">Причина</th><th>Минуты по задачам</th></tr></thead><tbody>{summary.waitingByCategory.map(r=><tr key={r.category} className="border-t"><td className="py-2">{CATEGORIES[r.category]}</td><td>{r.minutes}</td></tr>)}</tbody></table>}<p>Препятствий с просроченным сроком: {summary.overdueObstacles??0}</p><p>Улучшений, закреплённых в стандартах: {summary.improvements?.filter(i=>i.status==='ADOPTED').length??0}</p><p className="text-sm text-slate-600">Начните разбор с причины с наибольшим временем: подтвердите её на объекте, проверьте одно изменение, затем сравните результат. По этим данным нельзя автоматически рассчитать экономию или зарплату.</p></section>}
     </>}

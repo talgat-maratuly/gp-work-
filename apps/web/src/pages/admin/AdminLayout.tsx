@@ -14,7 +14,7 @@ type NavGroup = { label: string; items: NavItem[] }
 const groups: NavGroup[] = [
   { label: 'Операции', items: [
     { to: '/admin', label: 'Главная', icon: '⌂', end: true, roles: ADMIN_ROUTE_ROLES.dashboard },
-    { to: '/admin/director', label: 'Кабинет директора', icon: '◆', roles: ['ADMIN', 'DIRECTOR'] },
+    { to: '/admin/director', label: 'Кабинет директора', icon: '◆', roles: ADMIN_ROUTE_ROLES.director },
     { to: '/admin/dispatcher', label: 'Диспетчерская', icon: '◎', roles: ADMIN_ROUTE_ROLES.dispatcher },
     { to: '/admin/executions', label: 'Приёмка работ', icon: '✓', roles: ADMIN_ROUTE_ROLES.executions },
     { to: '/admin/workflow', label: 'Работа и улучшения', icon: '↥', roles: ADMIN_ROUTE_ROLES.workflow },

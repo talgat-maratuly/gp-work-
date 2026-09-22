@@ -13,6 +13,8 @@ import { fetchSectionByCode } from '@/api/sectionsApi'
 import { buildQrImageUrl } from '@/lib/appConfig'
 import { SectionLocationEditor } from '@/components/SectionLocationEditor'
 import type { FormFieldSetting, FormSettings } from '@/lib/types'
+import { ResultFields, ResultFormPreview } from '@/components/field/ResultFields'
+import type { PublicSectionForm } from './SectionEntryPage'
 
 type TaskResult = {
   percent: number
@@ -76,10 +78,10 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
     try {
       let next: DayState
       if (preview) {
-        const section = await fetchSectionByCode(sectionCode)
+        const [section, form] = await Promise.all([fetchSectionByCode(sectionCode), apiRequest<PublicSectionForm>(`/qr/form/${encodeURIComponent(sectionCode)}`)])
         if (!section.is_active || section.objects?.is_active === false) throw new Error('Участок или объект в архиве. Форма для отметки смены недоступна.')
         next = { section: { id: section.id, code: section.code, name: section.name, latitude: section.latitude,
-          longitude: section.longitude, radiusMeters: section.radius_meters, object: section.objects }, session: null, tasks: [] }
+          longitude: section.longitude, radiusMeters: section.radius_meters, object: section.objects }, session: null, tasks: [], formSettings: form.formSettings }
       } else {
         next = await apiRequest<DayState>(`/field/scan/${encodeURIComponent(sectionCode)}`)
       }
@@ -159,7 +161,9 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
               resultPhotoUrls: photoUrls,
               results: state!.tasks.map((task) => {
                 const result = results[task.id] || emptyResult()
-                return { taskId: task.id, ...result, extra: Object.fromEntries(Object.entries(result.extra)
+                return { taskId: task.id, ...result,
+                  ...Object.fromEntries(coreFields.filter(id => !formFields.some(field => field.id === id && field.visible)).map(id => [id, ''])),
+                  extra: Object.fromEntries(Object.entries(result.extra)
                   .filter(([id]) => formFields.some(field => field.id === id && field.visible))) }
               }),
             }),
@@ -217,7 +221,7 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
         <h2 className="font-bold">Просмотр формы участка</h2>
         <p>Вы просматриваете форму. Рабочий заполняет её под своим аккаунтом, чтобы смена и фотографии были записаны на него.</p>
         <img src={buildQrImageUrl(sectionCode)} alt={`QR участка ${sectionCode}`} className="mx-auto h-40 w-40" />
-        <p>Сотрудник сканирует этот QR, входит в свой аккаунт и открывает форму данного участка.</p>
+        <p>Этот QR открывает форму без входа. Для записи смены сотрудник входит в свой аккаунт и остаётся на этом участке.</p>
         <ol className="list-decimal space-y-2 pl-5">
           <li>Начало смены: точная геолокация, три кадра лица и фото участка до работы.</li>
           <li>Работа: назначенные задачи, чек-лист и фотографии результата.</li>
@@ -234,6 +238,8 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
           }))}
         />}
       </section>}
+
+      {preview && formSettings && <ResultFormPreview settings={formSettings}/>}
 
       {state.session && (
         <div className={`rounded-2xl p-4 ${state.session.status === 'RETURNED' ? 'bg-red-50 text-red-900' : 'bg-emerald-50'}`}>
@@ -306,24 +312,9 @@ function SectionForm({ sectionCode }: { sectionCode: string }) {
                     className="w-full"
                   />
                 </label>
-                {visibleFields(result).map(field => {
-                  const required = field.required && !(field.id === 'description' && result.percent === 0)
-                  const change = (value: string) => coreFields.includes(field.id)
-                    ? set({ [field.id]: value }) : set({ extra: { ...result.extra, [field.id]: value } })
-                  const props = { value: valueOf(result, field), required,
-                    className: 'w-full rounded-lg border p-2', 'aria-label': field.label }
-                  return <label key={field.id} className="block text-sm">
-                    <span>{field.label}{required ? ' *' : ''}</span>
-                    {field.type === 'comment' ? <textarea {...props} maxLength={1000} placeholder={field.hint || field.label} onChange={event => change(event.target.value)} />
-                      : ['select', 'boolean'].includes(field.type) ? <select {...props} onChange={event => change(event.target.value)}>
-                        <option value="">Выберите</option>
-                        {(field.type === 'boolean' ? [{ value: 'true', label: 'Да' }, { value: 'false', label: 'Нет' }]
-                          : (field.options ?? []).map(value => ({ value, label: value }))).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select> : <input {...props} type={['number', 'percent'].includes(field.type) ? 'number' : 'text'}
-                        step="any" min={field.type === 'percent' ? 0 : undefined} max={field.type === 'percent' ? 100 : undefined}
-                        maxLength={field.id === 'actualVolume' ? 200 : 1000} placeholder={field.hint || field.label} onChange={event => change(event.target.value)} />}
-                  </label>
-                })}
+                <ResultFields fields={formFields} percent={result.percent} valueOf={field => valueOf(result, field)}
+                  onChange={(field, value) => coreFields.includes(field.id)
+                    ? set({ [field.id]: value }) : set({ extra: { ...result.extra, [field.id]: value } })}/>
               </div>
             )
           })}

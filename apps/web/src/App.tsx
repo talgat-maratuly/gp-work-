@@ -45,7 +45,7 @@ const FieldLayout = lazy(() => import('@/layouts/FieldLayout').then((m) => ({ de
 const FieldTodayPage = lazy(() => import('@/pages/field/FieldTodayPage').then((m) => ({ default: m.FieldTodayPage })))
 const FieldRoutePage = lazy(() => import('@/pages/field/FieldRoutePage').then((m) => ({ default: m.FieldRoutePage })))
 const FieldQrPage = lazy(() => import('@/pages/field/FieldQrPage').then((m) => ({ default: m.FieldQrPage })))
-const FieldScanPage = lazy(() => import('@/pages/field/FieldScanPage').then((m) => ({ default: m.FieldScanPage })))
+const SectionEntryPage = lazy(() => import('@/pages/field/SectionEntryPage').then((m) => ({ default: m.SectionEntryPage })))
 const FieldTasksPage = lazy(() => import('@/pages/field/FieldTasksPage').then((m) => ({ default: m.FieldTasksPage })))
 const FieldTaskPage = lazy(() => import('@/pages/field/FieldTaskPage').then((m) => ({ default: m.FieldTaskPage })))
 const FieldExecutionPage = lazy(() => import('@/pages/field/FieldExecutionPage').then((m) => ({ default: m.FieldExecutionPage })))
@@ -82,7 +82,6 @@ function forRoles(page: ReactNode, roles: readonly UserRole[]) {
 
 // Section forms can be inspected by supervisors; recording a shift still
 // requires a field role in both the page and the API.
-const SECTION_FORM_ROLES: readonly UserRole[] = ['ADMIN', 'DIRECTOR', 'AKIMAT', 'ANTICOR', 'WORKER', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER']
 
 export default function App() {
   return (
@@ -95,9 +94,9 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="/" element={<HomeRedirect />} />
-            <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
-            <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
-            <Route path="/field/scan/:sectionCode" element={forRoles(<FieldScanPage />, SECTION_FORM_ROLES)} />
+            <Route path="/work-form/:sectionCode" element={<LegacyWorkFormRedirect />} />
+            <Route path="/work-form" element={<LegacyWorkFormRedirect />} />
+            <Route path="/field/scan/:sectionCode" element={<SectionEntryPage />} />
             <Route
               path="/field"
               element={
@@ -141,7 +140,7 @@ export default function App() {
               <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
               <Route path="workflow" element={forRoles(<WorkflowPage />, ADMIN_ROUTE_ROLES.workflow)} />
               <Route path="overview" element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />
-              <Route path="director" element={forRoles(<DirectorPage />, ['ADMIN', 'DIRECTOR'])} />
+              <Route path="director" element={forRoles(<DirectorPage />, ADMIN_ROUTE_ROLES.director)} />
               <Route path="work-logs" element={forRoles(<JournalPage />, ADMIN_ROUTE_ROLES.workLogs)} />
               <Route path="map" element={forRoles(<WorkMapPage />, ADMIN_ROUTE_ROLES.map)} />
               <Route path="journal" element={<Navigate to="/admin/work-logs" replace />} />

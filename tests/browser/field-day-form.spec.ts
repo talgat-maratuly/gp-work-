@@ -53,6 +53,16 @@ test('configured day fields: admin authoring, persisted worker values, retry and
       const card = page.getByRole('group', { name: `Поле ${label}`, exact: true })
       await card.getByRole('checkbox', { name: 'Обязательное поле', exact: true }).check()
     }
+    await page.getByRole('textbox', { name: 'Название', exact: true }).fill('Скрытый комментарий')
+    await page.getByRole('combobox', { name: 'Тип', exact: true }).selectOption('text')
+    await page.getByRole('button', { name: 'Добавить', exact: true }).click()
+    for (const label of ['Скрытый комментарий', 'Фактический объём']) {
+      const card = page.getByRole('group', { name: `Поле ${label}`, exact: true })
+      await card.getByRole('checkbox', { name: 'Обязательное поле', exact: true }).check()
+      await card.getByRole('checkbox', { name: 'Показывать поле', exact: true }).uncheck()
+      await expect(card.getByRole('checkbox', { name: 'Обязательное поле', exact: true })).not.toBeChecked()
+      await expect(page.getByRole('region', { name: 'Предпросмотр полей формы', exact: true }).getByLabel(label, { exact: true })).toHaveCount(0)
+    }
     await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
     await expect(page.getByText('Настройки успешно сохранены', { exact: true })).toBeVisible()
     await page.reload()
@@ -63,6 +73,15 @@ test('configured day fields: admin authoring, persisted worker values, retry and
       return ids.length === new Set(ids).size
     })).toBeTruthy()
     const configured = await (await request.get(settingsUrl, { headers })).json()
+    for (const label of ['Скрытый комментарий', 'Фактический объём']) {
+      expect(configured.fields.find((f: { label: string }) => f.label === label)).toMatchObject({ visible: false, required: false })
+      await expect(page.getByRole('group', { name: `Поле ${label}`, exact: true }).getByRole('checkbox', { name: 'Показывать поле', exact: true })).not.toBeChecked()
+    }
+    await page.getByRole('button', { name: 'Архив: отчёт по объекту', exact: true }).click()
+    await expect(page.getByRole('note')).toContainText('только просмотр')
+    await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Настроить действующую форму', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Сохранить', exact: true })).toBeEnabled()
     const litersId = configured.fields.find((f: { label: string }) => f.label === 'Расход воды').id
     const checkedId = configured.fields.find((f: { label: string }) => f.label === 'Проверено').id
     expect(await (await request.get(`${api}/form-settings?form=work_form`, { headers })).json()).toEqual(legacyWork)
@@ -80,6 +99,8 @@ test('configured day fields: admin authoring, persisted worker values, retry and
     await evidence(page)
     await page.getByRole('button', { name: 'Начать рабочий день', exact: true }).click()
     await expect(page.getByText('Рабочий день открыт по серверному времени', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Фактический объём', { exact: true })).toHaveCount(0)
+    await expect(page.getByLabel('Скрытый комментарий', { exact: true })).toHaveCount(0)
     await evidence(page)
     await page.getByRole('slider').focus()
     await page.getByRole('slider').press('End')

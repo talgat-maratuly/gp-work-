@@ -113,7 +113,8 @@ test('configured day fields: admin authoring, persisted worker values, retry and
     const article = page.locator('article').filter({ hasText: worker.fullName })
     await expect(article.getByText('Расход воды: 0', { exact: true })).toBeVisible()
     await expect(article.getByText('Проверено: Нет', { exact: true })).toBeVisible()
-    await article.getByRole('button', { name: 'Подтвердить', exact: true }).click()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await article.getByRole('button', { name: 'Подтвердить', exact: true }).click({ timeout: 15_000 })
     await expect(article.getByText('REVIEWED', { exact: true })).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('reviewed-configured-day.png'), fullPage: true })
   } finally {

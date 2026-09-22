@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiRequest, resolveAssetUrl, toUserMessage } from '@/api/client'
+import { Link } from 'react-router-dom'
 
 type TaskResult = {
   taskId: number
@@ -89,13 +90,14 @@ export function WorkDaysPage() {
       <div>
         <h1 className="text-3xl font-black">Рабочие дни</h1>
         <p className="text-slate-500">QR, GPS, селфи, результаты задач и итоговая приёмка</p>
+        <Link to="/admin/attendance" className="mt-2 inline-block text-sm font-semibold text-blue-700 underline">Часы и число сотрудников — в табеле →</Link>
       </div>
       {error && <div className="rounded-xl bg-red-50 p-3 text-red-700">{error}</div>}
       {loading && <div className="rounded-xl bg-white p-8 text-center text-slate-500">Загрузка смен…</div>}
       {!loading && days.length === 0 && (
         <div className="rounded-xl bg-white p-8 text-center text-slate-500">Рабочих смен пока нет</div>
       )}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {days.map((day) => {
           const evidence = [...new Set([
             day.startSelfieUrl,
@@ -106,15 +108,15 @@ export function WorkDaysPage() {
             ...day.resultPhotoUrls,
           ].filter(Boolean) as string[])]
           return (
-            <article key={day.id} className="rounded-2xl border bg-white p-5 shadow-sm">
+            <article key={day.id} className="min-w-0 break-words rounded-2xl border bg-white p-5 shadow-sm">
               <div className="flex justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <b className="text-lg">{day.user.fullName}</b>
                   <div className="text-sm text-slate-500">
                     {day.section.object?.name} · {day.section.name}
                   </div>
                 </div>
-                <span className={`h-fit rounded-full px-3 py-1 text-xs font-bold ${statusStyle[day.status] || 'bg-slate-100'}`}>
+                <span className={`h-fit shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusStyle[day.status] || 'bg-slate-100'}`}>
                   {day.status}
                 </span>
               </div>
@@ -127,9 +129,9 @@ export function WorkDaysPage() {
                 <div>Общий результат: <b>{day.overallPercent}%</b></div>
               </div>
 
-              <div className="mt-3 flex gap-2 overflow-x-auto">
+              <div className="mt-3 flex min-w-0 gap-2 overflow-x-auto">
                 {evidence.map((url, index) => (
-                  <a key={`${url}-${index}`} href={resolveAssetUrl(url)} target="_blank" rel="noreferrer">
+                  <a key={`${url}-${index}`} className="shrink-0" href={resolveAssetUrl(url)} target="_blank" rel="noreferrer">
                     <img src={resolveAssetUrl(url)} className="h-24 w-24 shrink-0 rounded-xl object-cover" />
                   </a>
                 ))}
@@ -141,8 +143,8 @@ export function WorkDaysPage() {
                   {day.taskResults.map((result) => (
                     <div key={result.taskId} className="rounded-xl bg-slate-50 p-3 text-sm">
                       <div className="flex justify-between gap-2">
-                        <b>#{result.taskId} {result.description}</b>
-                        <b>{result.percent}%</b>
+                        <b className="min-w-0 flex-1">#{result.taskId} {result.description}</b>
+                        <b className="shrink-0">{result.percent}%</b>
                       </div>
                       {result.actualVolume && <p>Фактический объём: {result.actualVolume}</p>}
                       {result.workDescription && <p>Выполнено: {result.workDescription}</p>}

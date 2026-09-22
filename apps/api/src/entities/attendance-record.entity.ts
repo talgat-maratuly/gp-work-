@@ -25,6 +25,9 @@ export class AttendanceRecord {
   @Column({ name: 'user_id', type: 'int', nullable: true })
   userId!: number | null;
 
+  @Column({ name: 'clock_managed', default: false })
+  clockManaged!: boolean;
+
   @Column({ name: 'check_in_time', type: 'timestamptz' })
   checkInTime!: Date;
 
@@ -40,11 +43,17 @@ export class AttendanceRecord {
   @Column({ name: 'check_in_longitude', type: 'double precision', nullable: true })
   checkInLongitude!: number | null;
 
+  @Column({ name: 'check_in_accuracy', type: 'double precision', nullable: true })
+  checkInAccuracy!: number | null;
+
   @Column({ name: 'check_out_latitude', type: 'double precision', nullable: true })
   checkOutLatitude!: number | null;
 
   @Column({ name: 'check_out_longitude', type: 'double precision', nullable: true })
   checkOutLongitude!: number | null;
+
+  @Column({ name: 'check_out_accuracy', type: 'double precision', nullable: true })
+  checkOutAccuracy!: number | null;
 
   @Column({
     name: 'worked_hours',

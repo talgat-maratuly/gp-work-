@@ -59,7 +59,7 @@ jobs:
       - run: npm run test:web:roles
       - run: npm run test:web:actions
       - run: npm run test:web:location
-      - run: node --test scripts/director-commands.test.cjs
+      - run: node --test scripts/director-commands.test.cjs scripts/attendance-summary.test.cjs
       - run: npm run test:e2e:typecheck -w @gp-work/api
       - name: Verify additive migration source
         shell: bash
@@ -83,6 +83,7 @@ jobs:
             'apps/api/src/database/migrations/1732600000000-AddWorkImprovementFlow.ts',
             'apps/api/src/database/migrations/1732700000000-AddBusinessProcesses.ts',
             'apps/api/src/database/migrations/1732800000000-AddJobPositions.ts',
+            'apps/api/src/database/migrations/1732900000000-AddAttendanceAccuracy.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -115,6 +116,7 @@ jobs:
             'AddWorkImprovementFlow1732600000000',
             'AddBusinessProcesses1732700000000',
             'AddJobPositions1732800000000',
+            'AddAttendanceAccuracy1732900000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

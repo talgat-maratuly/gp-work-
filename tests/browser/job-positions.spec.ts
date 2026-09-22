@@ -31,6 +31,8 @@ test('director manages job positions and employee assignment without changing ac
   await page.getByRole('button', { name: 'Добавить должность', exact: true }).click()
   await expect(page.getByRole('status')).toContainText('Должность добавлена')
   const create = page.getByRole('form', { name: 'Создание сотрудника', exact: true })
+  await expect(create.getByLabel('Должность', { exact: true })).toBeVisible()
+  await expect(create.getByLabel('Роль доступа', { exact: true })).toBeVisible()
   await create.getByLabel('Должность', { exact: true }).selectOption({ label: name })
   await expect(create.getByLabel('Роль доступа', { exact: true })).toHaveValue('WORKER')
   const workerName = `positions-worker-${suffix}`
@@ -55,6 +57,10 @@ test('director manages job positions and employee assignment without changing ac
   await expect(create.getByLabel('Должность', { exact: true }).getByRole('option', { name: renamed, exact: true })).toHaveCount(0)
   await row.getByRole('button', { name: 'Изменить', exact: true }).click()
   const edit = page.getByRole('form', { name: 'Редактирование сотрудника', exact: true })
+  expect(await page.locator('main [id]').evaluateAll(elements => {
+    const ids = elements.map(element => element.id)
+    return ids.length === new Set(ids).size
+  })).toBe(true)
   await expect(edit.getByLabel('Должность', { exact: true }).locator('option:checked')).toHaveText(`${renamed} (в архиве)`)
   await edit.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await expect(edit).toHaveCount(0)

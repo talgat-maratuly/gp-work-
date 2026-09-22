@@ -162,12 +162,14 @@ export function UsersPage() {
   function renderRoleSelect(
     value: UserRole,
     onChange: (role: UserRole) => void,
-    className?: string,
+    scope: 'create' | 'edit',
   ) {
     return (
-      <label className="flex min-w-0 flex-col gap-1 text-sm">Роль доступа
+      <div className="flex min-w-0 flex-col gap-1 text-sm">
+      <label htmlFor={`${scope}-user-role`}>Роль доступа</label>
       <select
-        className={className ?? 'rounded-lg border px-3 py-2'}
+        id={`${scope}-user-role`}
+        className="rounded-lg border px-3 py-2"
         value={value}
         onChange={(e) => onChange(e.target.value as UserRole)}
       >
@@ -177,7 +179,7 @@ export function UsersPage() {
           </option>
         ))}
       </select>
-      </label>
+      </div>
     )
   }
 
@@ -219,14 +221,15 @@ export function UsersPage() {
     }
   }
 
-  function renderPositionSelect(value: string, onChange: (id: string) => void, assignedId?: number | null) {
-    return <label className="flex min-w-0 flex-col gap-1 text-sm">Должность
-      <select className="min-w-0 rounded-lg border px-3 py-2" value={value} onChange={e => onChange(e.target.value)} disabled={loading || loadFailed}>
+  function renderPositionSelect(value: string, onChange: (id: string) => void, scope: 'create' | 'edit', assignedId?: number | null) {
+    return <div className="flex min-w-0 flex-col gap-1 text-sm">
+      <label htmlFor={`${scope}-user-position`}>Должность</label>
+      <select id={`${scope}-user-position`} className="min-w-0 rounded-lg border px-3 py-2" value={value} onChange={e => onChange(e.target.value)} disabled={loading || loadFailed}>
         <option value="">— Не назначена —</option>
         {positions.filter(position => position.isActive || position.id === assignedId).map(position =>
           <option key={position.id} value={position.id}>{position.name}{position.isActive ? '' : ' (в архиве)'}</option>)}
       </select>
-    </label>
+    </div>
   }
 
   return (
@@ -285,8 +288,8 @@ export function UsersPage() {
             {showCreatePassword ? '🙈 Скрыть' : '👁 Показать'}
           </button>
         </div>
-        {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => ({ ...f, role })))}
-        {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })))}
+        {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => ({ ...f, role })), 'create')}
+        {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })), 'create')}
         {renderBrigadeSelect(createForm.brigadeId, (brigadeId) =>
           setCreateForm((f) => ({ ...f, brigadeId })),
         )}
@@ -343,8 +346,8 @@ export function UsersPage() {
               {showEditPassword ? '🙈 Скрыть' : '👁 Показать'}
             </button>
           </div>
-          {renderRoleSelect(editForm.role, (role) => setEditForm((f) => ({ ...f, role })))}
-          {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), users.find(user => user.id === editingId)?.positionId)}
+          {renderRoleSelect(editForm.role, (role) => setEditForm((f) => ({ ...f, role })), 'edit')}
+          {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), 'edit', users.find(user => user.id === editingId)?.positionId)}
           {renderBrigadeSelect(editForm.brigadeId, (brigadeId) =>
             setEditForm((f) => ({ ...f, brigadeId })),
           )}

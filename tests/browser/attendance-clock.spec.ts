@@ -54,7 +54,7 @@ for (const [role, ip] of [['WORKER', '10.30.0.48'], ['ACCOUNTANT', '10.30.0.49']
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
       await page.screenshot({ path: info.outputPath(`clock-${role.toLowerCase()}.png`), fullPage: true })
       await panel.getByRole('button', { name: 'Завершить рабочий день', exact: true }).click()
-      await expect(panel.getByRole('status')).toContainText('Время сохранено в табеле')
+      await expect(panel.getByRole('status', { name: 'Результат отметки', exact: true })).toContainText('Время сохранено в табеле')
       await expect(panel.getByText('Рабочий день завершён', { exact: true })).toBeVisible()
       const completed = await (await request.get(`${api}/attendance/me`, { headers })).json()
       expect(completed.recent).toHaveLength(1)

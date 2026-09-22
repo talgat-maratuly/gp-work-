@@ -146,7 +146,7 @@ export function MyWorkDayPage() {
           </button>}
         </>}
         {error && <p role="alert" className="text-red-700">{error}</p>}
-        {success && <p role="status" className="text-emerald-800">{success}</p>}
+        {success && <p role="status" aria-label="Результат отметки" className="text-emerald-800">{success}</p>}
         <button type="button" onClick={() => { setError(null); void load() }} disabled={loading || busy} className="text-sm text-blue-700 underline disabled:opacity-50">Обновить состояние</button>
         <p className="text-xs text-slate-500">Часы считаются между отметками. Перерывы отдельно не вычитаются. Отметка подтверждается после сохранения на сервере.</p>
       </section>

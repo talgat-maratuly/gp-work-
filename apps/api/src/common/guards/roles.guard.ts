@@ -22,7 +22,7 @@ export class RolesGuard implements CanActivate {
     ]);
     if (!requiredRoles?.length) return true;
 
-    const request = context.switchToHttp().getRequest<{ user?: User }>();
+    const request = context.switchToHttp().getRequest<{ user?: User; method?: string }>();
     const user = request.user;
     if (!user) throw new ForbiddenException('Требуется авторизация');
 
@@ -31,7 +31,15 @@ export class RolesGuard implements CanActivate {
     const directorInheritsAdmin =
       user.role === UserRole.DIRECTOR && requiredRoles.includes(UserRole.ADMIN);
 
-    if (!requiredRoles.includes(user.role) && !directorInheritsAdmin) {
+    // Зам. директора: полный просмотр наравне с администратором, но только для
+    // чтения (GET). Изменять данные он не может, кроме явно разрешённых операций
+    // (например, постановка задач — там роль указана в @Roles напрямую).
+    const deputyReadsAsAdmin =
+      user.role === UserRole.DEPUTY_DIRECTOR &&
+      request.method === 'GET' &&
+      requiredRoles.includes(UserRole.ADMIN);
+
+    if (!requiredRoles.includes(user.role) && !directorInheritsAdmin && !deputyReadsAsAdmin) {
       throw new ForbiddenException('Недостаточно прав');
     }
     return true;

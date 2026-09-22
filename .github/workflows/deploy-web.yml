@@ -122,6 +122,7 @@ jobs:
             stamp="$(date -u +%Y%m%dT%H%M%SZ)"
             mkdir -p "$backup_dir"
             chmod 700 "$backup_dir"
+            rm -f /opt/gp-work/.last-web-nginx-backup
             if [ -d /opt/gp-work/web ] && [ "$(find /opt/gp-work/web -mindepth 1 -print -quit)" ]; then
               web_backup="$backup_dir/web-${stamp}.tar.gz"
               tar -czf "$web_backup" -C /opt/gp-work/web .
@@ -135,6 +136,30 @@ jobs:
             test -s /opt/gp-work/web/index.html
             find "$backup_dir" -type f -mtime +14 -delete
 
+      - name: Upload entry cache update
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: deploy/ensure-web-cache.py
+          target: /tmp/
+          strip_components: 1
+
+      - name: Revalidate application entry files
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ vars.SSH_HOST }}
+          username: ${{ vars.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            cache_backup="/opt/gp-work/backups/web-nginx-$(date -u +%Y%m%dT%H%M%SZ).conf"
+            python3 /tmp/ensure-web-cache.py \
+              --config /etc/nginx/conf.d/gp-work.gpartners.kz.conf \
+              --backup "$cache_backup"
+            printf '%s\n' "$cache_backup" > /opt/gp-work/.last-web-nginx-backup
+
       - name: Smoke test production web
         env:
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
@@ -142,6 +167,15 @@ jobs:
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${FRONTEND_URL}/" >/dev/null
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${FRONTEND_URL}/version.json?release=${GITHUB_SHA}" |
             node -e 'let body=""; process.stdin.on("data", c => body += c).on("end", () => { const version=JSON.parse(body); if (version.commit !== process.env.GITHUB_SHA) process.exit(1); console.log("Verified web commit: " + version.commit); });'
+          for entry in sw.js index.html version.json manifest.webmanifest field/scan/PIT-003; do
+            curl --retry 3 --fail --silent --show-error -D /tmp/gp-entry-headers "${FRONTEND_URL}/${entry}" -o /dev/null
+            grep -qi 'Cache-Control:.*no-cache' /tmp/gp-entry-headers
+            if grep -qi 'Cache-Control:.*immutable' /tmp/gp-entry-headers; then
+              echo "Entry file must not use immutable cache: $entry" >&2
+              exit 1
+            fi
+          done
+          echo 'Verified revalidation for entry files and section deep link'
 
       - name: Roll back web after failed smoke test
         if: failure() && (steps.extract.outcome == 'success' || steps.extract.outcome == 'failure')
@@ -158,4 +192,11 @@ jobs:
               rm -rf /opt/gp-work/web/*
               tar -xzf "$web_backup" -C /opt/gp-work/web
               chmod -R a+rX /opt/gp-work/web
+            fi
+            if [ -s /opt/gp-work/.last-web-nginx-backup ]; then
+              cache_backup="$(cat /opt/gp-work/.last-web-nginx-backup)"
+              test -s "$cache_backup"
+              cp "$cache_backup" /etc/nginx/conf.d/gp-work.gpartners.kz.conf
+              nginx -t
+              systemctl reload nginx
             fi

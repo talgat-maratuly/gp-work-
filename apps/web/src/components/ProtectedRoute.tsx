@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { homePathForRole } from '@/lib/roleRoutes'
 import type { UserRole } from '@/lib/auth'
+import { AuthRecovery } from './AuthRecovery'
 
 export function ProtectedRoute({
   children,
@@ -10,7 +11,7 @@ export function ProtectedRoute({
   children: React.ReactNode
   roles?: readonly UserRole[]
 }) {
-  const { user, loading, hasRole } = useAuth()
+  const { user, loading, error, hasRole } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -20,6 +21,8 @@ export function ProtectedRoute({
       </div>
     )
   }
+
+  if (error) return <AuthRecovery />
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />

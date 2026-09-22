@@ -3,6 +3,50 @@ import { test, expect, type Page, type APIRequestContext } from 'playwright/test
 const api = 'http://localhost:3002/api'
 const password = 'form-test-password'
 
+for (const [index, role] of ['DIRECTOR', 'WORKER'].entries()) {
+  test(`${role}: section survives trailing slash, temporary auth failure and account re-entry`, async ({ page, context, request }, info) => {
+    const ip = `10.55.${info.project.name.startsWith('mobile') ? 2 : 1}.${index + 1}`
+    await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
+    const { user, section } = await fixture(request, `${Date.now()}-reentry-${role}-${info.project.name}`, ip, role)
+    const path = `/field/scan/${section.code}/?source=qr#form`
+    await page.goto(path)
+    await signIn(page, user.username)
+    await expect(page).toHaveURL(`http://localhost:5173${path}`)
+    await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+
+    const logoutRequests: string[] = []
+    page.on('request', req => { if (req.url().endsWith('/api/auth/logout')) logoutRequests.push(req.url()) })
+    await page.route('**/api/auth/me', route => route.fulfill({ status: 503, json: { message: 'Временный отказ проверки входа' } }))
+    await page.reload()
+    await expect(page.getByRole('alert')).toHaveText('Временный отказ проверки входа')
+    await expect(page).toHaveURL(`http://localhost:5173${path}`)
+    // The failed request must neither clear the session nor show protected data.
+    expect(await page.evaluate(() => !!localStorage.getItem('gp-work_token'))).toBe(true)
+    expect(logoutRequests).toEqual([])
+    await expect(page.getByRole('heading', { name: section.name, exact: true })).toHaveCount(0)
+    await page.unroute('**/api/auth/me')
+    await page.getByRole('button', { name: 'Повторить проверку входа', exact: true }).click()
+    await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Выйти', exact: true }).click()
+    await expect(page).toHaveURL(/\/login$/)
+    await signIn(page, user.username)
+    await expect(page).toHaveURL(`http://localhost:5173${path}`)
+    await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+
+    // A genuinely expired token still requires login, retaining the same section.
+    await page.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { message: 'Unauthorized' } }))
+    await page.reload()
+    await expect(page).toHaveURL(/\/login$/)
+    expect(await page.evaluate(() => localStorage.getItem('gp-work_token'))).toBeNull()
+    await page.unroute('**/api/auth/me')
+    await signIn(page, user.username)
+    await expect(page).toHaveURL(`http://localhost:5173${path}`)
+    await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+    await page.screenshot({ path: info.outputPath('section-after-reentry.png'), fullPage: true })
+  })
+}
+
 async function signIn(page: Page, username: string, pass = password) {
   await page.getByLabel('Логин', { exact: true }).fill(username)
   await page.getByLabel('Пароль', { exact: true }).fill(pass)

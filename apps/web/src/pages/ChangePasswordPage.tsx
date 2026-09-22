@@ -1,4 +1,4 @@
-import { FormEvent, useRef, useState } from 'react'
+import { FormEvent, startTransition, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { changeOwnPassword } from '@/api/authApi'
 import { ApiError, toUserMessage } from '@/api/client'
@@ -24,8 +24,13 @@ export function ChangePasswordPage() {
   const forced = Boolean(user.mustChangePassword)
 
   function goToLogin(passwordChanged = false) {
-    logout()
-    navigate('/login', { replace: true, state: { from, passwordChanged } })
+    // BrowserRouter schedules navigation in a transition. Keep clearing the
+    // profile in that same transition so ProtectedRoute cannot overwrite the
+    // success notice and original QR with a competing /change-password return.
+    startTransition(() => {
+      logout()
+      navigate('/login', { replace: true, state: { from, passwordChanged } })
+    })
   }
 
   async function submit(event: FormEvent) {

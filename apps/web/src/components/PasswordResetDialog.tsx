@@ -50,9 +50,10 @@ export function PasswordResetDialog({ user, onClose, onReset }: { user: ApiUser;
     <p className="break-all text-sm text-slate-600">Логин: {result?.username ?? user.username}</p>
     {result ? <div className="mt-4 space-y-3">
       <p role="status" className="text-sm text-emerald-800">Временный пароль создан. Передайте его сотруднику лично.</p>
-      <label className="block text-sm">Данные для входа
-        <textarea ref={credentials} readOnly rows={3} value={`Логин: ${result.username}\nВременный пароль: ${result.temporaryPassword}`} className="mt-1 w-full resize-none rounded-lg border bg-slate-50 p-3 font-mono text-sm" />
-      </label>
+      <div>
+        <label htmlFor={`reset-credentials-${user.id}`} className="block text-sm">Данные для входа</label>
+        <textarea id={`reset-credentials-${user.id}`} ref={credentials} readOnly rows={3} value={`Логин: ${result.username}\nВременный пароль: ${result.temporaryPassword}`} className="mt-1 w-full resize-none rounded-lg border bg-slate-50 p-3 font-mono text-sm" />
+      </div>
       <p className="text-sm text-slate-600">Действует до {new Date(result.expiresAt).toLocaleString('ru-RU')}. При входе сотрудник установит свой пароль.</p>
       <p className="text-sm text-slate-600">После закрытия окна этот пароль посмотреть снова нельзя. При необходимости создайте новый.</p>
       <button type="button" onClick={() => void copy()} className="w-full rounded-lg bg-blue-700 px-4 py-2 text-white">Скопировать логин и пароль</button>

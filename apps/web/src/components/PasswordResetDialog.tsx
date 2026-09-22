@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { resetUserPassword, type ApiUser, type PasswordReset } from '@/api/usersApi'
 import { ApiError, toUserMessage } from '@/api/client'
 import { getToken } from '@/lib/auth'
@@ -42,8 +43,9 @@ export function PasswordResetDialog({ user, onClose, onReset }: { user: ApiUser;
     }
   }
 
-  return <dialog ref={dialog} aria-labelledby="password-reset-title" onCancel={event => { event.preventDefault(); if (!busy.current) onClose() }} className="w-[calc(100%_-_2rem)] max-w-md rounded-xl border bg-white p-5 shadow-xl backdrop:bg-slate-900/50">
-    <h2 id="password-reset-title" className="text-xl font-bold">Сброс пароля</h2>
+  // Keep the modal outside the page's spacing/overflow rules.
+  return createPortal(<dialog ref={dialog} aria-label="Сброс пароля" onCancel={event => { event.preventDefault(); if (!busy.current) onClose() }} className="fixed inset-0 m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-xl border bg-white p-5 shadow-xl backdrop:bg-slate-900/50">
+    <h2 className="text-xl font-bold">Сброс пароля</h2>
     <p className="mt-2 break-words font-medium">{result?.fullName ?? user.fullName}</p>
     <p className="break-all text-sm text-slate-600">Логин: {result?.username ?? user.username}</p>
     {result ? <div className="mt-4 space-y-3">
@@ -62,5 +64,5 @@ export function PasswordResetDialog({ user, onClose, onReset }: { user: ApiUser;
       <button type="button" onClick={() => void reset()} disabled={saving} className="w-full rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50">{saving ? 'Создание…' : uncertain ? 'Создать другой временный пароль' : 'Создать временный пароль'}</button>
     </div>}
     <button type="button" disabled={saving} onClick={onClose} className="mt-4 w-full rounded-lg border px-4 py-2 disabled:opacity-50">{result ? 'Закрыть' : 'Отмена'}</button>
-  </dialog>
+  </dialog>, document.body)
 }

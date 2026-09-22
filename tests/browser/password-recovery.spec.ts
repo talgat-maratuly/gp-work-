@@ -1,6 +1,7 @@
 import { test, expect } from 'playwright/test'
 
 const api = 'http://localhost:3002/api'
+test.use({ actionTimeout: 15_000 })
 
 test('director resets a lost password, worker must replace it and returns to the original QR', async ({ page, context, request }, info) => {
   const ip = `10.68.${info.project.name.startsWith('mobile') ? 2 : 1}.1`
@@ -52,6 +53,7 @@ test('director resets a lost password, worker must replace it and returns to the
   await expect(dialog.getByLabel('Данные для входа', { exact: true })).toHaveCount(0)
   await page.unroute(`**/users/${worker.id}/password-reset`)
   await dialog.getByRole('button', { name: 'Создать другой временный пароль', exact: true }).click()
+  await expect(dialog.getByRole('status')).toContainText('Временный пароль создан')
   const text = await dialog.getByLabel('Данные для входа', { exact: true }).inputValue()
   const temporary = text.split('Временный пароль: ')[1]
   expect(temporary).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/)
@@ -66,6 +68,10 @@ test('director resets a lost password, worker must replace it and returns to the
   await expect(dialog).toContainText('скопируйте его вручную')
   expect(await page.evaluate(secret => !JSON.stringify({ ...localStorage, ...sessionStorage }).includes(secret), temporary)).toBe(true)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  const bounds = await dialog.boundingBox()
+  expect(bounds).not.toBeNull()
+  expect(bounds!.x).toBeGreaterThanOrEqual(15)
+  expect(bounds!.y).toBeGreaterThanOrEqual(15)
   await page.screenshot({ path: info.outputPath('password-reset.png'), mask: [dialog.getByLabel('Данные для входа', { exact: true })] })
   await dialog.getByRole('button', { name: 'Закрыть', exact: true }).click()
   await expect(row).toContainText('Нужно сменить пароль')

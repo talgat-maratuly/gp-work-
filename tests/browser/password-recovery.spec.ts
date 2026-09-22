@@ -81,6 +81,7 @@ test('director resets a lost password, worker must replace it and returns to the
   await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   const destination = `/field/scan/${section.code}/?source=recovery#form`
   await page.goto(destination)
+  await page.getByRole('link', { name: 'Войти как сотрудник', exact: true }).click()
   await signIn(worker.username, temporary)
   await expect(page.getByRole('heading', { name: 'Установите свой пароль', exact: true })).toBeVisible()
   const limitedToken = await page.evaluate(() => localStorage.getItem('gp-work_token'))

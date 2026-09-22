@@ -7,6 +7,7 @@ import { Toast } from '@/components/Toast'
 import { fetchFormSettings, getDefaultSettings, saveFormSettings, type FormKey } from '@/lib/formSettings'
 import { toUserMessage } from '@/api/client'
 import type { FormFieldSetting, FormFieldType, FormSettings } from '@/lib/types'
+import { ResultFormPreview } from '@/components/field/ResultFields'
 
 const fieldTypeLabels: Record<FormFieldType, string> = {
   text: 'текст',
@@ -21,9 +22,9 @@ const fieldTypeLabels: Record<FormFieldType, string> = {
 const fieldTypeOptions = Object.entries(fieldTypeLabels).map(([value, label]) => ({ value, label }))
 
 const FORM_TABS: { key: FormKey; label: string }[] = [
-  { key: 'field_day_form', label: 'Форма «Рабочий день»' },
-  { key: 'work_form', label: 'Форма отчёта по объекту' },
-  { key: 'checkout_form', label: 'Форма отметки ухода' },
+  { key: 'field_day_form', label: 'Действующая форма по QR' },
+  { key: 'work_form', label: 'Архив: отчёт по объекту' },
+  { key: 'checkout_form', label: 'Архив: отметка ухода' },
 ]
 
 function normalizeOrders(fields: FormFieldSetting[]): FormFieldSetting[] {
@@ -122,7 +123,7 @@ export function FormSettingsPage() {
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
-    if (!loaded || loading || saving) return
+    if (!loaded || loading || saving || activeForm !== 'field_day_form') return
     setSaving(true)
     setError(null)
     try {
@@ -134,7 +135,9 @@ export function FormSettingsPage() {
           formSubmitText: settings.formSubmitText.trim(),
           formSuccessText: settings.formSuccessText.trim(),
           formHints: settings.formHints?.trim() || null,
-          fields: normalizeOrders(settings.fields),
+          fields: normalizeOrders(settings.fields.map(field => ({ ...field,
+            options: field.type === 'select' ? field.options?.map(option => option.trim()).filter(Boolean) : field.options,
+          }))),
         },
         activeForm,
       )
@@ -156,7 +159,7 @@ export function FormSettingsPage() {
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-blue-800">Настройки формы</h1>
 
-      {/* Вкладки — две независимые формы */}
+      {/* Only the current QR form is editable; keep legacy settings intact. */}
       <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1">
         {FORM_TABS.map((t) => (
           <button
@@ -175,14 +178,21 @@ export function FormSettingsPage() {
 
       <p className="text-sm text-slate-600">
         {isFieldDay
-          ? 'Эти поля заполняет сотрудник по каждой задаче при завершении рабочего дня. Можно менять подписи, порядок и обязательность, добавлять свои поля. Процент, QR, GPS, фото лица и фото результата остаются обязательной частью рабочего цикла.'
+          ? 'Эти поля видны в форме по QR при завершении рабочего дня. Снимите «Показывать поле» и сохраните: после обновления формы сотрудник больше не увидит это поле. Процент, QR, GPS и фотографии — отдельные обязательные шаги, их эта настройка не отключает.'
           : isCheckout
           ? 'Сохранённые настройки прежней формы «Отметка ухода». Теперь QR открывает рабочий день: процент рассчитывается по результатам назначенных задач. Эти настройки не изменяют текущий рабочий день.'
           : 'Сохранённые настройки прежней формы отчёта. Теперь QR открывает рабочий день с назначенными задачами. Эти настройки не изменяют текущий рабочий день.'}
       </p>
 
+      {isFieldDay && <p className="text-sm text-slate-600">Название формы, подписи, варианты и подсказки видимых полей доступны по QR без входа. Не указывайте в них персональные или служебные секретные данные. Заполненные результаты видны только после входа с соответствующими правами.</p>}
+
+      {!isFieldDay && <div role="note" className="space-y-2 rounded-xl bg-amber-50 p-4 text-amber-900">
+        <p>Архивная форма — только просмотр. Она больше не открывается по QR. Чтобы изменить поля, которые видят сотрудники, откройте действующую форму.</p>
+        <Button onClick={() => setActiveForm('field_day_form')}>Настроить действующую форму</Button>
+      </div>}
+
       <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <fieldset disabled={loading || saving || !loaded} className="space-y-4">
+        <fieldset disabled={loading || saving || !loaded || !isFieldDay} className="space-y-4">
         <Input
           label="Заголовок формы"
           value={settings.formTitle}
@@ -283,10 +293,7 @@ export function FormSettingsPage() {
                       value={(field.options ?? []).join('\n')}
                       onChange={(e) =>
                         updateField(field.id, {
-                          options: e.target.value
-                            .split('\n')
-                            .map((option) => option.trim())
-                            .filter(Boolean),
+                          options: e.target.value.split('\n'),
                         })
                       }
                       className="mt-3"
@@ -337,13 +344,19 @@ export function FormSettingsPage() {
           </div>
         </div>
 
-        <Button type="submit" disabled={saving || !loaded}>
+        <Button type="submit" disabled={saving || !loaded || !isFieldDay}>
           {saving ? 'Сохранение…' : 'Сохранить'}
         </Button>
         </fieldset>
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         {!loaded && !loading && <Button onClick={() => setLoadAttempt(value => value + 1)}>Повторить загрузку</Button>}
       </form>
+
+      {isFieldDay && loaded && <div className="space-y-2">
+        <h2 className="text-xl font-bold">Как увидит сотрудник</h2>
+        <p className="text-sm text-slate-600">Предпросмотр отражает изменения выше. Для применения на сайте нажмите «Сохранить». Уже открытая форма обновляется кнопкой «Обновить поля формы».</p>
+        <ResultFormPreview settings={settings}/>
+      </div>}
 
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>

@@ -4,6 +4,7 @@ import { archiveBusinessDefinition, getBusinessDefinitions, publishBusinessDefin
 import { toUserMessage } from '@/api/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { Label, inputClass, buttonClass, panelClass } from '@/components/workflow/Controls'
+import { ProcessGuide } from '@/components/workflow/WorkflowGuide'
 
 const roles = ['ADMIN', 'DIRECTOR', 'BRIGADIER', 'AGRONOMIST', 'WORKER', 'WATER_CARRIER']
 const key = (prefix: string) => `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`
@@ -44,12 +45,13 @@ export function BusinessProcessesPage() {
     catch (e) { setError(toUserMessage(e)) } finally { setBusy(false) }
   }
   return <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
-    <header className="space-y-2"><h1 className="text-2xl font-bold">Бизнес-процессы</h1><p className="text-slate-600">Создайте поля и порядок согласования для задач. Каждая публикация сохраняет отдельную версию.</p><Link className="font-semibold text-blue-700 underline" to="/admin/workflow">Открыть задачи и подключить процесс</Link></header>
+    <header className="space-y-2"><h1 className="text-2xl font-bold">Бизнес-процессы</h1><p className="text-slate-600">Создайте поля и порядок согласования для задач. Каждая публикация сохраняет отдельную версию.</p><Link className="font-semibold text-blue-700 underline" to="/admin/workflow">Перейти к задачам</Link></header>
+    <ProcessGuide />
     {error && <div role="alert" className="rounded-xl bg-red-50 p-3 text-red-800">{error}<button type="button" className="ml-3 underline" disabled={busy} onClick={() => void load().then(() => setError('')).catch(e => setError(toUserMessage(e)))}>Обновить список</button></div>}
-    {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-emerald-800">{notice}</p>}
+    {notice && <div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-3 text-emerald-800"><p>{notice}</p>{previous && <Link to={`/admin/workflow?process=${previous.id}`} className="inline-block font-semibold underline">Выбрать задачу для этого процесса →</Link>}</div>}
     <div className="grid items-start gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
       <aside className={panelClass}><h2 className="font-bold">Шаблоны процессов</h2><button type="button" className={buttonClass} disabled={busy} onClick={() => edit()}>Новый процесс</button>
-        {loading ? <p>Загрузка…</p> : !definitions.length ? <p className="text-sm text-slate-600">Создайте первый шаблон справа.</p> : definitions.map(d => <article key={d.id} className="space-y-2 rounded-xl border p-3"><h3 className="break-words font-semibold">{d.schema.title}</h3><p className="text-sm">Версия {d.version} · {d.archived ? 'В архиве' : 'Действует'}</p><div className="flex flex-wrap gap-3">{!d.archived && <button type="button" className="text-blue-700 underline" disabled={busy} onClick={() => edit(d)}>Изменить шаблон</button>}<button type="button" className="text-slate-600 underline" disabled={busy} onClick={() => void archive(d)}>{d.archived ? 'Восстановить' : 'В архив'}</button></div></article>)}
+        {loading ? <p>Загрузка…</p> : !definitions.length ? <p className="text-sm text-slate-600">Создайте первый шаблон справа.</p> : definitions.map(d => <article key={d.id} className="space-y-2 rounded-xl border p-3"><h3 className="break-words font-semibold">{d.schema.title}</h3><p className="text-sm">Версия {d.version} · {d.archived ? 'В архиве' : 'Действует'}</p>{!d.archived && <Link to={`/admin/workflow?process=${d.id}`} className="block font-semibold text-blue-700 underline">Подключить к задаче</Link>}<div className="flex flex-wrap gap-3">{!d.archived && <button type="button" className="text-blue-700 underline" disabled={busy} onClick={() => edit(d)}>Изменить шаблон</button>}<button type="button" className="text-slate-600 underline" disabled={busy} onClick={() => void archive(d)}>{d.archived ? 'Восстановить' : 'В архив'}</button></div></article>)}
       </aside>
       <form onSubmit={publish} className={panelClass}><h2 className="text-xl font-bold">{previous ? `Новая версия: ${previous.schema.title}` : 'Конструктор процесса'}</h2><fieldset disabled={busy} className="min-w-0 space-y-6">
         <Label name="Название процесса"><input required maxLength={120} className={inputClass} value={schema.title} onChange={e => change({ ...schema, title: e.target.value })} placeholder="Например: согласование работ на объекте"/></Label>

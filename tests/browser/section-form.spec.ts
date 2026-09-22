@@ -34,10 +34,11 @@ for (const [index, role] of ['DIRECTOR', 'WORKER'].entries()) {
     await expect(page).toHaveURL(`http://localhost:5173${path}`)
     await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
 
-    // A genuinely expired token still requires login, retaining the same section.
+    // An expired token now falls back to the public form, retaining the section.
     await page.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { message: 'Unauthorized' } }))
     await page.reload()
-    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('link', { name: 'Войти как сотрудник', exact: true })).toBeVisible()
+    await expect(page).toHaveURL(`http://localhost:5173${path}`)
     expect(await page.evaluate(() => localStorage.getItem('gp-work_token'))).toBeNull()
     await page.unroute('**/api/auth/me')
     await signIn(page, user.username)
@@ -48,6 +49,9 @@ for (const [index, role] of ['DIRECTOR', 'WORKER'].entries()) {
 }
 
 async function signIn(page: Page, username: string, pass = password) {
+  if (/\/(?:field\/scan|work-form)(?:\/|\?)/.test(page.url())) {
+    await page.getByRole('link', { name: 'Войти как сотрудник', exact: true }).click()
+  }
   await page.getByLabel('Логин', { exact: true }).fill(username)
   await page.getByLabel('Пароль', { exact: true }).fill(pass)
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
@@ -136,14 +140,14 @@ for (const [index, role] of ['DIRECTOR', 'ADMIN', 'AKIMAT', 'ANTICOR'].entries()
     // Deterministically cover navigation before the logout marker is consumed.
     await form.evaluate(() => sessionStorage.setItem('gp-work_signed_out', '1'))
     await form.goto(`/work-form?objectId=${object.id}&sectionId=${section.id}`)
-    await expect(form).toHaveURL(/\/login$/)
+    await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
     await signIn(form, user.username)
     await expect(form).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
     await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
     await form.getByRole('button', { name: 'Выйти', exact: true }).click()
     await expect(form).toHaveURL(/\/login$/)
     await form.goto(`/field/scan/${section.code}`)
-    await expect(form).toHaveURL(/\/login$/)
+    await expect(form.getByRole('link', { name: 'Войти как сотрудник', exact: true })).toBeVisible()
     await signIn(form, user.username)
     await expect(form.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
     await form.goto('/field/scan/unknown-section-form-test')
@@ -158,7 +162,7 @@ test('worker: legacy QR retains section through login and opens the real form; a
   await context.setExtraHTTPHeaders({ 'X-Forwarded-For': ip })
   const { user, section, object, headers, create } = await fixture(request, `${Date.now()}-${info.project.name}`, ip, 'WORKER')
   await page.goto(`/work-form?objectId=${object.id}&sectionId=${section.id}`)
-  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
   await signIn(page, user.username)
   await expect(page).toHaveURL(new RegExp(`/field/scan/${section.code}$`))
   await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()

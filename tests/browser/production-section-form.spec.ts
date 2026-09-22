@@ -24,6 +24,10 @@ for (const [index, role] of ['DIRECTOR', 'WORKER'].entries()) {
     const section = await create('/sections', { objectId: object.id, name: `Production section ${suffix}`,
       latitude: 51.2301, longitude: 51.3701, radiusMeters: 150 })
     const signIn = async () => {
+      if (/\/(?:work-form|field\/scan)\//.test(page.url())) {
+        await expect(page.getByRole('heading', { name: section.name, exact: true })).toBeVisible()
+        await page.getByRole('link', { name: 'Войти как сотрудник', exact: true }).click()
+      }
       await page.getByLabel('Логин', { exact: true }).fill(user.username)
       await page.getByLabel('Пароль', { exact: true }).fill(password)
       await page.getByRole('button', { name: 'Войти', exact: true }).click()

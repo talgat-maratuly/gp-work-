@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { useAuth } from '@/context/AuthContext'
 import { toUserMessage } from '@/api/client'
 import { attachBusinessProcess, getBusinessDefinitions, getTaskBusinessProcesses, saveBusinessProcess, type BusinessDefinition, type BusinessField, type BusinessInstance, type BusinessValues } from '@/api/businessProcessesApi'
@@ -26,6 +27,7 @@ function InstanceCard({ taskId, instance, onChanged }: { taskId: number; instanc
     catch (e) { setError(toUserMessage(e)) } finally { setBusy(false) }
   }
   return <article className="space-y-4 rounded-xl border p-3 sm:p-4"><div><h3 className="text-lg font-bold">{instance.schema.title} · версия {instance.version}</h3>{instance.schema.description && <p className="text-sm text-slate-600">{instance.schema.description}</p>}<p className="mt-2 font-semibold">Этап: {current.label}</p><p className="text-sm text-slate-500">{instance.locked ? 'Доступен просмотр сохранённых данных' : 'Поля можно сохранять до перехода на следующий этап'}</p></div>
+    {!instance.locked && <p className="text-sm text-slate-600">Перевести с этого этапа могут: {current.roles.map(role => ROLE_LABELS[role as UserRole] || role).join(', ')}. Переход выполняется кнопкой ниже, автоматически этап не меняется.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}{notice && <p role="status" className="text-emerald-700">{notice}</p>}
     <fieldset disabled={busy} className="space-y-3">{instance.schema.fields.map(field => <FieldInput key={field.id} field={field} value={values[field.id]} set={value => setValues(old => ({ ...old, [field.id]: value }))} disabled={!instance.editableFieldIds.includes(field.id)}/>)}
       {!!current.requiredFields.length && <p className="text-sm text-slate-600">Обязательные поля этого этапа: {current.requiredFields.map(id => instance.schema.fields.find(f => f.id === id)?.label).join(', ')}</p>}
@@ -37,6 +39,8 @@ function InstanceCard({ taskId, instance, onChanged }: { taskId: number; instanc
 
 export function BusinessProcessPanel({ taskId, canManage, taskStatus }: { taskId: number; canManage: boolean; taskStatus: string }) {
   const { user } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const requestedId = Number(params.get('process'))
   const [instances, setInstances] = useState<BusinessInstance[]>([]), [definitions, setDefinitions] = useState<BusinessDefinition[]>([])
   const [loading, setLoading] = useState(true), [error, setError] = useState(''), [busy, setBusy] = useState(false), [selected, setSelected] = useState(''), [refresh, setRefresh] = useState(0)
   const load = useCallback(async () => {
@@ -46,10 +50,14 @@ export function BusinessProcessPanel({ taskId, canManage, taskStatus }: { taskId
   useEffect(() => { setLoading(true); void load().catch(e => { setError(toUserMessage(e)); setLoading(false) }) }, [load])
   async function attach(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('')
-    try { await attachBusinessProcess(taskId, Number(selected)); setSelected(''); await load() } catch (e) { setError(toUserMessage(e)) } finally { setBusy(false) }
+    try { await attachBusinessProcess(taskId, Number(selected)); setSelected(''); const next = new URLSearchParams(params); next.delete('process'); setParams(next, { replace: true }); await load() } catch (e) { setError(toUserMessage(e)) } finally { setBusy(false) }
   }
   const available = definitions.filter(d => !d.archived && !instances.some(i => i.process_id === d.process_id))
-  return <section className={panelClass} aria-label="Бизнес-процессы задачи"><h2 className="text-xl font-bold">Бизнес-процессы задачи</h2>
+  useEffect(() => { if (canManage && definitions.some(d => d.id === requestedId && !d.archived)) setSelected(String(requestedId)) }, [canManage, definitions, requestedId])
+  return <section id="business-processes" className={panelClass} aria-label="Бизнес-процессы задачи"><h2 className="text-xl font-bold">Бизнес-процессы задачи</h2>
+    <p className="text-sm text-slate-600">Дополнительные поля и согласование этой задачи. Этапы процесса не заменяют выполнение по QR и приёмку работы.</p>
+    {!!requestedId && canManage && <p className="rounded-lg bg-blue-50 p-3 text-sm">Шаг 2 из 2: проверьте шаблон ниже и нажмите «Подключить процесс». Сам переход на эту страницу ничего не подключает.</p>}
+    {!loading && !!requestedId && !available.some(d => d.id === requestedId) && <p role="status" className="text-sm text-amber-800">Выбранный процесс уже подключён, обновлён или недоступен. Проверьте процессы задачи и действующие шаблоны ниже.</p>}
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
     <div className="flex flex-wrap gap-3"><button type="button" className="text-sm text-blue-700 underline" disabled={busy || loading} onClick={() => { if (instances.length && !window.confirm('Обновить процессы? Несохранённые поля будут заменены данными сервера.')) return; void load().then(() => { setRefresh(v => v + 1); setError('') }).catch(e => setError(toUserMessage(e))) }}>Обновить процессы</button>{['ADMIN', 'DIRECTOR'].includes(user!.role) && <Link className="text-sm text-blue-700 underline" to="/admin/business-processes">Конструктор процессов</Link>}</div>
     {loading ? <p role="status">Загрузка процессов…</p> : <>{instances.map(i => <InstanceCard key={`${i.id}:${i.revision}:${refresh}`} taskId={taskId} instance={i} onChanged={load}/>)}{!instances.length && <p className="text-slate-600">К этой задаче ещё не подключён бизнес-процесс.</p>}

@@ -4,6 +4,7 @@ const CONTROL_ROLES = ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] 
 const FIELD_MANAGERS = ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] as const
 
 export const ADMIN_ROUTE_ROLES = {
+  director: ['DIRECTOR'],
   dashboard: CONTROL_ROLES,
   workLogs: CONTROL_ROLES,
   map: CONTROL_ROLES,

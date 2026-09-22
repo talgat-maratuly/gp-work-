@@ -34,6 +34,7 @@ test('director manages job positions and employee assignment without changing ac
   await expect(create.getByLabel('Должность', { exact: true })).toBeVisible()
   await expect(create.getByLabel('Роль доступа', { exact: true })).toBeVisible()
   await create.getByLabel('Должность', { exact: true }).selectOption({ label: name })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(create.getByLabel('Роль доступа', { exact: true })).toHaveValue('WORKER')
   const workerName = `positions-worker-${suffix}`
   await create.getByLabel('ФИО', { exact: true }).fill(workerName)

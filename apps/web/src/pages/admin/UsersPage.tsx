@@ -169,7 +169,7 @@ export function UsersPage() {
       <label htmlFor={`${scope}-user-role`}>Роль доступа</label>
       <select
         id={`${scope}-user-role`}
-        className="rounded-lg border px-3 py-2"
+        className="min-w-0 rounded-lg border px-3 py-2"
         value={value}
         onChange={(e) => onChange(e.target.value as UserRole)}
       >
@@ -190,7 +190,7 @@ export function UsersPage() {
   ) {
     return (
       <select aria-label="Бригада"
-        className={className ?? 'rounded-lg border px-3 py-2'}
+        className={className ?? 'min-w-0 rounded-lg border px-3 py-2'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -248,7 +248,7 @@ export function UsersPage() {
         <button type="button" className="ml-2 underline" onClick={() => { setError(null); void reload().catch(err => setError(toUserMessage(err))) }}>Повторить загрузку</button>
       </div>}
 
-      <form aria-label="Создание сотрудника" onSubmit={handleCreate} autoComplete="off" className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+      <form aria-label="Создание сотрудника" onSubmit={handleCreate} autoComplete="off" className="grid grid-cols-1 gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
         <input
           aria-label="ФИО"
           className="rounded-lg border px-3 py-2"
@@ -267,7 +267,7 @@ export function UsersPage() {
           autoComplete="off"
           name="new-user-username"
         />
-        <div className="flex rounded-lg border bg-white">
+        <div className="flex min-w-0 rounded-lg border bg-white">
           <input
             aria-label="Пароль сотрудника"
             className="min-w-0 flex-1 rounded-l-lg px-3 py-2 outline-none"
@@ -307,7 +307,7 @@ export function UsersPage() {
       </form>
 
       {editingId != null && (
-        <form aria-label="Редактирование сотрудника" onSubmit={handleUpdate} autoComplete="off" className="grid gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
+        <form aria-label="Редактирование сотрудника" onSubmit={handleUpdate} autoComplete="off" className="grid grid-cols-1 gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-2">
           <p className="text-sm font-medium text-blue-900 sm:col-span-2">Редактирование пользователя</p>
           <input
             aria-label="ФИО"
@@ -327,7 +327,7 @@ export function UsersPage() {
             autoComplete="off"
             name="edit-user-username"
           />
-          <div className="flex rounded-lg border bg-white">
+          <div className="flex min-w-0 rounded-lg border bg-white">
             <input
               className="min-w-0 flex-1 rounded-l-lg px-3 py-2 outline-none"
               type={showEditPassword ? 'text' : 'password'}

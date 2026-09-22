@@ -25,6 +25,7 @@ export interface AuthUser {
   positionName?: string | null
   brigadeId: number | null
   isActive: boolean
+  mustChangePassword?: boolean
   createdAt: string
 }
 

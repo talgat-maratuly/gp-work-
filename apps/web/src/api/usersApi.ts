@@ -10,6 +10,7 @@ export type ApiUser = {
   positionName: string | null
   brigadeId: number | null
   isActive: boolean
+  mustChangePassword: boolean
   createdAt: string
 }
 
@@ -44,7 +45,6 @@ export async function updateUser(
   payload: Partial<{
     fullName: string
     username: string
-    password: string
     role: UserRole
     positionId: number | null
     brigadeId: number | null
@@ -54,9 +54,14 @@ export async function updateUser(
   return apiRequest<ApiUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
-export async function changeUserPassword(id: number, password: string): Promise<ApiUser> {
-  return apiRequest<ApiUser>(`/users/${id}/password`, {
-    method: 'PATCH',
-    body: JSON.stringify({ password }),
-  })
+export type PasswordReset = {
+  userId: number
+  username: string
+  fullName: string
+  temporaryPassword: string
+  expiresAt: string
+}
+
+export function resetUserPassword(id: number): Promise<PasswordReset> {
+  return apiRequest<PasswordReset>(`/users/${id}/password-reset`, { method: 'POST', signal: AbortSignal.timeout(30_000) })
 }

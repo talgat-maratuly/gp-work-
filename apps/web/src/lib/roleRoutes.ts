@@ -27,6 +27,7 @@ export function homePathForRole(role: UserRole): string {
 export function resolvePostLoginPath(role: UserRole, from?: string): string {
   if (!from || from === '/login') return homePathForRole(role)
   if (!from.startsWith('/') || from.startsWith('//')) return homePathForRole(role)
+  if (from === '/change-password') return from
   if (role === 'ACCOUNTANT' && !['/my-work-day', '/admin/attendance', '/admin/daily-reports', '/admin/workflow'].includes(from.split('?')[0])) return homePathForRole(role)
   if (role !== 'WORKER' && from === '/field/assistant') return '/admin/assistant'
   const isSectionForm = isSectionFormPath(from)

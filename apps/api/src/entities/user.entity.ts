@@ -27,6 +27,23 @@ export class User {
   @Column({ name: 'password_hash', type: 'text', nullable: true, select: false })
   passwordHash!: string | null;
 
+  // Credential state is loaded explicitly so an unrelated profile save cannot
+  // restore a stale version or cancel a password reset in another request.
+  @Column({ name: 'auth_version', type: 'int', default: 0, select: false })
+  authVersion!: number;
+
+  @Column({ name: 'must_change_password', default: false, select: false })
+  mustChangePassword!: boolean;
+
+  @Column({ name: 'password_reset_at', type: 'timestamptz', nullable: true, select: false })
+  passwordResetAt!: Date | null;
+
+  @Column({ name: 'password_reset_expires_at', type: 'timestamptz', nullable: true, select: false })
+  passwordResetExpiresAt!: Date | null;
+
+  @Column({ name: 'password_reset_by_id', type: 'int', nullable: true, select: false })
+  passwordResetById!: number | null;
+
   @Column({ type: 'varchar', length: 32, default: UserRole.WORKER })
   role!: UserRole;
 

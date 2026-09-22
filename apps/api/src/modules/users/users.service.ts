@@ -13,6 +13,7 @@ import { BrigadeMember } from '../../entities/brigade-member.entity';
 import { User } from '../../entities/user.entity';
 import { JobPosition } from '../../entities/job-position.entity';
 import { AuthService } from '../auth/auth.service';
+import { assertNewPassword } from '../auth/password-policy';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -61,7 +62,8 @@ export class UsersService {
   }
 
   findAll() {
-    return this.userRepo.find({ order: { fullName: 'ASC' } });
+    return this.userRepo.createQueryBuilder('user').addSelect('user.mustChangePassword')
+      .leftJoinAndSelect('user.position', 'position').orderBy('user.fullName', 'ASC').getMany();
   }
 
   findActiveAssignees(actor?: User) {
@@ -82,6 +84,7 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
+    assertNewPassword(dto.password);
     const existing = await this.userRepo.findOne({ where: { username: dto.username.trim() } });
     if (existing) throw new ConflictException('Пользователь с таким логином уже существует');
 
@@ -146,17 +149,17 @@ export class UsersService {
     if (dto.positionId !== undefined) row.positionId = dto.positionId;
     if (dto.brigadeId !== undefined) row.brigadeId = dto.brigadeId;
     if (dto.isActive !== undefined) row.isActive = dto.isActive;
-    if (dto.password) row.passwordHash = await bcrypt.hash(dto.password, 10);
-
-    const saved = await this.saveWithMembership(row, positionChanged);
-    return this.authService.toPublicUser(saved);
+    await this.saveWithMembership(row, positionChanged);
+    return this.findOnePublic(id);
   }
 
-  async changePassword(id: number, password: string) {
-    const row = await this.findOne(id);
-    row.passwordHash = await bcrypt.hash(password, 10);
-    const saved = await this.userRepo.save(row);
-    return this.authService.toPublicUser(saved);
+  async changePassword(id: number, password: string, actor: User) {
+    await this.authService.resetUserPassword(id, actor, password);
+    return this.findOnePublic(id);
+  }
+
+  resetPassword(id: number, actor: User) {
+    return this.authService.resetUserPassword(id, actor);
   }
 
   async deactivate(id: number, actor: User) {
@@ -168,7 +171,9 @@ export class UsersService {
   }
 
   async findOnePublic(id: number) {
-    const row = await this.findOne(id);
+    const row = await this.userRepo.createQueryBuilder('user').addSelect('user.mustChangePassword')
+      .leftJoinAndSelect('user.position', 'position').where('user.id = :id', { id }).getOne();
+    if (!row) throw new NotFoundException('Пользователь не найден');
     return this.authService.toPublicUser(row);
   }
 

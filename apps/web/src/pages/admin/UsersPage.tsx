@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { PasswordResetDialog } from '@/components/PasswordResetDialog'
 import {
-  changeUserPassword,
   createUser,
   fetchUsers,
   updateUser,
@@ -33,13 +35,14 @@ const emptyForm = (): UserForm => ({
 })
 
 export function UsersPage() {
+  const { user: currentUser } = useAuth()
+  const [resetUser, setResetUser] = useState<ApiUser | null>(null)
   const [users, setUsers] = useState<ApiUser[]>([])
   const [brigades, setBrigades] = useState<{ id: number; name: string }[]>([])
   const [createForm, setCreateForm] = useState<UserForm>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<UserForm>(emptyForm)
   const [showCreatePassword, setShowCreatePassword] = useState(false)
-  const [showEditPassword, setShowEditPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [positions, setPositions] = useState<JobPosition[]>([])
@@ -78,7 +81,6 @@ export function UsersPage() {
       brigadeId: user.brigadeId != null ? String(user.brigadeId) : '',
       isActive: user.isActive,
     })
-    setShowEditPassword(false)
     setError(null)
     setSuccess(null)
   }
@@ -86,7 +88,6 @@ export function UsersPage() {
   function cancelEdit() {
     setEditingId(null)
     setEditForm(emptyForm())
-    setShowEditPassword(false)
   }
 
   async function handleCreate(e: FormEvent) {
@@ -132,9 +133,6 @@ export function UsersPage() {
         brigadeId: editForm.brigadeId ? Number(editForm.brigadeId) : null,
         isActive: editForm.isActive,
       })
-      if (editForm.password.trim()) {
-        await changeUserPassword(editingId, editForm.password.trim())
-      }
       cancelEdit()
       setSuccess('Пользователь успешно обновлен.')
       await reload()
@@ -234,6 +232,7 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {resetUser && <PasswordResetDialog key={resetUser.id} user={resetUser} onClose={() => setResetUser(null)} onReset={() => setUsers(rows => rows.map(row => row.id === resetUser.id ? { ...row, mustChangePassword: true } : row))} />}
       <div>
         <h1 className="text-2xl font-bold">Пользователи</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -327,25 +326,6 @@ export function UsersPage() {
             autoComplete="off"
             name="edit-user-username"
           />
-          <div className="flex min-w-0 rounded-lg border bg-white">
-            <input
-              className="min-w-0 flex-1 rounded-l-lg px-3 py-2 outline-none"
-              type={showEditPassword ? 'text' : 'password'}
-              placeholder="Новый пароль (оставьте пустым, чтобы не менять)"
-              value={editForm.password}
-              onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
-              minLength={8}
-              autoComplete="new-password"
-              name="edit-user-new-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowEditPassword((v) => !v)}
-              className="shrink-0 rounded-r-lg border-l px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-            >
-              {showEditPassword ? '🙈 Скрыть' : '👁 Показать'}
-            </button>
-          </div>
           {renderRoleSelect(editForm.role, (role) => setEditForm((f) => ({ ...f, role })), 'edit')}
           {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), 'edit', users.find(user => user.id === editingId)?.positionId)}
           {renderBrigadeSelect(editForm.brigadeId, (brigadeId) =>
@@ -406,6 +386,7 @@ export function UsersPage() {
                   >
                     {u.isActive ? 'Активен' : 'Заблокирован'}
                   </span>
+                  {u.mustChangePassword && <span className="mt-1 block text-xs text-amber-800">Нужно сменить пароль</span>}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-2">
@@ -423,6 +404,7 @@ export function UsersPage() {
                     >
                       {u.isActive ? 'Заблокировать' : 'Разблокировать'}
                     </button>
+                    {u.id === currentUser?.id ? <Link to="/change-password" className="text-xs text-blue-700 underline">Сменить свой пароль</Link> : <button type="button" disabled={!u.isActive} title={u.isActive ? undefined : 'Сначала разблокируйте пользователя'} className="text-xs text-blue-700 underline disabled:text-slate-400" onClick={() => setResetUser(u)}>Сбросить пароль</button>}
                   </div>
                 </td>
               </tr>

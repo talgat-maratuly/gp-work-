@@ -28,6 +28,10 @@ export function ProtectedRoute({
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />
   }
 
+  if (user.mustChangePassword && location.pathname.replace(/\/$/, '') !== '/change-password') {
+    return <Navigate to="/change-password" replace state={{ from: location.pathname + location.search + location.hash }} />
+  }
+
   if (roles?.length && !hasRole(...roles)) {
     return <Navigate to={homePathForRole(user.role)} replace />
   }

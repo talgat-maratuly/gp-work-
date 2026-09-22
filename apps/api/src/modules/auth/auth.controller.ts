@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Patch, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { setMediaCookie, clearMediaCookie } from './media-cookie';
 import { Throttle } from '@nestjs/throttler';
@@ -8,6 +8,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../../entities/user.entity';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AllowPasswordChange } from '../../common/decorators/allow-password-change.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -31,9 +33,19 @@ export class AuthController {
   }
 
   @Get('me')
+  @AllowPasswordChange()
   me(@CurrentUser() user: User, @Headers('authorization') authorization: string, @Res({ passthrough: true }) res: Response) {
     setMediaCookie(res, authorization.replace(/^Bearer\s+/i, ''));
     return this.authService.toPublicUser(user);
+  }
+
+  @Patch('password')
+  @AllowPasswordChange()
+  @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 60_000 } })
+  async changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDto, @Res({ passthrough: true }) res: Response) {
+    await this.authService.changeOwnPassword(user, dto);
+    clearMediaCookie(res);
+    return { ok: true };
   }
 
   @Public()

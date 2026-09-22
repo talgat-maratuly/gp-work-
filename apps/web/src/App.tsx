@@ -25,6 +25,7 @@ const FormSettingsPage = lazy(() => import('@/pages/admin/FormSettingsPage').the
 const BusinessProcessesPage = lazy(() => import('@/pages/admin/BusinessProcessesPage').then(m => ({ default: m.BusinessProcessesPage })))
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ChangePasswordPage = lazy(() => import('@/pages/ChangePasswordPage').then(m => ({ default: m.ChangePasswordPage })))
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })))
 const MyWorkDayPage = lazy(() => import('@/pages/MyWorkDayPage').then(m => ({ default: m.MyWorkDayPage })))
 const BrigadesPage = lazy(() => import('@/pages/admin/BrigadesPage').then((m) => ({ default: m.BrigadesPage })))
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="/my-work-day" element={forRoles(<MyWorkDayPage />, EMPLOYEE_ROLES)} />
             <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/work-form/:sectionCode" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />
             <Route path="/work-form" element={forRoles(<LegacyWorkFormRedirect />, SECTION_FORM_ROLES)} />

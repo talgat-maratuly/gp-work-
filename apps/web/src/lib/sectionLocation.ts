@@ -4,6 +4,16 @@ export type LocationDraft = { latitude: string; longitude: string; radius: strin
 
 export const emptyLocation = (): LocationDraft => ({ latitude: '', longitude: '', radius: '150' })
 
+// A partial/invalid draft must never display a made-up point, including (0, 0).
+// Keep point parsing independent of radius while the user edits that field.
+export function locationPoint(draft: Pick<LocationDraft, 'latitude' | 'longitude'>): [number, number] | null {
+  if (!draft.latitude.trim() || !draft.longitude.trim()) return null
+  const latitude = Number(draft.latitude.trim().replace(',', '.'))
+  const longitude = Number(draft.longitude.trim().replace(',', '.'))
+  return Number.isFinite(latitude) && Math.abs(latitude) <= 90
+    && Number.isFinite(longitude) && Math.abs(longitude) <= 180 ? [latitude, longitude] : null
+}
+
 export function locationDraft(section: Section): LocationDraft {
   return {
     latitude: section.latitude == null ? '' : String(section.latitude),

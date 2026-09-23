@@ -1,4 +1,4 @@
-import { test, expect } from 'playwright/test'
+import { test, expect } from './map-fixture'
 
 const api = 'http://localhost:3002/api'
 

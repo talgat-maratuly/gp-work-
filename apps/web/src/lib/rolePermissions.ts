@@ -1,7 +1,9 @@
 import type { UserRole } from '@/lib/auth'
 
-const CONTROL_ROLES = ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] as const
-const FIELD_MANAGERS = ['ADMIN', 'BRIGADIER', 'AGRONOMIST'] as const
+// DEPUTY_DIRECTOR (Зам. директора): полный просмотр операционных разделов и
+// постановка задач. Запись в остальных разделах отклоняется на бэкенде.
+const CONTROL_ROLES = ['ADMIN', 'DEPUTY_DIRECTOR', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'ANTICOR'] as const
+const FIELD_MANAGERS = ['ADMIN', 'DEPUTY_DIRECTOR', 'BRIGADIER', 'AGRONOMIST'] as const
 
 export const ADMIN_ROUTE_ROLES = {
   director: ['DIRECTOR'],
@@ -16,21 +18,21 @@ export const ADMIN_ROUTE_ROLES = {
   evidenceReports: CONTROL_ROLES,
   schedule: CONTROL_ROLES,
   management: CONTROL_ROLES,
-  watering: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR'],
+  watering: ['ADMIN', 'DEPUTY_DIRECTOR', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR'],
   qr: ['ADMIN'],
   formSettings: ['ADMIN'],
   businessProcesses: ['ADMIN'],
   export: ['ADMIN'],
   users: ['ADMIN'],
   seed: ['ADMIN'],
-  brigades: ['ADMIN', 'BRIGADIER'],
+  brigades: ['ADMIN', 'DEPUTY_DIRECTOR', 'BRIGADIER'],
   tasks: FIELD_MANAGERS,
   workflow: [...FIELD_MANAGERS, 'ACCOUNTANT'],
   routes: FIELD_MANAGERS,
   executions: FIELD_MANAGERS,
   attendance: [...FIELD_MANAGERS, 'ACCOUNTANT'],
   workDays: FIELD_MANAGERS,
-  dailyReports: ['ADMIN', 'ACCOUNTANT', 'AKIMAT', 'ANTICOR'],
+  dailyReports: ['ADMIN', 'DEPUTY_DIRECTOR', 'ACCOUNTANT', 'AKIMAT', 'ANTICOR'],
   vehicles: FIELD_MANAGERS,
   warehouse: ['ADMIN', 'BRIGADIER'],
   warehouseExport: ['ADMIN'],

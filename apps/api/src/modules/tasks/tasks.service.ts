@@ -137,7 +137,7 @@ export class TasksService {
   }
 
   private assertCanViewTask(task: ReturnType<typeof this.mapTask>, user: User) {
-    if ([UserRole.ADMIN, UserRole.DIRECTOR].includes(user.role)) return;
+    if ([UserRole.ADMIN, UserRole.DIRECTOR, UserRole.DEPUTY_DIRECTOR].includes(user.role)) return;
     if (user.role === UserRole.AGRONOMIST && task.createdById === user.id) return;
     if (
       user.role === UserRole.BRIGADIER &&

@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from 'playwright/test'
+import { test, expect, type Page, type APIRequestContext } from './map-fixture'
 
 const api = 'http://localhost:3002/api'
 const password = 'form-test-password'

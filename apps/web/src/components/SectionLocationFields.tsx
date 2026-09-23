@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { LocationDraft } from '@/lib/sectionLocation'
+import { SectionLocationMap } from '@/components/SectionLocationMap'
 
 export function SectionLocationFields({ value, onChange, disabled, onLocatingChange }: {
   value: LocationDraft
@@ -16,7 +17,7 @@ export function SectionLocationFields({ value, onChange, disabled, onLocatingCha
   function locate() {
     setMessage(null)
     if (!navigator.geolocation) {
-      setMessage('Геолокация недоступна. Введите координаты участка вручную.')
+      setMessage('Геолокация недоступна. Выберите точку на карте или введите координаты участка вручную.')
       return
     }
     setLocating(true)
@@ -38,8 +39,8 @@ export function SectionLocationFields({ value, onChange, disabled, onLocatingCha
         setLocating(false)
         onLocatingChange(false)
         setMessage(error.code === 1
-          ? 'Доступ к геолокации запрещён. Разрешите его в настройках браузера или введите координаты вручную.'
-          : 'Не удалось определить местоположение. Повторите на участке или введите координаты вручную.')
+          ? 'Доступ к геолокации запрещён. Выберите точку на карте или введите координаты вручную.'
+          : 'Не удалось определить местоположение. Выберите точку на карте или введите координаты вручную.')
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     )
@@ -48,6 +49,10 @@ export function SectionLocationFields({ value, onChange, disabled, onLocatingCha
   return <fieldset className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3" disabled={disabled || locating}>
     <legend className="px-1 text-sm font-semibold">Местоположение участка</legend>
     <p className="text-sm text-slate-600">Укажите центр участка и радиус, в пределах которого можно начать и завершить работу. Без координат участок сохраняется, но начало смены недоступно.</p>
+    <SectionLocationMap value={value} disabled={disabled || locating} onSelect={(latitude, longitude) => {
+      setMessage(null)
+      onChange({ ...value, latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) })
+    }} />
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <label className="block min-w-0 text-sm" htmlFor={`${id}-lat`}>Широта
         <input id={`${id}-lat`} inputMode="decimal" value={value.latitude} onChange={e => onChange({ ...value, latitude: e.target.value })} placeholder="От −90 до 90" className="mt-1 w-full rounded-lg border px-3 py-2" />
@@ -59,6 +64,7 @@ export function SectionLocationFields({ value, onChange, disabled, onLocatingCha
         <input id={`${id}-radius`} inputMode="numeric" value={value.radius} onChange={e => onChange({ ...value, radius: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
     </div>
+    <p className="text-xs text-slate-500">Радиус можно изменить вручную: от 10 до 5000 метров.</p>
     <button type="button" onClick={locate} className="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-blue-800 disabled:opacity-50">
       {locating ? 'Определяем координаты…' : 'Я на участке — определить координаты'}
     </button>

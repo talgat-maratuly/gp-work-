@@ -8,7 +8,15 @@ const compiled = ts.transpileModule(readFileSync(join(__dirname, '../apps/web/sr
 }).outputText
 const exportsObject = {}
 new Function('exports', 'module', compiled)(exportsObject, { exports: exportsObject })
-const { locationPayload, locationDraft, hasSectionLocation, emptyLocation } = exportsObject
+const { locationPayload, locationDraft, hasSectionLocation, emptyLocation, locationPoint } = exportsObject
+
+test('map point is absent for incomplete/invalid coordinates, while valid zero and decimal comma remain selectable', () => {
+  for (const draft of [emptyLocation(), { latitude: '51', longitude: '' }, { latitude: '', longitude: '0' },
+    { latitude: '91', longitude: '51' }, { latitude: '51', longitude: '181' }, { latitude: 'NaN', longitude: '0' },
+  ]) assert.equal(locationPoint(draft), null)
+  assert.deepEqual(locationPoint({ latitude: '0', longitude: '0' }), [0, 0])
+  assert.deepEqual(locationPoint({ latitude: '51,2301', longitude: '51,3701', radius: '' }), [51.2301, 51.3701])
+})
 
 test('blank draft does not place the section at zero; a configured location cannot silently be cleared', () => {
   assert.deepEqual(locationPayload(emptyLocation()), {})

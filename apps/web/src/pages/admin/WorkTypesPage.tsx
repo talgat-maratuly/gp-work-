@@ -6,6 +6,8 @@ import {
   updateWorkType,
 } from '@/lib/workTypesApi'
 import type { WorkType } from '@/lib/types'
+import { useAuth } from '@/context/AuthContext'
+import { canPerform } from '@/lib/accessPolicy'
 
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   useEffect(() => {
@@ -21,6 +23,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 }
 
 export function WorkTypesPage() {
+  const { user } = useAuth()
   const [types, setTypes] = useState<WorkType[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
@@ -135,7 +138,7 @@ export function WorkTypesPage() {
           </div>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !canPerform(user,'work-types.create')}
             className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
           >
             {saving ? 'Сохранение…' : 'Добавить'}
@@ -227,6 +230,7 @@ export function WorkTypesPage() {
                             <button
                               type="button"
                               onClick={() => startEdit(t)}
+                              disabled={!canPerform(user,'work-types.update')}
                               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               Изменить
@@ -234,6 +238,7 @@ export function WorkTypesPage() {
                             <button
                               type="button"
                               onClick={() => void handleToggle(t)}
+                              disabled={!canPerform(user,t.is_active?'work-types.remove':'work-types.update')}
                               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
                               {t.is_active ? 'В архив' : 'Активировать'}

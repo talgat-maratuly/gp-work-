@@ -39,6 +39,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  accessRoleId?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   positionId?: number | null;
 
   @IsOptional()

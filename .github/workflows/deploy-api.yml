@@ -326,6 +326,18 @@ jobs:
             test -s .rollback-api-image
             test -s .rollback-api-env
             rollback_image="$(cat .rollback-api-image)"
+            # A pre-ACL binary ignores access_role_id and would grant custom
+            # accounts their unrestricted base role. Fail closed, never widen
+            # access during rollback. Stop writes before the compatibility check.
+            docker stop gp-work-api || true
+            has_acl_column="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='access_role_id'")"
+            if [ "$has_acl_column" = "1" ]; then
+              assigned_roles="$(docker exec gp-work-postgres psql -U postgres -d gp-work -Atc 'SELECT count(*) FROM users WHERE access_role_id IS NOT NULL')"
+              if [ "$assigned_roles" != "0" ] && ! docker run --rm --network none --entrypoint node "$rollback_image" -e "process.exit(require('node:fs').existsSync('/app/dist/entities/access-role.entity.js') ? 0 : 1)"; then
+                echo 'Unsafe pre-ACL rollback blocked: custom-role accounts exist. Keep API stopped; restore a compatible image or perform owner-approved recovery.' >&2
+                exit 1
+              fi
+            fi
             cp .rollback-api-env .env
             if [ -s .rollback-api-compose ]; then
               cp .rollback-api-compose docker-compose.yml

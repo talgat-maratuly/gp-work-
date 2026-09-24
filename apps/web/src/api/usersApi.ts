@@ -6,6 +6,9 @@ export type ApiUser = {
   fullName: string
   username: string
   role: UserRole
+  accessRoleId?: number | null
+  roleName?: string | null
+  canJoinBrigade?: boolean
   positionId: number | null
   positionName: string | null
   brigadeId: number | null
@@ -33,6 +36,7 @@ export async function createUser(payload: {
   username: string
   password: string
   role: UserRole
+  accessRoleId?: number | null
   positionId?: number | null
   brigadeId?: number
   isActive?: boolean
@@ -46,6 +50,7 @@ export async function updateUser(
     fullName: string
     username: string
     role: UserRole
+    accessRoleId: number | null
     positionId: number | null
     brigadeId: number | null
     isActive: boolean

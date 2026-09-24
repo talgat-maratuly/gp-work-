@@ -64,9 +64,9 @@ export function BrigadesPage() {
   }
 
   const fieldUsers = users.filter((user) =>
-    user.isActive && ['WORKER', 'WATER_CARRIER', 'BRIGADIER', 'AGRONOMIST'].includes(user.role),
+    user.isActive && (user.canJoinBrigade ?? ['WORKER', 'WATER_CARRIER', 'BRIGADIER', 'AGRONOMIST'].includes(user.role)),
   )
-  const brigadiers = users.filter((user) => user.isActive && user.role === 'BRIGADIER')
+  const brigadiers = users.filter((user) => user.isActive && user.role === 'BRIGADIER' && user.canJoinBrigade !== false)
 
   return (
     <div className="space-y-6">

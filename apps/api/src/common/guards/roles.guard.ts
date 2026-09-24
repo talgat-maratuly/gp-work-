@@ -4,6 +4,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../enums/user-role.enum';
 import { User } from '../../entities/user.entity';
+import { nonDelegable, operationInfo } from '../../modules/access-roles/access-policy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -20,11 +21,20 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!requiredRoles?.length) return true;
-
     const request = context.switchToHttp().getRequest<{ user?: User }>();
     const user = request.user;
     if (!user) throw new ForbiddenException('Требуется авторизация');
+
+    if (user.accessRoleId != null) {
+      const policy = user.accessPolicy;
+      const operation = operationInfo(context.getClass(), context.getHandler());
+      // Authentication endpoints remain usable (logout, /me, own password).
+      if (operation.resource !== 'auth' && (!policy?.isActive || policy.baseRole !== user.role ||
+        nonDelegable(operation.resource, context.getHandler().name) || !policy.permissions?.includes(operation.key))) {
+        throw new ForbiddenException('Это действие не разрешено вашей ролью доступа');
+      }
+    }
+    if (!requiredRoles?.length) return true;
 
     // Директор имеет полный доступ наравне с администратором:
     // где разрешён ADMIN, там разрешён и DIRECTOR (без правки каждого контроллера).

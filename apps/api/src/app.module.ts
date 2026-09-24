@@ -1,4 +1,6 @@
 import { WorkflowModule } from './modules/workflow/workflow.module';
+import { AccessRolesModule } from './modules/access-roles/access-roles.module';
+import { AccessRole } from './entities/access-role.entity';
 import { BusinessProcessModule } from './modules/business-processes/business-process.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -74,7 +76,7 @@ import {
 } from './entities';
 
 @Module({
-  imports: [WorkflowModule, BusinessProcessModule,
+  imports: [WorkflowModule, BusinessProcessModule, AccessRolesModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [
@@ -91,6 +93,7 @@ import {
       useFactory: (config: ConfigService) => ({
         ...getTypeOrmPostgresFromConfig(config),
         entities: [
+          AccessRole,
           NurseryObject,
           Section,
           WorkType,

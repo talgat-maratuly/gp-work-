@@ -9,6 +9,8 @@ import { User } from '../../entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { assertNewPassword } from './password-policy';
+import { resolveAccessRole } from '../access-roles/access-roles.service';
+import { PAGE_NAMES } from '../access-roles/access-policy';
 
 export type JwtPayload = { sub: number; role: string; ver?: number };
 
@@ -41,6 +43,7 @@ export class AuthService {
     if (user.mustChangePassword && (!user.passwordResetExpiresAt || user.passwordResetExpiresAt.getTime() <= Date.now())) {
       throw new UnauthorizedException('Временный пароль истёк. Обратитесь к администратору за новым.');
     }
+    await this.attachPolicy(user);
     return user;
   }
 
@@ -79,6 +82,7 @@ export class AuthService {
       admin.mustChangePassword = false;
       admin.passwordResetExpiresAt = null;
       admin.role = UserRole.ADMIN;
+      admin.accessRoleId = null;
       admin.isActive = true;
       admin.fullName = admin.fullName || 'Администратор';
       return repo.save(admin);
@@ -91,10 +95,19 @@ export class AuthService {
   }
 
   async findById(id: number): Promise<User | null> {
-    return this.userRepo.createQueryBuilder('user')
+    const user = await this.userRepo.createQueryBuilder('user')
       .addSelect(['user.authVersion', 'user.mustChangePassword', 'user.passwordResetExpiresAt'])
       .leftJoinAndSelect('user.position', 'position')
       .where('user.id = :id AND user.isActive = true', { id }).getOne();
+    if (user) await this.attachPolicy(user);
+    return user;
+  }
+
+  async attachPolicy(user: User) {
+    const policy = await resolveAccessRole(this.userRepo.manager, user);
+    if (!policy || !policy.isActive || policy.baseRole !== user.role) throw new UnauthorizedException('Роль недоступна. Обратитесь к администратору.');
+    user.accessPolicy = policy;
+    return user;
   }
 
   async resetUserPassword(id: number, actor: User, suppliedPassword?: string) {
@@ -159,6 +172,12 @@ export class AuthService {
       fullName: user.fullName,
       username: user.username,
       role: user.role,
+      accessRoleId: user.accessRoleId ?? null,
+      roleName: user.accessPolicy?.name ?? null,
+      permissions: user.accessRoleId != null ? user.accessPolicy?.permissions ?? [] : null,
+      pages: user.accessRoleId != null ? user.accessPolicy?.pages ?? [] : null,
+      pageNames: user.accessRoleId != null ? Object.fromEntries((user.accessPolicy?.pages??[]).map(path=>[path,PAGE_NAMES[path]])) : null,
+      canJoinBrigade: user.accessPolicy?.canJoinBrigade,
       positionId: user.positionId ?? null,
       positionName: user.position?.name ?? null,
       brigadeId: user.brigadeId,

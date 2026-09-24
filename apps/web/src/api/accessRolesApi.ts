@@ -9,5 +9,7 @@ export type AccessCatalog = {pages:Record<string,string>; pageRoles:Record<strin
 }>}
 export const fetchAccessRoles = () => apiRequest<AccessRole[]>('/access-roles')
 export const fetchAccessCatalog = () => apiRequest<AccessCatalog>('/access-roles/catalog')
-export const saveAccessRole = (role: Omit<AccessRole,'id'|'systemKey'|'revision'> & {revision?:number}, id?:number) =>
-  apiRequest<AccessRole>(`/access-roles${id ? `/${id}` : ''}`,{method:id?'PUT':'POST',body:JSON.stringify(role)})
+export const saveAccessRole = (role: Omit<AccessRole,'id'|'systemKey'|'revision'> & {revision?:number}, id?:number) => {
+  const {name,baseRole,permissions,pages,canJoinBrigade,isActive,revision}=role
+  return apiRequest<AccessRole>(`/access-roles${id ? `/${id}` : ''}`,{method:id?'PUT':'POST',body:JSON.stringify({name,baseRole,permissions,pages,canJoinBrigade,isActive,revision})})
+}

@@ -7,7 +7,8 @@ import { Brigade } from '../../entities/brigade.entity';
 import { User } from '../../entities/user.entity';
 import { CreateBrigadeDto } from './dto/create-brigade.dto';
 import { UpdateBrigadeDto } from './dto/update-brigade.dto';
-import { BRIGADE_MEMBER_ROLES, lockBrigadeMembership } from '../../common/brigade-membership';
+import { lockBrigadeMembership } from '../../common/brigade-membership';
+import { resolveAccessRole } from '../access-roles/access-roles.service';
 
 @Injectable()
 export class BrigadesService {
@@ -58,8 +59,9 @@ export class BrigadesService {
     if (!memberIds.length) return memberIds;
     const users = await manager.getRepository(User).find({ where: { id: In(memberIds) } });
     if (users.length !== memberIds.length) throw new BadRequestException('Один из участников бригады не найден');
-    if (users.some((user) => !user.isActive || !BRIGADE_MEMBER_ROLES.includes(user.role))) {
-      throw new BadRequestException('В бригаду можно добавить только активного сотрудника полевой роли');
+    for (const user of users) {
+      const policy = await resolveAccessRole(manager,user);
+      if (!user.isActive || !policy?.isActive || !policy.canJoinBrigade) throw new BadRequestException('Роль сотрудника не разрешает привязку к бригаде');
     }
     if (brigadierId != null && users.find((user) => user.id === brigadierId)?.role !== UserRole.BRIGADIER) {
       throw new BadRequestException('Бригадир должен иметь роль BRIGADIER');

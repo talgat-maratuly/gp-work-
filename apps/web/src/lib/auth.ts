@@ -21,6 +21,12 @@ export interface AuthUser {
   fullName: string
   username: string
   role: UserRole
+  accessRoleId?: number | null
+  roleName?: string | null
+  permissions?: string[] | null
+  pages?: string[] | null
+  pageNames?: Record<string,string> | null
+  canJoinBrigade?: boolean
   positionId?: number | null
   positionName?: string | null
   brigadeId: number | null

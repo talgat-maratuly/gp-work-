@@ -12,6 +12,7 @@ import { UserRole } from '../common/enums/user-role.enum';
 import { Brigade } from './brigade.entity';
 import { BrigadeMember } from './brigade-member.entity';
 import { JobPosition } from './job-position.entity';
+import { AccessRole } from './access-role.entity';
 
 @Entity('users')
 export class User {
@@ -46,6 +47,12 @@ export class User {
 
   @Column({ type: 'varchar', length: 32, default: UserRole.WORKER })
   role!: UserRole;
+
+  @Column({ name: 'access_role_id', type: 'int', nullable: true })
+  accessRoleId!: number | null;
+
+  // Fresh policy attached by authentication, never trusted from the JWT/client.
+  accessPolicy?: AccessRole;
 
   @Column({ name: 'position_id', type: 'int', nullable: true })
   positionId!: number | null;

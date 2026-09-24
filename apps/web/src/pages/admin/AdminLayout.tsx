@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { EMPLOYEE_ROLES, ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
 import { aiLinksForRole } from '@/lib/aiNavigation'
+import { canOpenPage, userHome } from '@/lib/accessPolicy'
 
 type NavItem = { to: string; label: string; icon: string; end?: boolean; roles?: readonly UserRole[] }
 type NavGroup = { label: string; items: NavItem[] }
@@ -30,6 +31,7 @@ const groups: NavGroup[] = [
     { to: '/my-work-day', label: 'Мой рабочий день', icon: '◷', roles: EMPLOYEE_ROLES },
     { to: '/admin/objects', label: 'Объекты', icon: '▤', roles: ADMIN_ROUTE_ROLES.objects },
     { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ADMIN_ROUTE_ROLES.users },
+    { to: '/admin/access-roles', label: 'Роли и права доступа', icon: '⚿', roles: ADMIN_ROUTE_ROLES.users },
     { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ADMIN_ROUTE_ROLES.brigades },
     { to: '/admin/attendance', label: 'Табель', icon: '◷', roles: ADMIN_ROUTE_ROLES.attendance },
     { to: '/admin/work-days', label: 'Рабочие дни', icon: '◉', roles: ADMIN_ROUTE_ROLES.workDays },
@@ -61,13 +63,13 @@ const directorGroups: NavGroup[] = [{ label: 'Кабинет директора'
 export function AdminLayout() {
   const { user, hasRole } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const aiLinks = aiLinksForRole(user?.role)
+  const aiLinks = aiLinksForRole(user?.role).filter(item=>canOpenPage(user,item.to))
   const canSee = (roles?: readonly UserRole[]) => !roles || user?.role === 'DIRECTOR' || hasRole(...roles)
   const operationGroups = user?.role === 'DIRECTOR'
     ? [...directorGroups, ...groups.map((group) => ({ ...group, items: group.items.filter((item) => !['/field/workflow', '/admin/director', '/admin/seed', '/admin/form-settings'].includes(item.to)).map((item) => item.to === '/admin' ? { ...item, to: '/admin/overview', label: 'Сводка компании' } : item) }))]
     : groups
   const allGroups: NavGroup[] = [...operationGroups, ...(aiLinks.length ? [{ label: 'ИИ-помощники', items: aiLinks }] : [])]
-  const visible = allGroups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)) })).filter((group) => group.items.length)
+  const visible = allGroups.map((group) => ({ ...group, items: group.items.filter((item) => canSee(item.roles)&&canOpenPage(user,item.to)) })).filter((group) => group.items.length)
 
   const navigation = <>{visible.map((group) => <section key={group.label} className="mb-5"><p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{group.label}</p><div className="space-y-0.5">{group.items.map((item) => <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMobileOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><span className="w-5 text-center text-base">{item.icon}</span><span>{item.label}</span></NavLink>)}</div></section>)}</>
 
@@ -76,7 +78,7 @@ export function AdminLayout() {
       <aside className="hidden h-dvh w-64 shrink-0 flex-col bg-[#101b1e] text-white lg:sticky lg:top-0 lg:flex">
         <div className="border-b border-white/10 px-5 py-5"><p className="text-2xl font-black"><span className="text-emerald-400">GP</span> WORK</p><p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">Операционная система полевых работ</p></div>
         <nav className="flex-1 overflow-y-auto px-3 py-4">{navigation}</nav>
-        <div className="border-t border-white/10 p-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? ROLE_LABELS[user.role] : ''}</p></div>
+        <div className="border-t border-white/10 p-4"><p className="text-sm font-semibold">{user?.fullName}</p><p className="text-xs text-emerald-400">{user ? user.roleName ?? ROLE_LABELS[user.role] : ''}</p></div>
       </aside>
 
       {mobileOpen && <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}><aside aria-label="Меню GP Work" className="flex h-full w-72 flex-col overflow-y-auto bg-[#101b1e] p-4 text-white" onClick={(e) => e.stopPropagation()}><div className="mb-5 flex items-center justify-between"><p className="text-xl font-black"><span className="text-emerald-400">GP</span> WORK</p><button type="button" aria-label="Закрыть меню" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2">✕</button></div><div className="mb-4 rounded-xl bg-white p-3"><AccountControls /></div><nav>{navigation}</nav></aside></div>}
@@ -88,8 +90,8 @@ export function AdminLayout() {
             {!mobileOpen && <AccountControls />}
           </div>
           <nav aria-label="ИИ-помощники" className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-2 md:px-6">
-            <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
-            {user && EMPLOYEE_ROLES.includes(user.role) && <Link to="/my-work-day" className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Мой рабочий день</Link>}
+            <Link to={userHome(user!,homePathForRole(user!.role))} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
+            {user && EMPLOYEE_ROLES.includes(user.role) && canOpenPage(user,'/my-work-day') && <Link to="/my-work-day" className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Мой рабочий день</Link>}
             {aiLinks.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800 hover:bg-blue-100'}`}><span aria-hidden="true">{item.icon}</span>{item.label}</NavLink>)}
           </nav>
         </header>

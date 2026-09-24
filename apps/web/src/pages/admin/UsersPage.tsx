@@ -9,17 +9,18 @@ import {
   type ApiUser,
 } from '@/api/usersApi'
 import { fetchBrigades, type ApiBrigade } from '@/api/brigadesApi'
-import { canJoinBrigade, eligibleBrigades } from '@/lib/brigade-membership'
 import { toUserMessage } from '@/api/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { fetchJobPositions, type JobPosition } from '@/api/jobPositionsApi'
 import { JobPositionsEditor } from '@/components/JobPositionsEditor'
+import { fetchAccessRoles, type AccessRole } from '@/api/accessRolesApi'
 
 type UserForm = {
   fullName: string
   username: string
   password: string
   role: UserRole
+  accessRoleId: string
   positionId: string
   brigadeId: string
   isActive: boolean
@@ -30,6 +31,7 @@ const emptyForm = (): UserForm => ({
   username: '',
   password: '',
   role: 'WORKER',
+  accessRoleId: '',
   positionId: '',
   brigadeId: '',
   isActive: true,
@@ -40,6 +42,7 @@ export function UsersPage() {
   const [resetUser, setResetUser] = useState<ApiUser | null>(null)
   const [users, setUsers] = useState<ApiUser[]>([])
   const [brigades, setBrigades] = useState<ApiBrigade[]>([])
+  const [accessRoles, setAccessRoles] = useState<AccessRole[]>([])
   const [createForm, setCreateForm] = useState<UserForm>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<UserForm>(emptyForm)
@@ -55,7 +58,8 @@ export function UsersPage() {
     setLoading(true)
     setLoadFailed(false)
     try {
-      const [u, b, p] = await Promise.all([fetchUsers(), fetchBrigades(), fetchJobPositions()])
+      const [u, b, p, r] = await Promise.all([fetchUsers(), fetchBrigades(), fetchJobPositions(), fetchAccessRoles()])
+      setAccessRoles(r)
       setUsers(u)
       setBrigades(b)
       setPositions(p)
@@ -78,6 +82,7 @@ export function UsersPage() {
       username: user.username,
       password: '',
       role: user.role,
+      accessRoleId: user.accessRoleId != null ? String(user.accessRoleId) : '',
       positionId: user.positionId != null ? String(user.positionId) : '',
       brigadeId: user.brigadeId != null ? String(user.brigadeId) : '',
       isActive: user.isActive,
@@ -103,6 +108,7 @@ export function UsersPage() {
         username: createForm.username.trim(),
         password: createForm.password,
         role: createForm.role,
+        accessRoleId: createForm.accessRoleId ? Number(createForm.accessRoleId) : null,
         positionId: createForm.positionId ? Number(createForm.positionId) : null,
         brigadeId: createForm.brigadeId ? Number(createForm.brigadeId) : undefined,
         isActive: createForm.isActive,
@@ -130,6 +136,7 @@ export function UsersPage() {
         fullName: editForm.fullName.trim(),
         username: editForm.username.trim(),
         role: editForm.role,
+        accessRoleId: editForm.accessRoleId ? Number(editForm.accessRoleId) : null,
         positionId: editForm.positionId ? Number(editForm.positionId) : null,
         brigadeId: editForm.brigadeId ? Number(editForm.brigadeId) : null,
         isActive: editForm.isActive,
@@ -159,8 +166,8 @@ export function UsersPage() {
   }
 
   function renderRoleSelect(
-    value: UserRole,
-    onChange: (role: UserRole) => void,
+    form: UserForm,
+    onChange: (role: string) => void,
     scope: 'create' | 'edit',
   ) {
     return (
@@ -169,26 +176,30 @@ export function UsersPage() {
       <select
         id={`${scope}-user-role`}
         className="min-w-0 rounded-lg border px-3 py-2"
-        value={value}
-        onChange={(e) => onChange(e.target.value as UserRole)}
+        value={form.accessRoleId ? `custom:${form.accessRoleId}` : form.role}
+        disabled={loading || loadFailed || saving}
+        onChange={(e) => onChange(e.target.value)}
       >
         {Object.entries(ROLE_LABELS).map(([k, v]) => (
           <option key={k} value={k}>
             {v}
           </option>
         ))}
+        {accessRoles.filter(r=>!r.systemKey&&(r.isActive||String(r.id)===form.accessRoleId)).map(r=><option key={r.id} value={`custom:${r.id}`} disabled={!r.isActive}>{r.name}{r.isActive?'':' (в архиве)'}</option>)}
       </select>
       </div>
     )
   }
 
   function renderBrigadeSelect(
-    role: UserRole,
+    form: UserForm,
     value: string,
     onChange: (brigadeId: string) => void,
     userId?: number | null,
   ) {
-    const options = eligibleBrigades(brigades, role, userId)
+    const role = form.role
+    const allowed = brigadeAllowed(form)
+    const options = brigadeOptions(form, userId)
     const current = brigades.find(brigade => String(brigade.id) === value)
     const unavailable = current && !options.some(brigade => brigade.id === current.id)
     return (
@@ -197,7 +208,7 @@ export function UsersPage() {
       <select aria-label="Бригада"
         className="min-w-0 rounded-lg border px-3 py-2"
         value={value}
-        disabled={loading || loadFailed || saving || !canJoinBrigade(role)}
+        disabled={loading || loadFailed || saving || !allowed}
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">— Без бригады —</option>
@@ -208,19 +219,27 @@ export function UsersPage() {
           </option>
         ))}
       </select>
-      <p className="text-xs text-slate-500">{!canJoinBrigade(role)
+      <p className="text-xs text-slate-500">{!allowed
         ? 'Для этой роли привязка к бригаде не предусмотрена. При смене роли прежний выбор сбрасывается.'
         : role === 'BRIGADIER'
           ? 'Бригадир отвечает за выбранную бригаду. Доступны активные бригады без другого руководителя, включая свою.'
           : 'Сотрудник входит в выбранную активную бригаду. Название бригады не меняет права доступа.'}</p>
-      {canJoinBrigade(role) && options.length === 0 && <p className="text-xs text-amber-800">Подходящих активных бригад нет. Можно сохранить без бригады и назначить её позже.</p>}
+      {allowed && options.length === 0 && <p className="text-xs text-amber-800">Подходящих активных бригад нет. Можно сохранить без бригады и назначить её позже.</p>}
       </div>
     )
   }
 
-  function changeRole(form: UserForm, role: UserRole, userId?: number | null): UserForm {
-    const keepBrigade = eligibleBrigades(brigades, role, userId).some(brigade => String(brigade.id) === form.brigadeId)
-    return { ...form, role, brigadeId: keepBrigade ? form.brigadeId : '' }
+  function brigadeAllowed(form: UserForm) {
+    return accessRoles.find(r=>form.accessRoleId ? String(r.id)===form.accessRoleId : r.systemKey===form.role)?.canJoinBrigade ?? false
+  }
+  function brigadeOptions(form: UserForm, userId?:number|null) {
+    return brigadeAllowed(form) ? brigades.filter(b=>b.isActive&&(form.role!=='BRIGADIER'||b.brigadierId==null||b.brigadierId===userId)) : []
+  }
+  function changeRole(form: UserForm, selection: string, userId?: number | null): UserForm {
+    const custom=selection.startsWith('custom:') ? accessRoles.find(r=>r.id===Number(selection.slice(7))) : null
+    const next={...form,role:custom?.baseRole??selection as UserRole,accessRoleId:custom?String(custom.id):''}
+    const keepBrigade = brigadeOptions(next, userId).some(brigade => String(brigade.id) === form.brigadeId)
+    return { ...next, brigadeId: keepBrigade ? form.brigadeId : '' }
   }
 
   function positionSaved(position: JobPosition) {
@@ -256,6 +275,7 @@ export function UsersPage() {
       {resetUser && <PasswordResetDialog key={resetUser.id} user={resetUser} onClose={() => setResetUser(null)} onReset={() => setUsers(rows => rows.map(row => row.id === resetUser.id ? { ...row, mustChangePassword: true } : row))} />}
       <div>
         <h1 className="text-2xl font-bold">Пользователи</h1>
+        <Link to="/admin/access-roles" className="text-sm text-blue-700 underline">Роли и права доступа</Link>
         <p className="mt-1 text-sm text-slate-500">
           Регистрация закрыта. Создавайте сотрудников вручную и выдавайте им логин и пароль.
         </p>
@@ -310,9 +330,9 @@ export function UsersPage() {
             {showCreatePassword ? '🙈 Скрыть' : '👁 Показать'}
           </button>
         </div>
-        {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => changeRole(f, role)), 'create')}
+        {renderRoleSelect(createForm, (role) => setCreateForm((f) => changeRole(f, role)), 'create')}
         {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })), 'create')}
-        {renderBrigadeSelect(createForm.role, createForm.brigadeId, (brigadeId) =>
+        {renderBrigadeSelect(createForm, createForm.brigadeId, (brigadeId) =>
           setCreateForm((f) => ({ ...f, brigadeId })),
         )}
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -349,9 +369,9 @@ export function UsersPage() {
             autoComplete="off"
             name="edit-user-username"
           />
-          {renderRoleSelect(editForm.role, (role) => setEditForm((f) => changeRole(f, role, editingId)), 'edit')}
+          {renderRoleSelect(editForm, (role) => setEditForm((f) => changeRole(f, role, editingId)), 'edit')}
           {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), 'edit', users.find(user => user.id === editingId)?.positionId)}
-          {renderBrigadeSelect(editForm.role, editForm.brigadeId, (brigadeId) =>
+          {renderBrigadeSelect(editForm, editForm.brigadeId, (brigadeId) =>
             setEditForm((f) => ({ ...f, brigadeId })), editingId,
           )}
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -399,7 +419,7 @@ export function UsersPage() {
                 <td className="px-3 py-2">{u.fullName}</td>
                 <td className="px-3 py-2 font-mono text-xs">{u.username}</td>
                 <td className="px-3 py-2">{u.positionName ?? '—'}{u.positionId != null && positions.some(position => position.id === u.positionId && !position.isActive) && <span className="ml-1 text-xs text-slate-500">(в архиве)</span>}</td>
-                <td className="px-3 py-2">{ROLE_LABELS[u.role]}</td>
+                <td className="px-3 py-2">{u.roleName ?? ROLE_LABELS[u.role]}</td>
                 <td className="px-3 py-2">{brigades.find((b) => b.id === u.brigadeId)?.name ?? '—'}</td>
                 <td className="px-3 py-2">
                   <span

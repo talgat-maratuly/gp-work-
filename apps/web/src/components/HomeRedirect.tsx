@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { homePathForRole } from '@/lib/roleRoutes'
 import { AuthRecovery } from './AuthRecovery'
+import { userHome } from '@/lib/accessPolicy'
 
 export function HomeRedirect() {
   const { user, loading, error } = useAuth()
@@ -17,5 +18,5 @@ export function HomeRedirect() {
   if (error) return <AuthRecovery />
   if (!user) return <Navigate to="/login" replace />
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />
-  return <Navigate to={homePathForRole(user.role)} replace />
+  return <Navigate to={userHome(user,homePathForRole(user.role))} replace />
 }

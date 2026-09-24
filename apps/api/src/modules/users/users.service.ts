@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { Brigade } from '../../entities/brigade.entity';
 import { BrigadeMember } from '../../entities/brigade-member.entity';
@@ -16,7 +16,8 @@ import { AuthService } from '../auth/auth.service';
 import { assertNewPassword } from '../auth/password-policy';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { BRIGADE_MEMBER_ROLES, lockBrigadeMembership } from '../../common/brigade-membership';
+import { lockBrigadeMembership } from '../../common/brigade-membership';
+import { resolveAccessRole } from '../access-roles/access-roles.service';
 
 @Injectable()
 export class UsersService {
@@ -28,19 +29,23 @@ export class UsersService {
     private readonly authService: AuthService,
   ) {}
 
-  private assertFieldMembership(role: UserRole, brigadeId: number | null | undefined) {
-    if (brigadeId == null) return;
-    if (!BRIGADE_MEMBER_ROLES.includes(role)) {
-      throw new BadRequestException('Бригаду можно выбрать для ролей «Бригадир», «Агроном», «Рабочий» и «Водовоз». Для другой роли выберите «Без бригады».');
-    }
-  }
-
   private saveWithMembership(row: User, validatePosition = false) {
     return this.userRepo.manager.transaction(async (manager) => {
       await lockBrigadeMembership(manager);
-      this.assertFieldMembership(row.role, row.brigadeId);
+      const policy = await resolveAccessRole(manager, row);
+      if (!policy?.isActive || policy.baseRole !== row.role || (row.accessRoleId != null && policy.systemKey)) {
+        throw new BadRequestException('Выберите действующую роль доступа');
+      }
+      row.accessPolicy = policy;
+      if (row.brigadeId != null && !policy.canJoinBrigade) throw new BadRequestException('Для этой роли привязка к бригаде запрещена');
       const existing = row.id ? await manager.getRepository(User).findOneBy({ id: row.id }) : null;
-      const sameAssignment = existing?.brigadeId === row.brigadeId && existing?.role === row.role;
+      if (existing?.isActive && existing.accessRoleId == null && this.isPrivileged(existing.role) &&
+        (!row.isActive || row.accessRoleId != null || !this.isPrivileged(row.role))) {
+        const privileged = await manager.getRepository(User).count({where:{isActive:true,accessRoleId:IsNull(),role:In([UserRole.ADMIN,UserRole.DIRECTOR])}});
+        if (privileged <= 1) throw new BadRequestException('Нельзя отключить или понизить последнего администратора');
+      }
+      const sameAssignment = existing?.brigadeId === row.brigadeId && existing?.role === row.role &&
+        (existing?.accessRoleId ?? null) === (row.accessRoleId ?? null);
       const brigades = manager.getRepository(Brigade);
       const brigade = row.brigadeId == null ? null : await brigades.findOneBy({ id: row.brigadeId });
       if (row.brigadeId != null && (!brigade || (!brigade.isActive && !sameAssignment))) {
@@ -76,9 +81,10 @@ export class UsersService {
     });
   }
 
-  findAll() {
-    return this.userRepo.createQueryBuilder('user').addSelect('user.mustChangePassword')
+  async findAll() {
+    const rows = await this.userRepo.createQueryBuilder('user').addSelect('user.mustChangePassword')
       .leftJoinAndSelect('user.position', 'position').orderBy('user.fullName', 'ASC').getMany();
+    return Promise.all(rows.map(async row => { row.accessPolicy = await resolveAccessRole(this.userRepo.manager,row) ?? undefined; return row; }));
   }
 
   findActiveAssignees(actor?: User) {
@@ -103,7 +109,6 @@ export class UsersService {
     const existing = await this.userRepo.findOne({ where: { username: dto.username.trim() } });
     if (existing) throw new ConflictException('Пользователь с таким логином уже существует');
 
-    this.assertFieldMembership(dto.role, dto.brigadeId);
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     const row = this.userRepo.create({
@@ -111,6 +116,7 @@ export class UsersService {
       username: dto.username.trim(),
       passwordHash,
       role: dto.role,
+      accessRoleId: dto.accessRoleId ?? null,
       positionId: dto.positionId ?? null,
       brigadeId: dto.brigadeId ?? null,
       isActive: dto.isActive ?? true,
@@ -124,9 +130,9 @@ export class UsersService {
   }
 
   private async assertPrivilegedAccountRemains(row: User, nextRole: UserRole, nextActive: boolean) {
-    if (!row.isActive || !this.isPrivileged(row.role) || (nextActive && this.isPrivileged(nextRole))) return;
+    if (!row.isActive || row.accessRoleId != null || !this.isPrivileged(row.role) || (nextActive && this.isPrivileged(nextRole))) return;
     const activePrivileged = await this.userRepo.count({
-      where: { isActive: true, role: In([UserRole.ADMIN, UserRole.DIRECTOR]) },
+      where: { isActive: true, accessRoleId: IsNull(), role: In([UserRole.ADMIN, UserRole.DIRECTOR]) },
     });
     if (activePrivileged <= 1) {
       throw new BadRequestException('Нельзя отключить или понизить последнего администратора');
@@ -136,7 +142,6 @@ export class UsersService {
   async update(id: number, dto: UpdateUserDto, actor: User) {
     const row = await this.findOne(id);
     const positionChanged = dto.positionId !== undefined && dto.positionId !== row.positionId;
-    this.assertFieldMembership(dto.role ?? row.role, dto.brigadeId !== undefined ? dto.brigadeId : row.brigadeId);
 
     if (actor.id === row.id && dto.isActive === false) {
       throw new BadRequestException('Нельзя заблокировать собственную учётную запись');
@@ -144,9 +149,12 @@ export class UsersService {
     if (actor.id === row.id && dto.role !== undefined && dto.role !== row.role) {
       throw new BadRequestException('Нельзя изменить собственную роль');
     }
+    if (actor.id === row.id && dto.accessRoleId !== undefined && dto.accessRoleId !== row.accessRoleId) {
+      throw new BadRequestException('Нельзя изменить собственную роль');
+    }
     await this.assertPrivilegedAccountRemains(
       row,
-      dto.role ?? row.role,
+      dto.accessRoleId != null ? UserRole.WORKER : dto.role ?? row.role,
       dto.isActive ?? row.isActive,
     );
 
@@ -156,7 +164,9 @@ export class UsersService {
       row.username = dto.username.trim();
     }
     if (dto.fullName !== undefined) row.fullName = dto.fullName.trim();
+    if (dto.role !== undefined && dto.role !== row.role && dto.accessRoleId === undefined) row.accessRoleId = null;
     if (dto.role !== undefined) row.role = dto.role;
+    if (dto.accessRoleId !== undefined) row.accessRoleId = dto.accessRoleId;
     if (dto.positionId !== undefined) row.positionId = dto.positionId;
     if (dto.brigadeId !== undefined) row.brigadeId = dto.brigadeId;
     if (dto.isActive !== undefined) row.isActive = dto.isActive;
@@ -178,13 +188,14 @@ export class UsersService {
     if (actor.id === row.id) throw new BadRequestException('Нельзя отключить собственную учётную запись');
     await this.assertPrivilegedAccountRemains(row, row.role, false);
     row.isActive = false;
-    await this.userRepo.save(row);
+    await this.saveWithMembership(row);
   }
 
   async findOnePublic(id: number) {
     const row = await this.userRepo.createQueryBuilder('user').addSelect('user.mustChangePassword')
       .leftJoinAndSelect('user.position', 'position').where('user.id = :id', { id }).getOne();
     if (!row) throw new NotFoundException('Пользователь не найден');
+    row.accessPolicy = await resolveAccessRole(this.userRepo.manager, row) ?? undefined;
     return this.authService.toPublicUser(row);
   }
 

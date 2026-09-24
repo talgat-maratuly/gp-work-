@@ -6,6 +6,8 @@ import { HomeRedirect } from '@/components/HomeRedirect'
 import { ADMIN_ROUTE_ROLES } from '@/lib/rolePermissions'
 import { useAuth } from '@/context/AuthContext'
 import { EMPLOYEE_ROLES, type UserRole } from '@/lib/auth'
+import { AccessHomePage } from '@/pages/AccessHomePage'
+import { AccessRolesPage } from '@/pages/admin/AccessRolesPage'
 
 // Страницы грузятся лениво (по мере перехода) — это ускоряет первую загрузку,
 // особенно для работников в поле. Тяжёлые библиотеки (карта, QR, экспорт)
@@ -89,6 +91,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
+            <Route path="/access-home" element={<ProtectedRoute><AccessHomePage /></ProtectedRoute>} />
             <Route path="/my-work-day" element={forRoles(<MyWorkDayPage />, EMPLOYEE_ROLES)} />
             <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
             <Route path="/login" element={<LoginPage />} />
@@ -153,6 +156,7 @@ export default function App() {
               <Route path="export" element={forRoles(<ExportPage />, ADMIN_ROUTE_ROLES.export)} />
               <Route path="photos" element={forRoles(<PhotosPage />, ADMIN_ROUTE_ROLES.photos)} />
               <Route path="users" element={forRoles(<UsersPage />, ADMIN_ROUTE_ROLES.users)} />
+              <Route path="access-roles" element={forRoles(<AccessRolesPage />, ADMIN_ROUTE_ROLES.users)} />
               <Route path="brigades" element={forRoles(<BrigadesPage />, ADMIN_ROUTE_ROLES.brigades)} />
               <Route path="tasks" element={forRoles(<TasksPage />, ADMIN_ROUTE_ROLES.tasks)} />
               <Route path="routes" element={forRoles(<RoutesPage />, ADMIN_ROUTE_ROLES.routes)} />

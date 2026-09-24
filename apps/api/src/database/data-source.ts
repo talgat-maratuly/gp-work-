@@ -1,4 +1,5 @@
 import { loadEnvFiles } from './load-env';
+import { AccessRole } from '../entities/access-role.entity';
 import { DataSource } from 'typeorm';
 import { getTypeOrmPostgresOptions } from './database.config';
 import {
@@ -43,6 +44,7 @@ loadEnvFiles();
 export default new DataSource({
   ...getTypeOrmPostgresOptions(),
   entities: [
+    AccessRole,
     NurseryObject,
     Section,
     WorkType,

@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { homePathForRole } from '@/lib/roleRoutes'
 import type { UserRole } from '@/lib/auth'
 import { AuthRecovery } from './AuthRecovery'
+import { canOpenPage, userHome } from '@/lib/accessPolicy'
 
 export function ProtectedRoute({
   children,
@@ -33,8 +34,9 @@ export function ProtectedRoute({
   }
 
   if (roles?.length && !hasRole(...roles)) {
-    return <Navigate to={homePathForRole(user.role)} replace />
+    return <Navigate to={userHome(user,homePathForRole(user.role))} replace />
   }
+  if (!canOpenPage(user,location.pathname)) return <Navigate to="/access-home" replace />
 
   return <>{children}</>
 }

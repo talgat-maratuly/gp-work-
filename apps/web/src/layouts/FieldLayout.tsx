@@ -5,6 +5,7 @@ import { aiLinksForRole } from '@/lib/aiNavigation'
 import { useAuth } from '@/context/AuthContext'
 import { useOfflineQueue } from '@/hooks/useOfflineQueue'
 import { useRouteLocationTracking } from '@/hooks/useRouteLocationTracking'
+import { canOpenPage, userHome } from '@/lib/accessPolicy'
 
 const items = [
   { to: '/field/today', label: 'Сегодня', icon: '⌂' },
@@ -35,20 +36,20 @@ export function FieldLayout() {
             {lastError && <p className="max-w-48 truncate text-red-700" title={lastError}>Ошибка синхронизации</p>}
           </div>
         </div>
-        <Link to="/field/workflow" className="mt-3 block rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Работа и улучшения</Link>
+        {canOpenPage(user,'/field/workflow')&&<Link to="/field/workflow" className="mt-3 block rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Работа и улучшения</Link>}
         <nav aria-label="ИИ-помощники" className="mt-3 flex flex-wrap gap-2">
-          <Link to={homePathForRole(user!.role)} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
-          <Link to="/my-work-day" className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Мой рабочий день</Link>
-          <NavLink to={aiLinksForRole(user?.role)[0]?.to ?? '/field/assistant'} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>
+          <Link to={userHome(user!,homePathForRole(user!.role))} className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">← В кабинет</Link>
+          {canOpenPage(user,'/my-work-day')&&<Link to="/my-work-day" className="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Мой рабочий день</Link>}
+          {canOpenPage(user,aiLinksForRole(user?.role)[0]?.to??'/field/assistant')&&<NavLink to={aiLinksForRole(user?.role)[0]?.to ?? '/field/assistant'} className={({ isActive }) => `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}>
             <span aria-hidden="true">✧</span>ИИ-ассистент
-          </NavLink>
+          </NavLink>}
         </nav>
       </header>
 
       <main className="px-4 py-4"><Outlet /></main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto grid max-w-xl grid-cols-5 border-t border-slate-200 bg-white pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
-        {items.map((item) => (
+        {items.filter(item=>canOpenPage(user,item.to)).map((item) => (
           <NavLink key={item.to} to={item.to} className={({ isActive }) => `flex flex-col items-center gap-0.5 text-[11px] font-medium ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
             <span className="text-xl leading-5">{item.icon}</span>
             {item.label}

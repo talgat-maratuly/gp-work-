@@ -8,7 +8,8 @@ import {
   updateUser,
   type ApiUser,
 } from '@/api/usersApi'
-import { fetchBrigades } from '@/api/brigadesApi'
+import { fetchBrigades, type ApiBrigade } from '@/api/brigadesApi'
+import { canJoinBrigade, eligibleBrigades } from '@/lib/brigade-membership'
 import { toUserMessage } from '@/api/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
 import { fetchJobPositions, type JobPosition } from '@/api/jobPositionsApi'
@@ -38,7 +39,7 @@ export function UsersPage() {
   const { user: currentUser } = useAuth()
   const [resetUser, setResetUser] = useState<ApiUser | null>(null)
   const [users, setUsers] = useState<ApiUser[]>([])
-  const [brigades, setBrigades] = useState<{ id: number; name: string }[]>([])
+  const [brigades, setBrigades] = useState<ApiBrigade[]>([])
   const [createForm, setCreateForm] = useState<UserForm>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<UserForm>(emptyForm)
@@ -56,7 +57,7 @@ export function UsersPage() {
     try {
       const [u, b, p] = await Promise.all([fetchUsers(), fetchBrigades(), fetchJobPositions()])
       setUsers(u)
-      setBrigades(b.map((x) => ({ id: x.id, name: x.name })))
+      setBrigades(b)
       setPositions(p)
     } catch (err) {
       setLoadFailed(true)
@@ -182,24 +183,44 @@ export function UsersPage() {
   }
 
   function renderBrigadeSelect(
+    role: UserRole,
     value: string,
     onChange: (brigadeId: string) => void,
-    className?: string,
+    userId?: number | null,
   ) {
+    const options = eligibleBrigades(brigades, role, userId)
+    const current = brigades.find(brigade => String(brigade.id) === value)
+    const unavailable = current && !options.some(brigade => brigade.id === current.id)
     return (
+      <div className="flex min-w-0 flex-col gap-1 text-sm">
+      <span>Бригада</span>
       <select aria-label="Бригада"
-        className={className ?? 'min-w-0 rounded-lg border px-3 py-2'}
+        className="min-w-0 rounded-lg border px-3 py-2"
         value={value}
+        disabled={loading || loadFailed || saving || !canJoinBrigade(role)}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">— бригада —</option>
-        {brigades.map((b) => (
+        <option value="">— Без бригады —</option>
+        {unavailable && <option value={current.id} disabled>{current.name} ({current.isActive ? 'назначен другой бригадир' : 'неактивна'})</option>}
+        {options.map((b) => (
           <option key={b.id} value={b.id}>
             {b.name}
           </option>
         ))}
       </select>
+      <p className="text-xs text-slate-500">{!canJoinBrigade(role)
+        ? 'Для этой роли привязка к бригаде не предусмотрена. При смене роли прежний выбор сбрасывается.'
+        : role === 'BRIGADIER'
+          ? 'Бригадир отвечает за выбранную бригаду. Доступны активные бригады без другого руководителя, включая свою.'
+          : 'Сотрудник входит в выбранную активную бригаду. Название бригады не меняет права доступа.'}</p>
+      {canJoinBrigade(role) && options.length === 0 && <p className="text-xs text-amber-800">Подходящих активных бригад нет. Можно сохранить без бригады и назначить её позже.</p>}
+      </div>
     )
+  }
+
+  function changeRole(form: UserForm, role: UserRole, userId?: number | null): UserForm {
+    const keepBrigade = eligibleBrigades(brigades, role, userId).some(brigade => String(brigade.id) === form.brigadeId)
+    return { ...form, role, brigadeId: keepBrigade ? form.brigadeId : '' }
   }
 
   function positionSaved(position: JobPosition) {
@@ -238,6 +259,8 @@ export function UsersPage() {
         <p className="mt-1 text-sm text-slate-500">
           Регистрация закрыта. Создавайте сотрудников вручную и выдавайте им логин и пароль.
         </p>
+        <p className="mt-2 text-sm text-slate-600">Роль доступа определяет права в системе. Должность — название работы сотрудника. Бригада — коллектив, которым бригадир руководит или в котором сотрудник работает.</p>
+        <button type="button" disabled={loading || saving} className="mt-2 text-sm text-blue-700 underline disabled:opacity-50" onClick={() => { setError(null); void reload().catch(err => setError(toUserMessage(err))) }}>Обновить список бригад</button>
       </div>
 
       <JobPositionsEditor positions={positions} onSaved={positionSaved} disabled={loading || loadFailed || saving} />
@@ -287,9 +310,9 @@ export function UsersPage() {
             {showCreatePassword ? '🙈 Скрыть' : '👁 Показать'}
           </button>
         </div>
-        {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => ({ ...f, role })), 'create')}
+        {renderRoleSelect(createForm.role, (role) => setCreateForm((f) => changeRole(f, role)), 'create')}
         {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })), 'create')}
-        {renderBrigadeSelect(createForm.brigadeId, (brigadeId) =>
+        {renderBrigadeSelect(createForm.role, createForm.brigadeId, (brigadeId) =>
           setCreateForm((f) => ({ ...f, brigadeId })),
         )}
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -326,10 +349,10 @@ export function UsersPage() {
             autoComplete="off"
             name="edit-user-username"
           />
-          {renderRoleSelect(editForm.role, (role) => setEditForm((f) => ({ ...f, role })), 'edit')}
+          {renderRoleSelect(editForm.role, (role) => setEditForm((f) => changeRole(f, role, editingId)), 'edit')}
           {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), 'edit', users.find(user => user.id === editingId)?.positionId)}
-          {renderBrigadeSelect(editForm.brigadeId, (brigadeId) =>
-            setEditForm((f) => ({ ...f, brigadeId })),
+          {renderBrigadeSelect(editForm.role, editForm.brigadeId, (brigadeId) =>
+            setEditForm((f) => ({ ...f, brigadeId })), editingId,
           )}
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
             <input

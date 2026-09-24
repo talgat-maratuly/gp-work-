@@ -3,9 +3,9 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { login } from '@/api/authApi'
 import { toUserMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
-import { returnPathAfterLogout, resolvePostLoginPath } from '@/lib/roleRoutes'
+import { returnPathAfterLogout } from '@/lib/roleRoutes'
 import { AuthRecovery } from '@/components/AuthRecovery'
-import { canOpenPage, userHome } from '@/lib/accessPolicy'
+import { loginTarget } from '@/lib/accessPolicy'
 
 export function LoginPage() {
   const { user, loading, error: authError, refresh } = useAuth()
@@ -44,7 +44,7 @@ export function LoginPage() {
 
   if (user) {
     if (user.mustChangePassword) return <Navigate to="/change-password" replace state={{ from }} />
-    const target = user.accessRoleId != null ? (from && canOpenPage(user,from) ? from : '/access-home') : resolvePostLoginPath(user.role, from)
+    const target = loginTarget(user,from)
     return <Navigate to={target} replace />
   }
 
@@ -55,7 +55,7 @@ export function LoginPage() {
     try {
       await login(username.trim(), password)
       const verified = await refresh()
-      if (verified) navigate(verified.mustChangePassword ? '/change-password' : userHome(verified,resolvePostLoginPath(verified.role, from)), { replace: true, state: verified.mustChangePassword ? { from } : null })
+      if (verified) navigate(verified.mustChangePassword ? '/change-password' : loginTarget(verified,from), { replace: true, state: verified.mustChangePassword ? { from } : null })
     } catch (err) {
       console.error('[login]', err)
       setError(toUserMessage(err, 'Не удалось войти'))

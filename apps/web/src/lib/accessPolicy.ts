@@ -1,4 +1,5 @@
 import type { AuthUser } from './auth'
+import { isSectionFormPath, resolvePostLoginPath } from './roleRoutes'
 
 export function canOpenPage(user:AuthUser|null, path:string) {
   if (!user) return false
@@ -13,4 +14,9 @@ export function canOpenPage(user:AuthUser|null, path:string) {
 export function userHome(user:AuthUser, legacy:string) {return user.accessRoleId!=null?'/access-home':legacy}
 export function canPerform(user:AuthUser|null,key:string) {
   return !!user&&(user.accessRoleId==null||!!user.permissions?.includes(key))
+}
+export function loginTarget(user:AuthUser,from?:string) {
+  if(user.accessRoleId==null)return resolvePostLoginPath(user.role,from)
+  if(from?.startsWith('/')&&!from.startsWith('//')&&(isSectionFormPath(from)||canOpenPage(user,from)))return from
+  return '/access-home'
 }

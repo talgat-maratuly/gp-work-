@@ -4,10 +4,17 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { operationKey, pageAllowed } from './access-policy';
+import { DataSource } from 'typeorm';
+import { AccessRole } from '../../entities/access-role.entity';
 
 @Controller('objects') @Roles(UserRole.ADMIN)
 class Example { @Get() findAll() {} @Post() create() {} }
 describe('Custom access policy is an additional mandatory guard',()=>{
+  it('has valid PostgreSQL metadata, including the nullable system key',async()=>{
+    const source=new DataSource({type:'postgres',entities:[AccessRole]});
+    await (source as unknown as {buildMetadatas():Promise<void>}).buildMetadatas();
+    expect(source.getMetadata(AccessRole).findColumnWithPropertyName('systemKey')?.type).toBe('varchar');
+  });
   const guard=new RolesGuard(new Reflector());
   const user:any={role:UserRole.ADMIN,accessRoleId:11,accessPolicy:{isActive:true,baseRole:UserRole.ADMIN,permissions:['objects.findAll']}};
   const context=(actor:any,method:keyof Example)=>({getClass:()=>Example,getHandler:()=>Example.prototype[method],switchToHttp:()=>({getRequest:()=>({user:actor})})}) as any;

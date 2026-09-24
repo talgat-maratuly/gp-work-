@@ -44,7 +44,8 @@ export class CreateUserDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  brigadeId?: number;
+  @Min(1)
+  brigadeId?: number | null;
 
   @IsOptional()
   @IsBoolean()

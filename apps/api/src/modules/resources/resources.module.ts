@@ -14,9 +14,11 @@ import {
 } from '../../entities';
 import { ResourcesController } from './resources.controller';
 import { ResourcesService } from './resources.service';
+import { VehicleTypesModule } from '../vehicle-types/vehicle-types.module';
 
 @Module({
   imports: [
+    VehicleTypesModule,
     TypeOrmModule.forFeature([
       Vehicle,
       VehicleAssignment,

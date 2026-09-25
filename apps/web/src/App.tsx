@@ -22,6 +22,7 @@ const ObjectsPage = lazy(() => import('@/pages/admin/ObjectsPage').then((m) => (
 const PhotosPage = lazy(() => import('@/pages/admin/PhotosPage').then((m) => ({ default: m.PhotosPage })))
 const QrPage = lazy(() => import('@/pages/admin/QrPage').then((m) => ({ default: m.QrPage })))
 const WorkTypesPage = lazy(() => import('@/pages/admin/WorkTypesPage').then((m) => ({ default: m.WorkTypesPage })))
+const VehicleTypesPage = lazy(() => import('@/pages/admin/VehicleTypesPage').then((m) => ({ default: m.VehicleTypesPage })))
 const LegacyWorkFormRedirect = lazy(() => import('@/pages/LegacyWorkFormRedirect').then((m) => ({ default: m.LegacyWorkFormRedirect })))
 const FormSettingsPage = lazy(() => import('@/pages/admin/FormSettingsPage').then((m) => ({ default: m.FormSettingsPage })))
 const BusinessProcessesPage = lazy(() => import('@/pages/admin/BusinessProcessesPage').then(m => ({ default: m.BusinessProcessesPage })))
@@ -150,6 +151,7 @@ export default function App() {
               <Route path="work-map" element={<Navigate to="/admin/map" replace />} />
               <Route path="objects" element={forRoles(<ObjectsPage />, ADMIN_ROUTE_ROLES.objects)} />
               <Route path="work-types" element={forRoles(<WorkTypesPage />, ADMIN_ROUTE_ROLES.workTypes)} />
+              <Route path="vehicle-types" element={forRoles(<VehicleTypesPage />, ADMIN_ROUTE_ROLES.vehicleTypes)} />
               <Route path="qr" element={forRoles(<QrPage />, ADMIN_ROUTE_ROLES.qr)} />
               <Route path="form-settings" element={forRoles(<FormSettingsPage />, ADMIN_ROUTE_ROLES.formSettings)} />
               <Route path="business-processes" element={forRoles(<BusinessProcessesPage />, ADMIN_ROUTE_ROLES.businessProcesses)} />

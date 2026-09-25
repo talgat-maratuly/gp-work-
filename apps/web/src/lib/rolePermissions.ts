@@ -19,6 +19,7 @@ export const ADMIN_ROUTE_ROLES = {
   watering: ['ADMIN', 'BRIGADIER', 'AGRONOMIST', 'WATER_CARRIER', 'AKIMAT', 'ANTICOR'],
   qr: ['ADMIN'],
   formSettings: ['ADMIN'],
+  vehicleTypes: ['ADMIN'],
   businessProcesses: ['ADMIN'],
   export: ['ADMIN'],
   users: ['ADMIN'],

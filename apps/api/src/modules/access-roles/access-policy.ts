@@ -2,7 +2,7 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 export const SECTION_NAMES: Record<string, string> = {
-  objects:'Объекты', sections:'Участки', 'work-types':'Виды работ', 'work-logs':'Журнал работ',
+  objects:'Объекты', sections:'Участки', 'work-types':'Виды работ', 'vehicle-types':'Виды техники', 'work-logs':'Журнал работ',
   brigades:'Бригады', tasks:'Задачи', routes:'Маршруты', attendance:'Табель и личный рабочий день',
   field:'Полевые работы и приёмка', products:'Склад', 'stock-movements':'Движение материалов',
   resources:'Техника и ресурсы', workflow:'Работа и улучшения', 'business-processes':'Бизнес-процессы',
@@ -20,7 +20,7 @@ export const PAGE_NAMES: Record<string, string> = {
   '/admin/objects':'Объекты и участки', '/admin/brigades':'Бригады', '/admin/attendance':'Табель',
   '/admin/work-days':'Рабочие дни', '/admin/qr':'Участки и QR', '/admin/photos':'Фото ДО/ПОСЛЕ',
   '/admin/warehouse':'Склад', '/admin/vehicles':'Техника', '/admin/products/import':'Импорт товаров',
-  '/admin/work-types':'Виды работ', '/admin/kpi':'KPI / Качество', '/admin/evidence-reports':'Отчёты по работам',
+  '/admin/work-types':'Виды работ', '/admin/vehicle-types':'Виды техники', '/admin/kpi':'KPI / Качество', '/admin/evidence-reports':'Отчёты по работам',
   '/admin/management':'Управление', '/admin/daily-reports':'Отчёты', '/admin/export':'Экспорт Excel',
   '/admin/form-settings':'Настройки формы', '/admin/business-processes':'Бизнес-процессы',
   '/admin/assistant':'ИИ-ассистент', '/admin/ai-director':'ИИ-директор', '/admin/my-tasks':'Мои задачи',
@@ -36,7 +36,7 @@ export function pageAllowed(role:UserRole,path:string):boolean {
   if(role===UserRole.WATER_CARRIER)return ['/admin/watering','/admin/assistant'].includes(path);
   if(path==='/admin/director')return role===UserRole.DIRECTOR;
   if(role===UserRole.ADMIN||role===UserRole.DIRECTOR)return path!=='/admin/my-tasks';
-  if(['/admin/qr','/admin/form-settings','/admin/business-processes','/admin/export','/admin/products/import','/admin/ai-director'].includes(path))return false;
+  if(['/admin/qr','/admin/form-settings','/admin/business-processes','/admin/export','/admin/products/import','/admin/vehicle-types','/admin/ai-director'].includes(path))return false;
   if(['/admin/brigades','/admin/warehouse'].includes(path))return role===UserRole.BRIGADIER;
   if(path==='/admin/daily-reports')return [UserRole.AKIMAT,UserRole.ANTICOR].includes(role);
   if(['/admin/tasks','/admin/routes','/admin/executions','/admin/workflow','/admin/attendance','/admin/work-days','/admin/vehicles','/admin/assistant','/admin/my-tasks'].includes(path))return [UserRole.BRIGADIER,UserRole.AGRONOMIST].includes(role);

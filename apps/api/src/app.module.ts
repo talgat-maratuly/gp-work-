@@ -13,6 +13,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { ObjectsModule } from './modules/objects/objects.module';
 import { SectionsModule } from './modules/sections/sections.module';
 import { WorkTypesModule } from './modules/work-types/work-types.module';
+import { VehicleTypesModule } from './modules/vehicle-types/vehicle-types.module';
 import { WorkLogsModule } from './modules/work-logs/work-logs.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { QrModule } from './modules/qr/qr.module';
@@ -70,6 +71,7 @@ import {
   SyncOperation,
   Vehicle,
   VehicleAssignment,
+  VehicleTypeRef,
   NurseryBatch,
   NurseryMovement,
   WorkDaySession,
@@ -125,6 +127,7 @@ import {
           SyncOperation,
           Vehicle,
           VehicleAssignment,
+          VehicleTypeRef,
           NurseryBatch,
           NurseryMovement,
           WorkDaySession,
@@ -155,6 +158,7 @@ import {
     ObjectsModule,
     SectionsModule,
     WorkTypesModule,
+    VehicleTypesModule,
     WorkLogsModule,
     UploadsModule,
     QrModule,

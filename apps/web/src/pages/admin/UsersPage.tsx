@@ -11,8 +11,6 @@ import {
 import { fetchBrigades, type ApiBrigade } from '@/api/brigadesApi'
 import { toUserMessage } from '@/api/client'
 import { ROLE_LABELS, type UserRole } from '@/lib/auth'
-import { fetchJobPositions, type JobPosition } from '@/api/jobPositionsApi'
-import { JobPositionsEditor } from '@/components/JobPositionsEditor'
 import { fetchAccessRoles, type AccessRole } from '@/api/accessRolesApi'
 
 type UserForm = {
@@ -21,7 +19,6 @@ type UserForm = {
   password: string
   role: UserRole
   accessRoleId: string
-  positionId: string
   brigadeId: string
   isActive: boolean
 }
@@ -32,7 +29,6 @@ const emptyForm = (): UserForm => ({
   password: '',
   role: 'WORKER',
   accessRoleId: '',
-  positionId: '',
   brigadeId: '',
   isActive: true,
 })
@@ -49,7 +45,6 @@ export function UsersPage() {
   const [showCreatePassword, setShowCreatePassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [positions, setPositions] = useState<JobPosition[]>([])
   const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -58,11 +53,10 @@ export function UsersPage() {
     setLoading(true)
     setLoadFailed(false)
     try {
-      const [u, b, p, r] = await Promise.all([fetchUsers(), fetchBrigades(), fetchJobPositions(), fetchAccessRoles()])
+      const [u, b, r] = await Promise.all([fetchUsers(), fetchBrigades(), fetchAccessRoles()])
       setAccessRoles(r)
       setUsers(u)
       setBrigades(b)
-      setPositions(p)
     } catch (err) {
       setLoadFailed(true)
       throw err
@@ -83,7 +77,6 @@ export function UsersPage() {
       password: '',
       role: user.role,
       accessRoleId: user.accessRoleId != null ? String(user.accessRoleId) : '',
-      positionId: user.positionId != null ? String(user.positionId) : '',
       brigadeId: user.brigadeId != null ? String(user.brigadeId) : '',
       isActive: user.isActive,
     })
@@ -109,7 +102,6 @@ export function UsersPage() {
         password: createForm.password,
         role: createForm.role,
         accessRoleId: createForm.accessRoleId ? Number(createForm.accessRoleId) : null,
-        positionId: createForm.positionId ? Number(createForm.positionId) : null,
         brigadeId: createForm.brigadeId ? Number(createForm.brigadeId) : undefined,
         isActive: createForm.isActive,
       })
@@ -137,7 +129,6 @@ export function UsersPage() {
         username: editForm.username.trim(),
         role: editForm.role,
         accessRoleId: editForm.accessRoleId ? Number(editForm.accessRoleId) : null,
-        positionId: editForm.positionId ? Number(editForm.positionId) : null,
         brigadeId: editForm.brigadeId ? Number(editForm.brigadeId) : null,
         isActive: editForm.isActive,
       })
@@ -242,34 +233,6 @@ export function UsersPage() {
     return { ...next, brigadeId: keepBrigade ? form.brigadeId : '' }
   }
 
-  function positionSaved(position: JobPosition) {
-    if (!positions.some(row => row.id === position.id)) {
-      if (editingId != null) setEditForm(form => ({ ...form, positionId: String(position.id) }))
-      else setCreateForm(form => ({ ...form, positionId: String(position.id) }))
-    }
-    setPositions(rows => [...rows.filter(row => row.id !== position.id), position]
-      .sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.name.localeCompare(b.name, 'ru')))
-    setUsers(rows => rows.map(row => row.positionId === position.id ? { ...row, positionName: position.name } : row))
-    if (!position.isActive && createForm.positionId === String(position.id)) {
-      setCreateForm(form => ({ ...form, positionId: '' }))
-    }
-    const assignedPositionId = users.find(user => user.id === editingId)?.positionId
-    if (!position.isActive && editForm.positionId === String(position.id) && assignedPositionId !== position.id) {
-      setEditForm(form => ({ ...form, positionId: assignedPositionId != null ? String(assignedPositionId) : '' }))
-    }
-  }
-
-  function renderPositionSelect(value: string, onChange: (id: string) => void, scope: 'create' | 'edit', assignedId?: number | null) {
-    return <div className="flex min-w-0 flex-col gap-1 text-sm">
-      <label htmlFor={`${scope}-user-position`}>Должность</label>
-      <select id={`${scope}-user-position`} className="min-w-0 rounded-lg border px-3 py-2" value={value} onChange={e => onChange(e.target.value)} disabled={loading || loadFailed}>
-        <option value="">— Не назначена —</option>
-        {positions.filter(position => position.isActive || position.id === assignedId).map(position =>
-          <option key={position.id} value={position.id}>{position.name}{position.isActive ? '' : ' (в архиве)'}</option>)}
-      </select>
-    </div>
-  }
-
   return (
     <div className="space-y-6">
       {resetUser && <PasswordResetDialog key={resetUser.id} user={resetUser} onClose={() => setResetUser(null)} onReset={() => setUsers(rows => rows.map(row => row.id === resetUser.id ? { ...row, mustChangePassword: true } : row))} />}
@@ -279,14 +242,13 @@ export function UsersPage() {
         <p className="mt-1 text-sm text-slate-500">
           Регистрация закрыта. Создавайте сотрудников вручную и выдавайте им логин и пароль.
         </p>
-        <p className="mt-2 text-sm text-slate-600">Роль доступа определяет права в системе. Должность — название работы сотрудника. Бригада — коллектив, которым бригадир руководит или в котором сотрудник работает.</p>
+        <p className="mt-2 text-sm text-slate-600">Роль доступа определяет права в системе. Бригада — коллектив, которым бригадир руководит или в котором сотрудник работает.</p>
         <button type="button" disabled={loading || saving} className="mt-2 text-sm text-blue-700 underline disabled:opacity-50" onClick={() => { setError(null); void reload().catch(err => setError(toUserMessage(err))) }}>Обновить список бригад</button>
       </div>
 
-      <JobPositionsEditor positions={positions} onSaved={positionSaved} disabled={loading || loadFailed || saving} />
-      {loading && <p role="status" className="text-sm text-slate-600">Загрузка сотрудников и должностей…</p>}
+      {loading && <p role="status" className="text-sm text-slate-600">Загрузка сотрудников…</p>}
       {loadFailed && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-        Не удалось загрузить сотрудников и должности.
+        Не удалось загрузить сотрудников.
         <button type="button" className="ml-2 underline" onClick={() => { setError(null); void reload().catch(err => setError(toUserMessage(err))) }}>Повторить загрузку</button>
       </div>}
 
@@ -331,7 +293,6 @@ export function UsersPage() {
           </button>
         </div>
         {renderRoleSelect(createForm, (role) => setCreateForm((f) => changeRole(f, role)), 'create')}
-        {renderPositionSelect(createForm.positionId, (positionId) => setCreateForm(f => ({ ...f, positionId })), 'create')}
         {renderBrigadeSelect(createForm, createForm.brigadeId, (brigadeId) =>
           setCreateForm((f) => ({ ...f, brigadeId })),
         )}
@@ -370,7 +331,6 @@ export function UsersPage() {
             name="edit-user-username"
           />
           {renderRoleSelect(editForm, (role) => setEditForm((f) => changeRole(f, role, editingId)), 'edit')}
-          {renderPositionSelect(editForm.positionId, (positionId) => setEditForm(f => ({ ...f, positionId })), 'edit', users.find(user => user.id === editingId)?.positionId)}
           {renderBrigadeSelect(editForm, editForm.brigadeId, (brigadeId) =>
             setEditForm((f) => ({ ...f, brigadeId })), editingId,
           )}
@@ -406,7 +366,6 @@ export function UsersPage() {
             <tr>
               <th className="px-3 py-2 text-left">ФИО</th>
               <th className="px-3 py-2 text-left">Логин</th>
-              <th className="px-3 py-2 text-left">Должность</th>
               <th className="px-3 py-2 text-left">Роль доступа</th>
               <th className="px-3 py-2 text-left">Бригада</th>
               <th className="px-3 py-2 text-left">Статус</th>
@@ -418,7 +377,6 @@ export function UsersPage() {
               <tr key={u.id} className={editingId === u.id ? 'bg-blue-50/50' : undefined}>
                 <td className="px-3 py-2">{u.fullName}</td>
                 <td className="px-3 py-2 font-mono text-xs">{u.username}</td>
-                <td className="px-3 py-2">{u.positionName ?? '—'}{u.positionId != null && positions.some(position => position.id === u.positionId && !position.isActive) && <span className="ml-1 text-xs text-slate-500">(в архиве)</span>}</td>
                 <td className="px-3 py-2">{u.roleName ?? ROLE_LABELS[u.role]}</td>
                 <td className="px-3 py-2">{brigades.find((b) => b.id === u.brigadeId)?.name ?? '—'}</td>
                 <td className="px-3 py-2">

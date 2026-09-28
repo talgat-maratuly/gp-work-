@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchMyWorkDay, finishMyWorkDay, startMyWorkDay, type MyWorkDay } from '@/api/attendanceApi'
+import { fetchMyWorkDay, finishMyWorkDay, saveLateExplanation, startMyWorkDay, type MyWorkDay } from '@/api/attendanceApi'
 import { toUserMessage } from '@/api/client'
 import { AccountControls } from '@/components/AccountControls'
 import { useAuth } from '@/context/AuthContext'
@@ -35,6 +35,8 @@ export function MyWorkDayPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [explanation, setExplanation] = useState('')
+  const [savingExpl, setSavingExpl] = useState(false)
   const [, tick] = useState(0)
   const activeId = useRef(user!.id)
   activeId.current = user!.id
@@ -101,6 +103,27 @@ export function MyWorkDayPage() {
     }
   }
 
+  useEffect(() => {
+    setExplanation(data?.current?.lateExplanation ?? '')
+  }, [data?.current?.id, data?.current?.lateExplanation])
+
+  async function submitExplanation() {
+    const cur = data?.current
+    if (!cur || savingExpl || !explanation.trim()) return
+    const id = user!.id, token = getToken()
+    setSavingExpl(true); setError(null); setSuccess(null)
+    try {
+      await saveLateExplanation(cur.id, explanation)
+      if (!stillMine(id, token)) return
+      setSuccess('Объяснительная сохранена.')
+      await load()
+    } catch (err) {
+      if (stillMine(id, token)) setError(toUserMessage(err))
+    } finally {
+      if (stillMine(id, token)) setSavingExpl(false)
+    }
+  }
+
   const current = data?.current
   const elapsed = current?.status === 'ON_DUTY' && data
     ? Math.max(0, (Date.parse(data.serverTime) + performance.now() - receivedAt.current - Date.parse(current.checkInTime)) / 3_600_000)
@@ -136,6 +159,18 @@ export function MyWorkDayPage() {
               <LocationLink latitude={current.checkInLatitude} longitude={current.checkInLongitude} accuracy={current.checkInAccuracy} label="Место начала" />
               <LocationLink latitude={current.checkOutLatitude} longitude={current.checkOutLongitude} accuracy={current.checkOutAccuracy} label="Место завершения" />
             </div>
+            {current.late && <div className={`rounded-xl border p-4 ${current.lateExplanation ? 'border-emerald-200 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+              <p className="font-semibold text-amber-900">Опоздание — приход позже {current.lateThreshold}</p>
+              <p className="mt-1 text-sm text-slate-700">Напишите объяснительную: почему опоздали.</p>
+              <textarea value={explanation} onChange={(e) => setExplanation(e.target.value)} rows={3}
+                placeholder="Причина опоздания"
+                className="mt-2 w-full rounded-lg border p-2 text-sm" />
+              <button type="button" onClick={() => void submitExplanation()} disabled={savingExpl || !explanation.trim()}
+                className="mt-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                {savingExpl ? 'Сохранение…' : current.lateExplanation ? 'Обновить объяснительную' : 'Отправить объяснительную'}
+              </button>
+              {current.lateExplanation && <p className="mt-2 text-xs text-emerald-800">✓ Объяснительная сохранена.</p>}
+            </div>}
           </>}
           {fieldClose ? <div className="space-y-3">
             <p className="text-sm text-slate-600">День открыт на участке. Заполните результат работы в форме участка — часы попадут в табель автоматически.</p>
@@ -156,7 +191,7 @@ export function MyWorkDayPage() {
         <p className="text-sm text-slate-500">Последние 31 рабочий день</p>
         {data.recent.length === 0 && <p className="text-sm text-slate-600">Пока нет отметок.</p>}
         {data.recent.map(row => <article key={row.id} className="flex flex-wrap justify-between gap-3 rounded-xl border bg-white p-4">
-          <div><p className="font-semibold">{dayLabel(row.workDate)}</p><p className="mt-1 text-sm text-slate-600">{timeLabel(row.checkInTime)} — {row.checkOutTime ? timeLabel(row.checkOutTime) : 'день открыт'}</p></div>
+          <div><p className="font-semibold">{dayLabel(row.workDate)}{row.late && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Опоздание</span>}</p><p className="mt-1 text-sm text-slate-600">{timeLabel(row.checkInTime)} — {row.checkOutTime ? timeLabel(row.checkOutTime) : 'день открыт'}</p>{row.late && row.lateExplanation && <p className="mt-1 text-xs text-slate-500">Объяснительная: {row.lateExplanation}</p>}</div>
           <p className="font-semibold">{row.workedHours != null ? durationLabel(row.workedHours) : 'Не завершён'}</p>
         </article>)}
       </section>}

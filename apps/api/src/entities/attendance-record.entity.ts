@@ -78,6 +78,10 @@ export class AttendanceRecord {
   @Column({ name: 'extra_values', type: 'text', nullable: true })
   extraValues!: string | null;
 
+  // Объяснительная за опоздание (пишет сотрудник, если пришёл позже порога смены).
+  @Column({ name: 'late_explanation', type: 'text', nullable: true })
+  lateExplanation!: string | null;
+
   @Column({ name: 'first_work_log_id', type: 'int', nullable: true })
   firstWorkLogId!: number | null;
 

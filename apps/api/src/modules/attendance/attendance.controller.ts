@@ -7,6 +7,7 @@ import { User } from '../../entities/user.entity';
 import { AttendanceService } from './attendance.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { ClockAttendanceDto } from './dto/clock-attendance.dto';
+import { LateExplanationDto } from './dto/late-explanation.dto';
 
 const EMPLOYEE_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.ACCOUNTANT, UserRole.BRIGADIER,
   UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER];
@@ -32,6 +33,12 @@ export class AttendanceController {
   @Roles(...EMPLOYEE_ROLES)
   finish(@Param('id', ParseIntPipe) id: number, @Body() dto: ClockAttendanceDto, @CurrentUser() user: User) {
     return this.attendanceService.finishMine(id, dto, user);
+  }
+
+  @Post('me/:id/explanation')
+  @Roles(...EMPLOYEE_ROLES)
+  explanation(@Param('id', ParseIntPipe) id: number, @Body() dto: LateExplanationDto, @CurrentUser() user: User) {
+    return this.attendanceService.saveMyExplanation(id, dto.explanation, user);
   }
 
   @Get()

@@ -43,6 +43,7 @@ const groups: NavGroup[] = [
     { to: '/admin/vehicles', label: 'Техника', icon: '▱', roles: ADMIN_ROUTE_ROLES.vehicles },
     { to: '/admin/products/import', label: 'Импорт товаров', icon: '⇩', roles: ADMIN_ROUTE_ROLES.productImport },
     { to: '/admin/work-types', label: 'Виды работ', icon: '⌁', roles: ADMIN_ROUTE_ROLES.workTypes },
+    { to: '/admin/vehicle-types', label: 'Виды техники', icon: '▤', roles: ADMIN_ROUTE_ROLES.vehicleTypes },
   ]},
   { label: 'Контроль', items: [
     { to: '/admin/kpi', label: 'KPI / Качество', icon: '↥', roles: ADMIN_ROUTE_ROLES.kpi },

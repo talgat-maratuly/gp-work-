@@ -15,7 +15,6 @@ import {
   NurseryMovementType,
   VehicleAssignmentStatus,
   VehicleStatus,
-  VehicleType,
 } from '../../../common/enums/resource.enums';
 
 export class CreateVehicleDto {
@@ -29,8 +28,11 @@ export class CreateVehicleDto {
   @MaxLength(160)
   name!: string;
 
-  @IsEnum(VehicleType)
-  type!: VehicleType;
+  // Вид техники — ключ из справочника vehicle_types (проверяется в сервисе).
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(32)
+  type!: string;
 
   @IsOptional()
   @IsString()

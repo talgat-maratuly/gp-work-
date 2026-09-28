@@ -144,18 +144,19 @@ export function AttendancePage() {
               <th className="px-3 py-2 text-left">Статус</th>
               <th className="px-3 py-2 text-left">Гео прихода</th>
               <th className="px-3 py-2 text-left">Гео ухода</th>
+              <th className="px-3 py-2 text-left">Объяснительная</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
                   Загрузка…
                 </td>
               </tr>
-            ) : error ? <tr><td colSpan={11} className="px-3 py-6 text-center text-red-700">Данные не загружены. Нажмите «Обновить».</td></tr> : rows.length === 0 ? (
+            ) : error ? <tr><td colSpan={12} className="px-3 py-6 text-center text-red-700">Данные не загружены. Нажмите «Обновить».</td></tr> : rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
                   Записей нет
                 </td>
               </tr>
@@ -168,6 +169,7 @@ export function AttendancePage() {
                   <td className="px-3 py-2 font-medium">{r.workerFullName}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {formatSubmittedTime(r.checkInTime)}
+                    {r.late && <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">опоздание</span>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {formatSubmittedTime(r.lastActivityTime)}
@@ -198,6 +200,13 @@ export function AttendancePage() {
                   </td>
                   <td className="px-3 py-2">
                     <GeoLink lat={r.checkOutLatitude} lng={r.checkOutLongitude} accuracy={r.checkOutAccuracy} label="Карта" />
+                  </td>
+                  <td className="px-3 py-2 max-w-[16rem] whitespace-pre-wrap">
+                    {r.late
+                      ? (r.lateExplanation
+                          ? <span className="text-slate-700">{r.lateExplanation}</span>
+                          : <span className="text-red-700">нет объяснительной</span>)
+                      : <span className="text-slate-400">—</span>}
                   </td>
                 </tr>
               ))

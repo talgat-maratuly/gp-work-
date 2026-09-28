@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { businessDateString } from '../../common/business-date';
+import { isLateCheckIn } from '../../common/shift-lateness';
 import { ExecutionStatus, RouteStatus } from '../../common/enums/field-execution.enums';
 import { VehicleAssignmentStatus, VehicleType } from '../../common/enums/resource.enums';
 import {
@@ -210,9 +211,7 @@ export class OperationsService {
     const now = new Date();
     const activeAssignments = vehicles.flatMap((vehicle) => (vehicle.assignments ?? []).filter((assignment) => [VehicleAssignmentStatus.ASSIGNED, VehicleAssignmentStatus.ACTIVE].includes(assignment.status)).map((assignment) => ({ vehicleId: vehicle.id, vehicleName: vehicle.name, vehicleType: vehicle.type, status: vehicle.status, brigade: assignment.brigade?.name ?? null, routeId: assignment.routeId, startsAt: assignment.startsAt })));
     const overdueStops = routes.flatMap((route) => route.stops.filter((stop) => stop.plannedArrivalAt && stop.plannedArrivalAt < now && !['ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'].includes(stop.status)).map((stop) => ({ routeId: route.id, brigade: route.brigade.name, stopId: stop.id, object: stop.section.object?.name ?? null, plannedArrivalAt: stop.plannedArrivalAt })));
-    const shiftThreshold = process.env.SHIFT_LATE_AFTER || '09:15';
-    const timeFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: process.env.BUSINESS_TIME_ZONE || 'Asia/Oral', hour: '2-digit', minute: '2-digit', hour12: false });
-    const late = attendance.filter((row) => timeFormatter.format(row.checkInTime) > shiftThreshold);
+    const late = attendance.filter((row) => isLateCheckIn(row.checkInTime));
     return {
       date,
       generatedAt: now,

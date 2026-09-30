@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
 import {
-  archiveVehicleType,
   createVehicleType,
   fetchAllVehicleTypes,
   updateVehicleType,

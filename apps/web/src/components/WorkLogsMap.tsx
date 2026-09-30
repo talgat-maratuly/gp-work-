@@ -111,7 +111,7 @@ export function WorkLogsMap({ logs, selectedId, onSelect }: Props) {
   return (
     <div
       ref={containerRef}
-      className="h-full min-h-[320px] w-full rounded-xl border border-slate-200 bg-slate-100 shadow-inner"
+      className="relative z-0 h-full min-h-[320px] w-full rounded-xl border border-slate-200 bg-slate-100 shadow-inner"
       role="application"
       aria-label="Карта выполненных работ"
     />

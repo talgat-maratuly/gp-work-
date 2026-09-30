@@ -35,5 +35,5 @@ export function DispatcherMap({ data }: { data: DispatcherData }) {
     })
     if (bounds.isValid()) instance.fitBounds(bounds, { padding: [30, 30], maxZoom: 14, animate: false })
   }, [data])
-  return <div ref={node} className="h-[430px] w-full rounded-2xl bg-slate-100" aria-label="Оперативная карта объектов и бригад" />
+  return <div ref={node} className="relative z-0 h-[430px] w-full rounded-2xl bg-slate-100" aria-label="Оперативная карта объектов и бригад" />
 }

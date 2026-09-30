@@ -3,7 +3,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { User } from '../../entities';
 import { businessDateString } from '../../common/business-date';
 import { allChecked, improved, waitingByCategory } from './workflow.rules';
-import { ChecksDto, ImprovementActionDto, ImprovementDto, ObstacleActionDto, ObstacleDto, PlanDto, StandardDto, ToolActionDto, ToolDto } from './workflow.dto';
+import { KaizenAnswerDto, KaizenReplyDto, ChecksDto, ImprovementActionDto, ImprovementDto, ObstacleActionDto, ObstacleDto, PlanDto, StandardDto, ToolActionDto, ToolDto } from './workflow.dto';
 
 type TaskRow = { id: number; work_type_id: number | null; assignee_user_id: number | null; brigade_id: number | null; created_by_id: number | null; status: string; section_id: number; description: string; section_name: string; section_code: string; object_name: string; latitude: number | null; longitude: number | null; radius_meters: number | null; section_active: boolean; object_active: boolean };
 type PlanRow = { task_id: number; standard_id: number; accountable_id: number; reviewer_id: number; wip_limit: number; required_tool_ids: number[]; materials: {productId: number; quantity: number}[]; ready_at: Date | null; checked_preparation: number[]; completed_steps: number[]; steps: string[]; preparation: string[]; acceptance: string; title: string; version: number; accountable_name: string; reviewer_name: string };
@@ -231,7 +231,9 @@ export class WorkflowService {
     });
   }
   async propose(id:number,dto:ImprovementDto,user:User) {
-    return this.db.transaction(async q=>{
+    return this.db.transaction(q => this.proposeInTransaction(id,dto,user,q));
+  }
+  private async proposeInTransaction(id:number,dto:ImprovementDto,user:User,q:EntityManager) {
       await this.task(id,user,q);
       if(dto.obstacleId && !(await q.query('SELECT id FROM work_obstacles WHERE id=$1 AND task_id=$2',[dto.obstacleId,id])).length) throw new BadRequestException('Препятствие относится к другой задаче');
       const [existing]=await q.query('SELECT * FROM work_improvements WHERE client_operation_id=$1',[dto.clientOperationId]);
@@ -243,7 +245,6 @@ export class WorkflowService {
         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(client_operation_id) DO NOTHING RETURNING *`,[id,dto.obstacleId??null,user.id,dto.problem,dto.proposal,dto.clientOperationId]);
       if(!i) throw new ConflictException('Предложение уже обрабатывается. Повторите запрос');
       await this.event(q,id,user,'IMPROVEMENT_PROPOSED',{id:i.id});return i;
-    });
   }
   async improvementAction(id:number,dto:ImprovementActionDto,user:User) {
     return this.db.transaction(async q=>{
@@ -320,6 +321,73 @@ export class WorkflowService {
         await q.query("UPDATE work_tools SET state='RETIRED',condition_note=$2,updated_at=now() WHERE id=$1",[id,dto.note]);
       }
       await this.event(q,(dto.action==='issue'?dto.taskId:tool.task_id)??null,user,`TOOL_${dto.action.toUpperCase()}`,{id,...dto});return (await q.query('SELECT * FROM work_tools WHERE id=$1',[id]))[0];
+    });
+  }
+  // Same task boundaries as task(); unlinked answers are private to the author,
+  // their current brigadier and company management. No brigade-name permissions.
+  private kaizenScope = `($3=true OR
+    (k.task_id IS NULL AND (k.author_id=$1 OR ($4='BRIGADIER' AND u.brigade_id=$2))) OR
+    (k.task_id IS NOT NULL AND (t.assignee_user_id=$1 OR
+      ($4 IN ('WORKER','WATER_CARRIER','BRIGADIER','AGRONOMIST') AND t.brigade_id=$2) OR
+      ($4='AGRONOMIST' AND t.created_by_id=$1))))`;
+  private kaizenSelect = `SELECT k.*,k.business_day::text AS day,u.full_name author_name,
+    t.description task_name,i.status improvement_status,
+    COALESCE(($3=true OR (k.task_id IS NULL AND $4='BRIGADIER' AND u.brigade_id=$2) OR
+      (k.task_id IS NOT NULL AND (($4='BRIGADIER' AND t.brigade_id=$2) OR
+      ($4='AGRONOMIST' AND t.created_by_id=$1)))),false) AS can_reply
+    FROM work_kaizen_answers k JOIN users u ON u.id=k.author_id
+    LEFT JOIN tasks t ON t.id=k.task_id LEFT JOIN work_improvements i ON i.id=k.improvement_id`;
+  private kaizenParams(user:User) { return [user.id,user.brigadeId??-1,this.global(user),user.role]; }
+  async kaizen(user:User) {
+    const day=businessDateString();
+    const rows=await this.db.query(`${this.kaizenSelect} WHERE ${this.kaizenScope}
+      AND k.business_day >= $5::date - 29 ORDER BY k.id DESC LIMIT 200`,[...this.kaizenParams(user),day]);
+    const ids=rows.map((r:{id:number})=>r.id);
+    const replies=ids.length?await this.db.query(`SELECT r.id,r.answer_id,r.note,r.created_at,r.is_management,u.full_name author_name
+      FROM work_kaizen_replies r JOIN users u ON u.id=r.author_id
+      WHERE r.answer_id=ANY($1::int[]) ORDER BY r.id`,[ids]):[];
+    return {day,rows:rows.map((r:{id:number})=>({...r,replies:replies.filter((v:{answer_id:number})=>v.answer_id===r.id)}))};
+  }
+  async kaizenAnswer(dto:KaizenAnswerDto,user:User) {
+    const day=businessDateString();
+    if(dto.proposal && !dto.taskId) throw new BadRequestException('Для проверки улучшения выберите задачу');
+    return this.db.transaction(async q=>{
+      await q.query('SELECT pg_advisory_xact_lock(7330,$1)',[user.id]);
+      if(dto.taskId) await this.task(dto.taskId,user,q);
+      const [existing]=await q.query('SELECT * FROM work_kaizen_answers WHERE client_operation_id=$1',[dto.clientOperationId]);
+      if(existing) {
+        if(existing.author_id!==user.id || existing.task_id!==(dto.taskId??null) || existing.problem!==dto.problem ||
+          existing.next_step!==dto.nextStep || existing.result!==(dto.result??'') || existing.proposal!==(dto.proposal??''))
+          throw new ConflictException('Идентификатор ответа уже использован');
+        return existing;
+      }
+      if((await q.query('SELECT id FROM work_kaizen_answers WHERE author_id=$1 AND business_day=$2',[user.id,day])).length)
+        throw new ConflictException('Сегодня ответ уже сохранён. Откройте его в обсуждении');
+      const improvement=dto.proposal?await this.proposeInTransaction(dto.taskId!,{
+        problem:dto.problem,proposal:dto.proposal,clientOperationId:dto.clientOperationId
+      },user,q):null;
+      const [answer]=await q.query(`INSERT INTO work_kaizen_answers
+        (author_id,business_day,task_id,problem,next_step,result,proposal,improvement_id,client_operation_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [user.id,day,dto.taskId??null,dto.problem,dto.nextStep,dto.result??'',dto.proposal??'',improvement?.id??null,dto.clientOperationId]);
+      await this.event(q,dto.taskId??null,user,'KAIZEN_ANSWERED',{id:answer.id});
+      return answer;
+    });
+  }
+  async kaizenReply(id:number,dto:KaizenReplyDto,user:User) {
+    return this.db.transaction(async q=>{
+      const [answer]=await q.query(`${this.kaizenSelect} WHERE ${this.kaizenScope} AND k.id=$5`,[...this.kaizenParams(user),id]);
+      if(!answer) throw new NotFoundException('Ответ не найден или недоступен');
+      if(answer.author_id!==user.id && !answer.can_reply) throw new ForbiddenException('Отвечать может автор или руководитель этой работы');
+      const [existing]=await q.query('SELECT * FROM work_kaizen_replies WHERE client_operation_id=$1',[dto.clientOperationId]);
+      if(existing) {
+        if(existing.answer_id!==id || existing.author_id!==user.id || existing.note!==dto.note) throw new ConflictException('Идентификатор сообщения уже использован');
+        return existing;
+      }
+      const [reply]=await q.query(`INSERT INTO work_kaizen_replies(answer_id,author_id,note,client_operation_id,is_management)
+        VALUES($1,$2,$3,$4,$5) ON CONFLICT(client_operation_id) DO NOTHING RETURNING *`,[id,user.id,dto.note,dto.clientOperationId,answer.can_reply]);
+      if(!reply) throw new ConflictException('Сообщение уже обрабатывается. Повторите отправку');
+      await this.event(q,answer.task_id,user,'KAIZEN_REPLIED',{id:reply.id,answerId:id});return reply;
     });
   }
   async board(user:User) {

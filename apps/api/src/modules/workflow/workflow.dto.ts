@@ -66,3 +66,16 @@ export class ToolActionDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(200) location?: string;
   @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) note!: string;
 }
+
+export class KaizenAnswerDto {
+  @IsOptional() @IsInt() @Min(1) taskId?: number;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(2000) problem!: string;
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(2000) nextStep!: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) result?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) proposal?: string;
+  @IsUUID() clientOperationId!: string;
+}
+export class KaizenReplyDto {
+  @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(2000) note!: string;
+  @IsUUID() clientOperationId!: string;
+}

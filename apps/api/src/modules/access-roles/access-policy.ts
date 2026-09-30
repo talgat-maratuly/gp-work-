@@ -71,6 +71,7 @@ const ACTIONS: Record<string,string> = {
   scanState:'Состояние участка по QR', setVehicleStatus:'Изменить статус техники', startDay:'Начать рабочий день',
   startMy:'Начать свою задачу', submit:'Отправить на проверку', today:'Сегодня в поле',
   updateDecision:'Изменить решение', updateSettings:'Сохранить настройки формы', uploadPhotos:'Загрузить фото',
+  kaizen:'Утренний кайдзен и обсуждения', kaizenAnswer:'Отправить утренний ответ', kaizenReply:'Ответить в обсуждении кайдзена',
   workDayList:'Рабочие дни',
 };
 export function roleAllowed(role: UserRole, required?: UserRole[]) {

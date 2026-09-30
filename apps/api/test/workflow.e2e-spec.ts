@@ -71,6 +71,12 @@ describe('Integrated work improvement flow (real API/database)',()=>{
     await request(app.getHttpServer()).patch(`/api/users/${outsider.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);
     expect((await get('/workflow/kaizen',leader)).rows.find((v:any)=>v.id===answer.id)).toBeUndefined();
     await post(`/workflow/kaizen/${answer.id}/replies`,{note:'После перевода',clientOperationId:operation()},leader,404);
+    await request(app.getHttpServer()).patch(`/api/users/${leader.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);
+    const soloTask=await post('/tasks',{sectionId:section.id,workTypeId:workType,assigneeUserId:leader.id,dueDate:'2026-09-16',description:'Личная задача бригадира без бригады'});
+    const solo=await post('/workflow/kaizen',{taskId:soloTask.id,problem:'Нет препятствий',nextStep:'Продолжить работу',clientOperationId:operation()},leader);
+    expect((await get('/workflow/kaizen',leader)).rows.find((v:any)=>v.id===solo.id).can_reply).toBe(false);
+    await post(`/workflow/kaizen/${solo.id}/replies`,{note:'Уточнение автора',clientOperationId:operation()},leader);
+    expect((await get('/workflow/kaizen',leader)).rows.find((v:any)=>v.id===solo.id).replies[0].is_management).toBe(false);
     const policy=await post('/access-roles',{name:`Morning reader ${operation()}`,baseRole:'WORKER',permissions:['workflow.kaizen'],pages:['/field/workflow'],canJoinBrigade:true,isActive:true});
     const customName=`morning-reader-${operation()}`;
     await post('/users',{username:customName,password,fullName:'Читатель кайдзена',role:'WORKER',accessRoleId:policy.id});

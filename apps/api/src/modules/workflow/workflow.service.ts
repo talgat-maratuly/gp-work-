@@ -332,9 +332,9 @@ export class WorkflowService {
       ($4='AGRONOMIST' AND t.created_by_id=$1))))`;
   private kaizenSelect = `SELECT k.*,k.business_day::text AS day,u.full_name author_name,
     t.description task_name,i.status improvement_status,
-    ($3=true OR (k.task_id IS NULL AND $4='BRIGADIER' AND u.brigade_id=$2) OR
+    COALESCE(($3=true OR (k.task_id IS NULL AND $4='BRIGADIER' AND u.brigade_id=$2) OR
       (k.task_id IS NOT NULL AND (($4='BRIGADIER' AND t.brigade_id=$2) OR
-      ($4='AGRONOMIST' AND t.created_by_id=$1)))) AS can_reply
+      ($4='AGRONOMIST' AND t.created_by_id=$1)))),false) AS can_reply
     FROM work_kaizen_answers k JOIN users u ON u.id=k.author_id
     LEFT JOIN tasks t ON t.id=k.task_id LEFT JOIN work_improvements i ON i.id=k.improvement_id`;
   private kaizenParams(user:User) { return [user.id,user.brigadeId??-1,this.global(user),user.role]; }

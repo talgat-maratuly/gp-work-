@@ -12,7 +12,7 @@ for (const role of ['ADMIN', 'DIRECTOR', 'BRIGADIER', 'AGRONOMIST', 'AKIMAT', 'A
     let patches = 0
     let rejectSave = true
     await page.addInitScript(() => localStorage.setItem('gp-work_token', 'ui-contract-token'))
-    await page.route('**/api/**', async route => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
       const path = new URL(route.request().url()).pathname
       if (path.endsWith('/auth/me')) return route.fulfill({ json: { id: 1, fullName: 'Проверка', username: 'test', role, isActive: true } })
       if (path.endsWith('/sections/1') && route.request().method() === 'PATCH') {

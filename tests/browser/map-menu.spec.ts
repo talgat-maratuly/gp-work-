@@ -36,8 +36,11 @@ test('maps stay under the mobile menu and unmount across back and forward naviga
   }
   for (const name of ['Карта', 'Диспетчерская']) {
     await navigate(name)
-    const map = page.locator('.leaflet-container')
-    await expect(map).toHaveCount(1)
+    const maps = page.locator('.leaflet-container')
+    const count = name === 'Карта' ? 2 : 1
+    await expect(maps).toHaveCount(count)
+    for (let index = 0; index < count; index++) {
+    const map = maps.nth(index)
     await map.scrollIntoViewIfNeeded()
     await expect(map.locator('.leaflet-tile-loaded').first()).toBeVisible()
     if (mobile) {
@@ -56,13 +59,14 @@ test('maps stay under the mobile menu and unmount across back and forward naviga
       await page.screenshot({ path: info.outputPath(`map-menu-${name}.png`), fullPage: false })
       await menu.getByRole('button', { name: 'Закрыть меню', exact: true }).click()
     }
+    }
     await navigate('Склад')
     await expect(page.getByRole('heading', { name: 'Склад', exact: true })).toBeVisible()
-    await expect(map).toHaveCount(0)
+    await expect(maps).toHaveCount(0)
     await page.goBack()
-    await expect(map).toHaveCount(1)
+    await expect(maps).toHaveCount(count)
     await page.goForward()
-    await expect(map).toHaveCount(0)
+    await expect(maps).toHaveCount(0)
   }
   expect(errors).toEqual([])
 })

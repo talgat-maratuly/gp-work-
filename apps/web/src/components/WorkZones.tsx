@@ -58,9 +58,11 @@ export function WorkZones({ sections, objects, onSaved }: {
 
   useEffect(() => {
     if (selected && hasSectionLocation(selected)) {
-      map.current?.fitBounds(L.circle([selected.latitude!, selected.longitude!], {
-        radius: selected.radius_meters ?? 150,
-      }).getBounds(), { padding: [24, 24], maxZoom: 17, animate: false })
+      // Circle.getBounds() needs a mounted map layer. Build geographic bounds
+      // directly so selecting a zone (including a newly saved one) is safe.
+      const bounds = L.latLng(selected.latitude!, selected.longitude!)
+        .toBounds(2 * (selected.radius_meters ?? 150))
+      map.current?.fitBounds(bounds, { padding: [24, 24], maxZoom: 17, animate: false })
     }
   }, [selected])
 

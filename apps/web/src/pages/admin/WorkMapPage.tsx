@@ -6,6 +6,8 @@ import {
 } from '@/components/WorkLogFilters'
 import { WorkLogsMap, logsWithGeo } from '@/components/WorkLogsMap'
 import { WorkMapDetail } from '@/components/WorkMapDetail'
+import { WorkZones } from '@/components/WorkZones'
+import { toUserMessage } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { fetchObjects } from '@/api/objectsApi'
 import { fetchSections } from '@/api/sectionsApi'
@@ -33,6 +35,7 @@ export function WorkMapPage() {
   const [objects, setObjects] = useState<NurseryObject[]>([])
   const [sections, setSections] = useState<Section[]>([])
   const [workTypes, setWorkTypes] = useState<WorkType[]>([])
+  const [zonesError, setZonesError] = useState('')
 
   const geoLogs = useMemo(() => logsWithGeo(logs), [logs])
   const handleSelect = useCallback((log: WorkLog) => setSelected(log), [])
@@ -53,10 +56,15 @@ export function WorkMapPage() {
   }, [filters])
 
   const loadFilters = useCallback(async () => {
-    const [o, s, w] = await Promise.all([fetchObjects(), fetchSections(), fetchAllWorkTypes()])
-    setObjects(o)
-    setSections(s)
-    setWorkTypes(w)
+    try {
+      const [o, s, w] = await Promise.all([fetchObjects(), fetchSections(), fetchAllWorkTypes()])
+      setObjects(o)
+      setSections(s)
+      setWorkTypes(w)
+      setZonesError('')
+    } catch (error) {
+      setZonesError(toUserMessage(error))
+    }
   }, [])
 
   useEffect(() => {
@@ -83,6 +91,11 @@ export function WorkMapPage() {
           Все отчёты с геолокацией на карте. Нажмите на точку, чтобы открыть детали.
         </p>
       </div>
+
+      {zonesError ? <div role="alert">{zonesError} <Button onClick={() => void loadFilters()}>Повторить загрузку зон</Button></div> :
+        <WorkZones sections={sections} objects={objects} onSaved={updated => {
+          setSections(current => current.map(s => s.id === updated.id ? updated : s))
+        }} />}
 
       <WorkLogFiltersPanel
         filters={filters}

@@ -56,6 +56,30 @@ describe('Integrated work improvement flow (real API/database)',()=>{
     expect((await get('/workflow/kaizen',worker)).rows.find((v:any)=>v.id===general.id)).toBeUndefined();
     expect((await get('/workflow/kaizen',director)).rows.find((v:any)=>v.id===general.id)).toBeTruthy();
   });
+  it('restricts general answers to the current brigade leader and honors configurable permissions',async()=>{
+    const brigade=await post('/brigades',{name:`Morning brigade ${operation()}`});
+    const password='morning-test-password';
+    const username=`morning-leader-${operation()}`;
+    await post('/users',{username,password,fullName:'Бригадир утреннего разбора',role:'BRIGADIER',brigadeId:brigade.id});
+    const leader=await login(username,password);
+    await request(app.getHttpServer()).patch(`/api/users/${outsider.id}`).set(headers(admin.token)).send({brigadeId:brigade.id}).expect(200);
+    const feed=await get('/workflow/kaizen',leader);
+    const answer=feed.rows.find((v:any)=>v.author_id===outsider.id);
+    expect(answer).toMatchObject({can_reply:true,task_id:null});
+    await post(`/workflow/kaizen/${answer.id}/replies`,{note:'Общий вопрос принят',clientOperationId:operation()},leader);
+    expect((await get('/workflow/kaizen',outsider)).rows.find((v:any)=>v.id===answer.id).replies[0].is_management).toBe(true);
+    await request(app.getHttpServer()).patch(`/api/users/${outsider.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);
+    expect((await get('/workflow/kaizen',leader)).rows.find((v:any)=>v.id===answer.id)).toBeUndefined();
+    await post(`/workflow/kaizen/${answer.id}/replies`,{note:'После перевода',clientOperationId:operation()},leader,404);
+    const policy=await post('/access-roles',{name:`Morning reader ${operation()}`,baseRole:'WORKER',permissions:['workflow.kaizen'],pages:['/field/workflow'],canJoinBrigade:true,isActive:true});
+    const customName=`morning-reader-${operation()}`;
+    await post('/users',{username:customName,password,fullName:'Читатель кайдзена',role:'WORKER',accessRoleId:policy.id});
+    const reader=await login(customName,password);
+    await get('/workflow/kaizen',reader);
+    await post('/workflow/kaizen',{problem:'Нет проблем',nextStep:'Продолжить',clientOperationId:operation()},reader,403);
+    await request(app.getHttpServer()).put(`/api/access-roles/${policy.id}`).set(headers(admin.token)).send({name:policy.name,baseRole:'WORKER',permissions:[],pages:['/field/workflow'],canJoinBrigade:true,isActive:true,revision:policy.revision}).expect(200);
+    await get('/workflow/kaizen',reader,403);
+  });
   it('uses role and task scope for every read and mutation',async()=>{
     await get(`/workflow/tasks/${task.id}`,outsider,403);await get('/workflow/board',accountant,403);await get('/workflow/summary',accountant);
     expect(await get('/workflow/board',outsider)).toEqual([]);

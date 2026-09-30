@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { format, parseISO, startOfDay } from 'date-fns';
 import { EntityManager, In, Repository } from 'typeorm';
 import { businessDateString } from '../../common/business-date';
+import { isLateCheckIn, lateThresholdTime } from '../../common/shift-lateness';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { AttendanceRecord } from '../../entities/attendance-record.entity';
@@ -54,9 +55,29 @@ export class AttendanceService {
       firstWorkLogId: row.firstWorkLogId,
       completionPercent: row.completionPercent ?? null,
       extraValues: this.parseExtra(row.extraValues),
+      late: isLateCheckIn(row.checkInTime),
+      lateThreshold: lateThresholdTime(),
+      lateExplanation: row.lateExplanation ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  // Сотрудник пишет объяснительную за опоздание для своей записи табеля.
+  async saveMyExplanation(id: number, explanation: string, user: User) {
+    return this.attendanceRepo.manager.transaction(async manager => {
+      await this.lockEmployee(manager, user.id);
+      const repo = manager.getRepository(AttendanceRecord);
+      const row = await repo.findOne({ where: { id, userId: user.id } });
+      if (!row) throw new NotFoundException('Рабочий день не найден');
+      if (!isLateCheckIn(row.checkInTime)) {
+        throw new BadRequestException('Объяснительная нужна только при опоздании');
+      }
+      const text = explanation.trim();
+      if (!text) throw new BadRequestException('Напишите причину опоздания');
+      row.lateExplanation = text;
+      return this.mapRecord(await repo.save(row));
+    });
   }
 
   // Serialize the clock and existing field/report integrations for this employee.

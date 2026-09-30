@@ -23,6 +23,9 @@ export type AttendanceRecord = {
   firstWorkLogId: number | null
   completionPercent: number | null
   extraValues: Record<string, unknown> | null
+  late: boolean
+  lateThreshold: string
+  lateExplanation: string | null
   createdAt: string
   updatedAt: string
 }
@@ -42,6 +45,8 @@ export const startMyWorkDay = (location: AttendanceLocation) =>
   apiRequest<AttendanceRecord>('/attendance/me/start', { method: 'POST', body: JSON.stringify(location) })
 export const finishMyWorkDay = (id: number, location: AttendanceLocation) =>
   apiRequest<AttendanceRecord>(`/attendance/me/${id}/finish`, { method: 'POST', body: JSON.stringify(location) })
+export const saveLateExplanation = (id: number, explanation: string) =>
+  apiRequest<AttendanceRecord>(`/attendance/me/${id}/explanation`, { method: 'POST', body: JSON.stringify({ explanation }) })
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   ON_DUTY: 'На работе',

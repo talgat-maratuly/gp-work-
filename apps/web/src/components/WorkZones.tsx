@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router-dom'
@@ -13,6 +13,7 @@ export function WorkZones({ sections, objects, onSaved }: {
   onSaved: (section: Section) => void
 }) {
   const { user } = useAuth()
+  const selectId = useId()
   const canEdit = !!user && ['ADMIN', 'DIRECTOR'].includes(user.role)
     && (user.accessRoleId == null || !!user.permissions?.includes('sections.update'))
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -69,13 +70,14 @@ export function WorkZones({ sections, objects, onSaved }: {
     <p role="status" className="text-sm">На карте: {located.length}. Без координат: {active.length - located.length}.</p>
     <div ref={node} role="region" aria-label="Карта рабочих геозон" className="relative z-0 h-80 w-full rounded-xl bg-slate-100" />
     {tileError && <p role="alert">Подложка карты недоступна. Выберите участок из списка; координаты можно ввести вручную.</p>}
-    <label className="block text-sm">Объект и участок
-      <select className="mt-1 w-full rounded-lg border p-2" value={selected?.id ?? ''}
+    <div className="text-sm">
+      <label htmlFor={selectId} className="block">Объект и участок</label>
+      <select id={selectId} className="mt-1 w-full rounded-lg border p-2" value={selected?.id ?? ''}
         onChange={e => setSelectedId(e.target.value ? Number(e.target.value) : null)}>
         <option value="">Выберите участок или нажмите на зону</option>
         {active.map(s => <option key={s.id} value={s.id}>{label(s)}{hasSectionLocation(s) ? '' : ' — нет координат'}</option>)}
       </select>
-    </label>
+    </div>
     {selected && <div className="space-y-2 rounded-lg bg-slate-50 p-3">
       <h3 className="font-semibold">{label(selected)}</h3>
       <p>{hasSectionLocation(selected) ? `Радиус: ${selected.radius_meters ?? 150} м` : 'Местоположение ещё не указано'}</p>

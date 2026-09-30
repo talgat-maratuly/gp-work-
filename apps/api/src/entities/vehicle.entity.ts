@@ -9,7 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { VehicleStatus, VehicleType } from '../common/enums/resource.enums';
+import { VehicleStatus } from '../common/enums/resource.enums';
 import { User } from './user.entity';
 import { VehicleAssignment } from './vehicle-assignment.entity';
 
@@ -25,8 +25,9 @@ export class Vehicle {
   @Column({ type: 'varchar', length: 160 })
   name!: string;
 
+  // Ключ вида техники из справочника vehicle_types.
   @Column({ type: 'varchar', length: 32 })
-  type!: VehicleType;
+  type!: string;
 
   @Column({ type: 'varchar', length: 24, default: VehicleStatus.FREE })
   status!: VehicleStatus;

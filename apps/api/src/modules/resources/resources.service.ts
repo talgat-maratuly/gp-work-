@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { VehicleTypesService } from '../vehicle-types/vehicle-types.service';
 import { DataSource, Repository } from 'typeorm';
 import {
   NurseryBatchStatus,
@@ -48,6 +49,7 @@ export class ResourcesService {
     @InjectRepository(WorkExecution) private readonly executionRepo: Repository<WorkExecution>,
     @InjectRepository(NurseryObject) private readonly objectRepo: Repository<NurseryObject>,
     private readonly dataSource: DataSource,
+    private readonly vehicleTypesService: VehicleTypesService,
   ) {}
 
   private async ensureOperationalLinks(dto: {
@@ -88,6 +90,7 @@ export class ResourcesService {
   }
 
   async createVehicle(dto: CreateVehicleDto) {
+    await this.vehicleTypesService.assertActiveKey(dto.type);
     if (dto.responsibleUserId) {
       const responsible = await this.userRepo.findOne({ where: { id: dto.responsibleUserId } });
       if (!responsible) throw new NotFoundException('Ответственный сотрудник не найден');

@@ -25,7 +25,7 @@ export type Vehicle = {
   id: number
   code: string
   name: string
-  type: VehicleType
+  type: string
   status: VehicleStatus
   registrationNumber: string | null
   responsibleUserId: number | null
@@ -45,7 +45,7 @@ export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
   FREE: 'Свободен', ASSIGNED: 'Назначен', IN_WORK: 'В работе', REPAIR: 'Ремонт', UNAVAILABLE: 'Недоступен',
 }
 export const fetchVehicles = () => apiRequest<Vehicle[]>('/resources/vehicles')
-export const createVehicle = (body: { code: string; name: string; type: VehicleType; registrationNumber?: string; responsibleUserId?: number; odometer?: number; engineHours?: number; comment?: string }) =>
+export const createVehicle = (body: { code: string; name: string; type: string; registrationNumber?: string; responsibleUserId?: number; odometer?: number; engineHours?: number; comment?: string }) =>
   apiRequest<Vehicle>('/resources/vehicles', { method: 'POST', body: JSON.stringify(body) })
 export const setVehicleStatus = (id: number, status: VehicleStatus, comment?: string) =>
   apiRequest<Vehicle>(`/resources/vehicles/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, comment }) })

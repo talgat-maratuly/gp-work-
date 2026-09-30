@@ -269,20 +269,20 @@ export function WarehousePage() {
       </form>
 
       {showMovementForm && (
-        <form onSubmit={handleMovementSubmit} className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
-          <div className="sm:col-span-2 flex items-center justify-between gap-2">
+        <form onSubmit={handleMovementSubmit} aria-label="Движение товара" className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+          <div className="min-w-0 sm:col-span-2 flex items-center justify-between gap-2">
             <h2 className="font-semibold">Выдать / списать товар</h2>
             <button
               type="button"
               onClick={() => setShowMovementForm(false)}
-              className="text-sm text-slate-500 underline"
+              className="shrink-0 text-sm text-slate-500 underline"
             >
               Закрыть
             </button>
           </div>
 
           <select
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             value={form.productId}
             onChange={(e) => setForm((f) => ({ ...f, productId: e.target.value }))}
             required
@@ -296,7 +296,7 @@ export function WarehousePage() {
           </select>
 
           <select
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             value={form.type}
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as MovementForm['type'] }))}
           >
@@ -314,7 +314,7 @@ export function WarehousePage() {
             type="number"
             min="0.001"
             step="0.001"
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             placeholder={form.type === 'CORRECTION' ? 'Новый остаток *' : 'Количество *'}
             value={form.quantity}
             onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
@@ -322,14 +322,14 @@ export function WarehousePage() {
           />
 
           <input
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             placeholder="Кто забрал"
             value={form.workerName}
             onChange={(e) => setForm((f) => ({ ...f, workerName: e.target.value }))}
           />
 
           <select
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             value={form.objectId}
             onChange={(e) => setForm((f) => ({ ...f, objectId: e.target.value, sectionId: '', taskId: '' }))}
           >
@@ -342,7 +342,7 @@ export function WarehousePage() {
           </select>
 
           <select
-            className="rounded-lg border px-3 py-2 sm:col-span-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2 sm:col-span-2"
             value={form.taskId}
             onChange={(e) => setForm((f) => ({ ...f, taskId: e.target.value }))}
           >
@@ -353,7 +353,7 @@ export function WarehousePage() {
           </select>
 
           <select
-            className="rounded-lg border px-3 py-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2"
             value={form.sectionId}
             onChange={(e) => setForm((f) => ({ ...f, sectionId: e.target.value }))}
             disabled={!form.objectId}
@@ -367,14 +367,14 @@ export function WarehousePage() {
           </select>
 
           <input
-            className="rounded-lg border px-3 py-2 sm:col-span-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2 sm:col-span-2"
             placeholder="Цель расхода"
             value={form.purpose}
             onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))}
           />
 
           <textarea
-            className="rounded-lg border px-3 py-2 sm:col-span-2"
+            className="min-w-0 w-full rounded-lg border px-3 py-2 sm:col-span-2"
             placeholder="Комментарий"
             value={form.comment}
             onChange={(e) => setForm((f) => ({ ...f, comment: e.target.value }))}
@@ -383,7 +383,7 @@ export function WarehousePage() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50 sm:col-span-2"
+            className="min-w-0 w-full rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50 sm:col-span-2"
           >
             {submitting ? 'Сохранение…' : 'Сохранить движение'}
           </button>
@@ -472,7 +472,7 @@ export function WarehousePage() {
 
       {selectedProduct && (
         <div className="rounded-xl border bg-white p-4">
-          <h2 className="font-semibold">История движения: {selectedProduct.name}</h2>
+          <h2 className="break-words font-semibold">История движения: {selectedProduct.name}</h2>
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-600">

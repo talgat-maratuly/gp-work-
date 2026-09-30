@@ -17,11 +17,12 @@ test('warehouse movement form fits the viewport with long task names', async ({ 
   }
   const director = `warehouse-director-${suffix}`
   const password = 'warehouse-browser-password'
-  const user = await create('/users', { username: director, fullName: 'Директор склада', password, role: 'DIRECTOR' })
+  await create('/users', { username: director, fullName: 'Директор склада', password, role: 'DIRECTOR' })
+  const worker = await create('/users', { username: `warehouse-worker-${suffix}`, fullName: 'Рабочий склада', password, role: 'WORKER' })
   const object = await create('/objects', { name: `Объект ${suffix}` })
   const section = await create('/sections', { name: `Участок ${suffix}`, objectId: object.id })
   const workType = await create('/work-types', { name: `Работы ${suffix}` })
-  const task = await create('/tasks', { sectionId: section.id, workTypeId: workType.id, assigneeUserId: user.id,
+  const task = await create('/tasks', { sectionId: section.id, workTypeId: workType.id, assigneeUserId: worker.id,
     description: `Доставить материалы для обслуживания системы автоматического полива и озеленения на удалённом участке ${suffix}`, dueDate: '2026-09-30' })
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

@@ -5,13 +5,16 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { User } from '../../entities';
 import { WorkflowService } from './workflow.service';
-import { ChecksDto, ImprovementActionDto, ImprovementDto, ObstacleActionDto, ObstacleDto, PlanDto, StandardDto, ToolActionDto, ToolDto } from './workflow.dto';
+import { KaizenAnswerDto, KaizenReplyDto, ChecksDto, ImprovementActionDto, ImprovementDto, ObstacleActionDto, ObstacleDto, PlanDto, StandardDto, ToolActionDto, ToolDto } from './workflow.dto';
 const participants = [UserRole.ADMIN,UserRole.BRIGADIER,UserRole.AGRONOMIST,UserRole.WORKER,UserRole.WATER_CARRIER];
 @ApiTags('workflow')
 @Controller('workflow')
 @Roles(...participants)
 export class WorkflowController {
   constructor(private readonly service:WorkflowService) {}
+  @Get('kaizen') kaizen(@CurrentUser() u:User) {return this.service.kaizen(u);}
+  @Post('kaizen') kaizenAnswer(@Body() dto:KaizenAnswerDto,@CurrentUser() u:User) {return this.service.kaizenAnswer(dto,u);}
+  @Post('kaizen/:id/replies') kaizenReply(@Param('id',ParseIntPipe) id:number,@Body() dto:KaizenReplyDto,@CurrentUser() u:User) {return this.service.kaizenReply(id,dto,u);}
   @Get('catalog') catalog(@CurrentUser() u:User) {return this.service.catalog(u);}
   @Get('board') board(@CurrentUser() u:User) {return this.service.board(u);}
   @Get('summary') @Roles(...participants,UserRole.ACCOUNTANT) summary(@CurrentUser() u:User) {return this.service.summary(u);}

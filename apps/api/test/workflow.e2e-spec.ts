@@ -27,6 +27,35 @@ describe('Integrated work improvement flow (real API/database)',()=>{
   afterAll(async()=>{if(app)await app.close()});
   async function newTask(){return post('/tasks',{sectionId:section.id,workTypeId:workType,assigneeUserId:worker.id,dueDate:'2026-09-16',description:'Уход за участком'})}
   const planBody=(extra={})=>({standardId:standard.id,accountableId:admin.id,reviewerId:director.id,wipLimit:1,toolIds:[],materials:[],...extra});
+  it('saves morning answers and existing improvements atomically; isolates discussions and retries',async()=>{
+    const body={taskId:task.id,problem:'Ждали воду',nextStep:'Согласовать доставку',result:'Вчера не проверяли',proposal:'Подавать воду к началу посадки',clientOperationId:operation()};
+    const [a,b]=await Promise.all([post('/workflow/kaizen',body,worker),post('/workflow/kaizen',body,worker)]);
+    expect(a.id).toBe(b.id);expect(a.improvement_id).toBeTruthy();
+    await post('/workflow/kaizen',{...body,nextStep:'Другой шаг'},worker,409);
+    await post('/workflow/kaizen',{...body,clientOperationId:operation()},worker,409);
+    await post('/workflow/kaizen',{...body,authorId:admin.id},worker,400);
+    await post('/workflow/kaizen',{...body,clientOperationId:operation()},outsider,403);
+    const detail=await get(`/workflow/tasks/${task.id}`,worker);
+    expect(detail.improvements.filter((i:any)=>i.id===a.improvement_id)).toHaveLength(1);
+    expect(detail.improvements.find((i:any)=>i.id===a.improvement_id).status).toBe('PROPOSED');
+    expect(detail.readiness).toEqual(['Руководитель ещё не задал стандарт']);
+    const mine=await get('/workflow/kaizen',worker);
+    expect(mine.rows.find((r:any)=>r.id===a.id)).toMatchObject({author_id:worker.id,problem:body.problem,can_reply:false});
+    expect((await get('/workflow/kaizen',outsider)).rows.find((r:any)=>r.id===a.id)).toBeUndefined();
+    const reply={note:'Проверим на одном участке; ответственного назначим в карточке улучшения',clientOperationId:operation()};
+    const r=await post(`/workflow/kaizen/${a.id}/replies`,reply,director);
+    expect((await post(`/workflow/kaizen/${a.id}/replies`,reply,director)).id).toBe(r.id);
+    await post(`/workflow/kaizen/${a.id}/replies`,reply,outsider,404);
+    await post(`/workflow/kaizen/${a.id}/replies`,{...reply,note:'Иное'},director,409);
+    await post(`/workflow/kaizen/${a.id}/replies`,{note:'Понял',clientOperationId:operation()},worker);
+    expect((await get('/workflow/kaizen',worker)).rows.find((v:any)=>v.id===a.id).replies).toHaveLength(2);
+    await get('/workflow/kaizen',accountant,403);
+    await post('/workflow/kaizen',{problem:'Нет препятствий',nextStep:'Работаем по плану',proposal:'Без задачи',clientOperationId:operation()},outsider,400);
+    const general=await post('/workflow/kaizen',{problem:'Нет препятствий',nextStep:'Работаем по плану',clientOperationId:operation()},outsider);
+    expect(general.improvement_id).toBeNull();
+    expect((await get('/workflow/kaizen',worker)).rows.find((v:any)=>v.id===general.id)).toBeUndefined();
+    expect((await get('/workflow/kaizen',director)).rows.find((v:any)=>v.id===general.id)).toBeTruthy();
+  });
   it('uses role and task scope for every read and mutation',async()=>{
     await get(`/workflow/tasks/${task.id}`,outsider,403);await get('/workflow/board',accountant,403);await get('/workflow/summary',accountant);
     expect(await get('/workflow/board',outsider)).toEqual([]);

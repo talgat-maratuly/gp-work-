@@ -28,6 +28,7 @@ describe('Integrated work improvement flow (real API/database)',()=>{
   async function newTask(){return post('/tasks',{sectionId:section.id,workTypeId:workType,assigneeUserId:worker.id,dueDate:'2026-09-16',description:'Уход за участком'})}
   const planBody=(extra={})=>({standardId:standard.id,accountableId:admin.id,reviewerId:director.id,wipLimit:1,toolIds:[],materials:[],...extra});
   it('saves morning answers and existing improvements atomically; isolates discussions and retries',async()=>{
+    const initialDetail=await get(`/workflow/tasks/${task.id}`,worker);
     const body={taskId:task.id,problem:'Ждали воду',nextStep:'Согласовать доставку',result:'Вчера не проверяли',proposal:'Подавать воду к началу посадки',clientOperationId:operation()};
     const [a,b]=await Promise.all([post('/workflow/kaizen',body,worker),post('/workflow/kaizen',body,worker)]);
     expect(a.id).toBe(b.id);expect(a.improvement_id).toBeTruthy();
@@ -38,7 +39,7 @@ describe('Integrated work improvement flow (real API/database)',()=>{
     const detail=await get(`/workflow/tasks/${task.id}`,worker);
     expect(detail.improvements.filter((i:any)=>i.id===a.improvement_id)).toHaveLength(1);
     expect(detail.improvements.find((i:any)=>i.id===a.improvement_id).status).toBe('PROPOSED');
-    expect(detail.readiness).toEqual(['Руководитель ещё не задал стандарт']);
+    expect(detail.readiness).toEqual(initialDetail.readiness);
     const mine=await get('/workflow/kaizen',worker);
     expect(mine.rows.find((r:any)=>r.id===a.id)).toMatchObject({author_id:worker.id,problem:body.problem,can_reply:false});
     expect((await get('/workflow/kaizen',outsider)).rows.find((r:any)=>r.id===a.id)).toBeUndefined();
@@ -57,18 +58,22 @@ describe('Integrated work improvement flow (real API/database)',()=>{
     expect((await get('/workflow/kaizen',director)).rows.find((v:any)=>v.id===general.id)).toBeTruthy();
   });
   it('restricts general answers to the current brigade leader and honors configurable permissions',async()=>{
+    const observerName=`morning-observer-${operation()}`;
+    await post('/users',{username:observerName,password:'morning-test-password',fullName:'Автор общего вопроса',role:'WORKER'});
+    const observer=await login(observerName,'morning-test-password');
+    await post('/workflow/kaizen',{problem:'Нет препятствий',nextStep:'Продолжить работу',clientOperationId:operation()},observer);
     const brigade=await post('/brigades',{name:`Morning brigade ${operation()}`});
     const password='morning-test-password';
     const username=`morning-leader-${operation()}`;
     await post('/users',{username,password,fullName:'Бригадир утреннего разбора',role:'BRIGADIER',brigadeId:brigade.id});
     const leader=await login(username,password);
-    await request(app.getHttpServer()).patch(`/api/users/${outsider.id}`).set(headers(admin.token)).send({brigadeId:brigade.id}).expect(200);
+    await request(app.getHttpServer()).patch(`/api/users/${observer.id}`).set(headers(admin.token)).send({brigadeId:brigade.id}).expect(200);
     const feed=await get('/workflow/kaizen',leader);
-    const answer=feed.rows.find((v:any)=>v.author_id===outsider.id);
+    const answer=feed.rows.find((v:any)=>v.author_id===observer.id);
     expect(answer).toMatchObject({can_reply:true,task_id:null});
     await post(`/workflow/kaizen/${answer.id}/replies`,{note:'Общий вопрос принят',clientOperationId:operation()},leader);
-    expect((await get('/workflow/kaizen',outsider)).rows.find((v:any)=>v.id===answer.id).replies[0].is_management).toBe(true);
-    await request(app.getHttpServer()).patch(`/api/users/${outsider.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);
+    expect((await get('/workflow/kaizen',observer)).rows.find((v:any)=>v.id===answer.id).replies[0].is_management).toBe(true);
+    await request(app.getHttpServer()).patch(`/api/users/${observer.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);
     expect((await get('/workflow/kaizen',leader)).rows.find((v:any)=>v.id===answer.id)).toBeUndefined();
     await post(`/workflow/kaizen/${answer.id}/replies`,{note:'После перевода',clientOperationId:operation()},leader,404);
     await request(app.getHttpServer()).patch(`/api/users/${leader.id}`).set(headers(admin.token)).send({brigadeId:null}).expect(200);

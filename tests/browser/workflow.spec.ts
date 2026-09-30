@@ -105,6 +105,8 @@ test('manager configures a standard; worker prepares, retries a report and sees 
   await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await page.goto('/admin/workflow')
   await signIn(reviewer.username, password)
+  await expect(page).not.toHaveURL(/\/login$/)
+  await page.goto('/admin/workflow')
   await page.getByRole('button', { name: 'Кайдзен', exact: true }).click()
   const discussion = page.getByRole('article').filter({ hasText: worker.fullName })
   await discussion.getByLabel('Ответ в обсуждении', { exact: true }).fill('Проверим на одном участке')

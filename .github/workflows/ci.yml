@@ -151,8 +151,12 @@ jobs:
       - run: npm run test:e2e -w @gp-work/api
       - name: Install browser for real UI regression tests
         run: npx playwright install --with-deps chromium
+      - name: Kaizen worker and director regression (desktop and mobile)
+        run: npm run test:browser -- tests/browser/workflow.spec.ts --output=test-results-kaizen
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-kaizen
       - name: Browser worker-day regression (real API and PostgreSQL)
-        run: npm run test:browser
+        run: npm run test:browser -- --grep-invert 'manager configures a standard;'
       - name: Section navigation in production build with real service worker
         run: npm run test:browser -- tests/browser/production-section-form.spec.ts --output=test-results-production
         env:
@@ -166,6 +170,8 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            playwright-report-kaizen/
+            test-results-kaizen/
             playwright-report-production/
             test-results-production/
           retention-days: 7

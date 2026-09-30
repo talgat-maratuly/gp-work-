@@ -84,7 +84,7 @@ test('manager configures a standard; worker prepares, retries a report and sees 
   await page.screenshot({ path: info.outputPath('workflow-board.png'), fullPage: true })
   await page.getByRole('button', { name: 'Кайдзен', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Кайдзен — улучшаем работу каждый день', exact: true })).toBeVisible()
-  await page.getByLabel('Задача — если ответ связан с работой', { exact: true }).selectOption(String(task.id))
+  await page.getByRole('combobox', { name: 'Задача — если ответ связан с работой', exact: true }).selectOption(String(task.id))
   await page.getByLabel('Что вчера мешало работать нормально?', { exact: true }).fill('Долго ждали воду для посадки')
   await page.getByLabel('Что сегодня поможет работать удобнее или безопаснее?', { exact: true }).fill('Согласовать приезд водовоза')
   await page.getByLabel('Какое изменение предлагаем проверить? — необязательно', { exact: true }).fill('Подать воду к началу работ')

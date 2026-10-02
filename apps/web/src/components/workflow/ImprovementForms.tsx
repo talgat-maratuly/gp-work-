@@ -3,14 +3,14 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError,toUserMessage } from '@/api/client'
 import { CATEGORIES,OBSTACLE_STATUS,IMPROVEMENT_STATUS,workflowPost,type Obstacle,type Improvement,type Person } from '@/api/workflowApi'
 import { Label,inputClass,buttonClass,panelClass } from './Controls'
-export function ReportForm({taskId,obstacles,onChanged}:{taskId:number;obstacles:Obstacle[];onChanged:()=>Promise<void>}) {
-  const [kind,setKind]=useState('obstacle');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [retry,setRetry]=useState(false)
+export function ReportForm({taskId,obstacles,onChanged,initialKind='obstacle'}:{taskId:number;obstacles:Obstacle[];onChanged:()=>Promise<void>;initialKind?:'obstacle'|'improvement'}) {
+  const [kind,setKind]=useState(initialKind);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [retry,setRetry]=useState(false)
   const pending=useRef<{path:string;body:unknown}|null>(null)
   async function submit(e:React.FormEvent<HTMLFormElement>) {e.preventDefault();if(busy)return;const form=e.currentTarget;const d=new FormData(form);setBusy(true);setError('');try {
     if(!pending.current) pending.current={path:`/tasks/${taskId}/${kind==='obstacle'?'obstacles':'improvements'}`,body:kind==='obstacle'?{category:d.get('category'),description:d.get('description'),clientOperationId:crypto.randomUUID()}:{problem:d.get('description'),proposal:d.get('proposal'),...(d.get('obstacleId')?{obstacleId:Number(d.get('obstacleId'))}:{}),clientOperationId:crypto.randomUUID()}}
     await workflowPost(pending.current.path,pending.current.body);pending.current=null;setRetry(false);form.reset();await onChanged()
   }catch(err){if(err instanceof ApiError && err.status && err.status<500) pending.current=null;setRetry(!!pending.current);setError(toUserMessage(err))}finally{setBusy(false)}}
-  return <section className={panelClass}><h2 className="text-lg font-bold">Помощь и предложения</h2><form onSubmit={submit} className="space-y-3"><fieldset disabled={busy||retry} className="space-y-3"><Label name="Что хотите сообщить"><select className={inputClass} value={kind} onChange={e=>setKind(e.target.value)}><option value="obstacle">Есть препятствие</option><option value="improvement">Предложить улучшение</option></select></Label>
+  return <section className={panelClass}><h2 className="text-lg font-bold">Помощь и предложения</h2><form onSubmit={submit} className="space-y-3"><fieldset disabled={busy||retry} className="space-y-3"><Label name="Что хотите сообщить"><select className={inputClass} value={kind} onChange={e=>setKind(e.target.value as 'obstacle'|'improvement')}><option value="obstacle">Есть препятствие</option><option value="improvement">Предложить улучшение</option></select></Label>
     {kind==='obstacle'?<Label name="Что мешает"><select className={inputClass} name="category">{Object.entries(CATEGORIES).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></Label>:<Label name="Связанное препятствие"><select className={inputClass} name="obstacleId" defaultValue=""><option value="">Без привязки</option>{obstacles.map(o=><option key={o.id} value={o.id}>#{o.id} · {o.description.slice(0,80)}</option>)}</select></Label>}
     <Label name="Что произошло"><textarea className={inputClass} name="description" required maxLength={2000} rows={3}/></Label>{kind==='improvement'&&<Label name="Что предлагаете изменить"><textarea className={inputClass} name="proposal" required maxLength={2000} rows={3}/></Label>}</fieldset>
     <button type="submit" className={buttonClass} disabled={busy}>{busy?'Сохраняем…':retry?'Повторить отправку':kind==='obstacle'?'Сообщить о препятствии':'Отправить предложение'}</button>
@@ -39,3 +39,4 @@ export function ImprovementCard({item,people,canManage,canAdopt,onChanged}:{item
     <Label name={action==='measure'?'Где и как измеряли результат':'Обоснование решения'}><textarea name="note" className={inputClass} maxLength={2000} required/></Label><button type="submit" className={buttonClass}>{labels[action]}</button></fieldset>{error&&<p role="alert" className="text-red-700">{error}</p>}</form></details>}
   </article>
 }
+

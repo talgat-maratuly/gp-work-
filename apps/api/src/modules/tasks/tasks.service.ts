@@ -1,3 +1,4 @@
+import { businessDateString } from '../../common/business-date';
 import { WorkflowService } from '../workflow/workflow.service';
 import { UploadsService } from '../uploads/uploads.service';
 import {
@@ -345,7 +346,7 @@ export class TasksService {
       });
       if (!row) throw new NotFoundException('Задача не найдена');
       this.assertCanManageTask(row, actor);
-      const planned = await manager.query('SELECT task_id FROM work_task_plans WHERE task_id=$1', [id]);
+      const planned = await manager.query('SELECT task_id FROM work_task_plans WHERE task_id=$1 UNION SELECT task_id FROM work_task_focus WHERE task_id=$1', [id]);
       const assignmentChanged = [[dto.sectionId,row.sectionId],[dto.workTypeId,row.workTypeId],[dto.assigneeUserId,row.assigneeUserId],[dto.brigadeId,row.brigadeId]]
         .some(([next,previous]) => next !== undefined && next !== previous);
       if (planned.length && assignmentChanged) {
@@ -372,7 +373,13 @@ export class TasksService {
       row.workTypeId = workTypeId;
       row.assigneeUserId = assigneeUserId;
       row.brigadeId = assignment.brigadeId;
-      if (dto.dueDate !== undefined) row.dueDate = dto.dueDate;
+      if (dto.dueDate !== undefined) {
+        const [focus] = await manager.query('SELECT end_at FROM work_task_focus WHERE task_id=$1', [id]);
+        if (focus && businessDateString(new Date(focus.end_at)) > dto.dueDate.slice(0,10)) {
+          throw new BadRequestException('Сначала перенесите плановое время в пределы нового срока');
+        }
+        row.dueDate = dto.dueDate;
+      }
       if (dto.priority !== undefined) row.priority = dto.priority;
       if (dto.description !== undefined) row.description = dto.description.trim();
       await manager.getRepository(Task).save(row);
@@ -419,3 +426,4 @@ export class TasksService {
     });
   }
 }
+

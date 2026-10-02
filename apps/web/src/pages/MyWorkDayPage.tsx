@@ -1,3 +1,4 @@
+import { FocusBoard } from '@/components/workflow/FocusPlanning'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchMyWorkDay, finishMyWorkDay, saveLateExplanation, startMyWorkDay, type MyWorkDay } from '@/api/attendanceApi'
@@ -141,6 +142,7 @@ export function MyWorkDayPage() {
       <div><h1 className="text-2xl font-bold">Мой рабочий день</h1>
         <p className="mt-1 text-sm text-slate-600">Нажмите кнопку в начале и в конце работы. Геолокация сохраняется при каждой отметке.</p>
       </div>
+      {['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'].includes(user!.role) && <FocusBoard key={user!.id} mine/>}
       <section aria-label="Отметка рабочего дня" className="space-y-4 rounded-2xl border bg-white p-5">
         {loading && <p role="status">Загрузка рабочего дня…</p>}
         {loadError && <p role="alert" className="text-red-700">{loadError}</p>}
@@ -198,3 +200,4 @@ export function MyWorkDayPage() {
     </main>
   </div>
 }
+

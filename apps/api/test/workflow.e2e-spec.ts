@@ -105,6 +105,9 @@ describe('Integrated work improvement flow (real API/database)',()=>{
   it('measures an improvement, prevents self approval and versions the standard without changing history',async()=>{
     const proposal={problem:'Долго ищем инструмент',proposal:'Собирать комплект до выезда',clientOperationId:operation()};const i=await post(`/workflow/tasks/${task.id}/improvements`,proposal,worker);
     expect((await post(`/workflow/tasks/${task.id}/improvements`,proposal,worker)).id).toBe(i.id);
+    expect((await get('/workflow/kaizen',worker)).some((row:any)=>row.id===i.id)).toBe(true);
+    expect(await get('/workflow/kaizen',outsider)).toEqual([]);
+    await get('/workflow/kaizen',accountant,403);
     await post(`/workflow/improvements/${i.id}/actions`,{action:'adopt',adoptionRule:'Собрать комплект',note:'Принять'},director,400);
     await post(`/workflow/improvements/${i.id}/actions`,{action:'plan',ownerId:admin.id,dueAt:'2026-09-16T12:00:00Z',hypothesis:'Инструмент хранится без комплекта',metric:'Затраты на поиск за смену',unit:'тг',direction:'LOWER',baseline:1000,note:'Сравнить пять сопоставимых смен'});
     await post(`/workflow/improvements/${i.id}/actions`,{action:'measure',observed:400,note:'Табель и расчёт: пять смен по одному виду работы'});
@@ -121,4 +124,35 @@ describe('Integrated work improvement flow (real API/database)',()=>{
     const start=(id:number)=>service.withStart(id,actor,async q=>{await q.query("UPDATE tasks SET status='IN_PROGRESS' WHERE id=$1",[id]);return id});
     const result=await Promise.allSettled([start(first.id),start(second.id)]);expect(result.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(result.filter(r=>r.status==='rejected')).toHaveLength(1);
   });
+  it('persists important work, enforces scope, deadlines, overlap, versions and reschedule history',async()=>{
+    const a=await newTask(), b=await newTask();
+    const body={version:0,important:true,urgent:false,outcome:'Проверить насос до поломки',startAt:'2026-09-16T04:00:00Z',endAt:'2026-09-16T05:00:00Z',reason:''};
+    await post(`/workflow/tasks/${a.id}/focus`,body,worker,403);
+    await get(`/workflow/tasks/${a.id}/focus`,outsider,403);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,startAt:body.endAt},director,400);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,endAt:'2026-09-17T00:00:00Z'},director,400);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,important:null},director,400);
+    const saved=await post(`/workflow/tasks/${a.id}/focus`,body,director);
+    expect(saved.plan).toMatchObject({important:true,urgent:false,version:1});
+    expect(saved.history).toHaveLength(1);
+    expect((await get('/workflow/focus/my',worker)).some((r:any)=>r.task_id===a.id)).toBe(true);
+    expect(await get('/workflow/focus/my',outsider)).toEqual([]);
+    await post(`/workflow/tasks/${b.id}/focus`,body,director,409);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,version:1,startAt:'2026-09-16T06:00:00Z',endAt:'2026-09-16T07:00:00Z'},director,400);
+    const changed=await post(`/workflow/tasks/${a.id}/focus`,{...body,version:1,startAt:'2026-09-16T06:00:00Z',endAt:'2026-09-16T07:00:00Z',reason:'Авария: выделено новое время'},director);
+    expect(changed.history).toHaveLength(2);expect(changed.history[0].before_value.start_at).toBe(body.startAt.replace('Z','.000Z'));
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,version:1,reason:'Устаревшая вкладка'},director,409);
+    expect((await get('/workflow/focus',director)).find((r:any)=>r.task_id===a.id).reschedules).toBe(1);
+    await request(app.getHttpServer()).patch(`/api/tasks/${a.id}`).set(headers(admin.token)).send({assigneeUserId:outsider.id}).expect(400);
+    const proposal=await post(`/workflow/tasks/${a.id}/improvements`,{problem:'Повторяется поломка',proposal:'Плановая проверка',clientOperationId:operation()},worker);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,version:2,startAt:'2026-09-16T06:00:00Z',endAt:'2026-09-16T07:00:00Z',reason:'Связали с предложением',improvementId:proposal.id},director);
+    await db.query("UPDATE tasks SET status='VERIFIED' WHERE id=$1",[a.id]);
+    await post(`/workflow/tasks/${a.id}/focus`,{...body,version:3,reason:'Попытка изменить принятую работу'},director,400);
+    const c=await newTask(), d=await newTask();
+    const reserve=(id:number)=>request(app.getHttpServer()).post(`/api/workflow/tasks/${id}/focus`).set(headers(director.token)).send(body);
+    const results=await Promise.all([reserve(c.id),reserve(d.id)]);
+    expect(results.map(r=>r.status).sort()).toEqual([201,409]);
+  });
+
 });
+

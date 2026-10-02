@@ -1,3 +1,5 @@
+import { FocusService } from './focus.service';
+import { FocusDto } from './focus.dto';
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -11,7 +13,12 @@ const participants = [UserRole.ADMIN,UserRole.BRIGADIER,UserRole.AGRONOMIST,User
 @Controller('workflow')
 @Roles(...participants)
 export class WorkflowController {
-  constructor(private readonly service:WorkflowService) {}
+  constructor(private readonly service:WorkflowService, private readonly focus:FocusService) {}
+  @Get('focus') focusList(@CurrentUser() u:User) {return this.focus.list(u);}
+  @Get('focus/my') myFocus(@CurrentUser() u:User) {return this.focus.list(u,true);}
+  @Get('tasks/:id/focus') focusDetail(@Param('id',ParseIntPipe) id:number,@CurrentUser() u:User) {return this.focus.detail(id,u);}
+  @Post('tasks/:id/focus') @Roles(UserRole.ADMIN,UserRole.BRIGADIER,UserRole.AGRONOMIST) saveFocus(@Param('id',ParseIntPipe) id:number,@Body() dto:FocusDto,@CurrentUser() u:User) {return this.focus.save(id,dto,u);}
+  @Get('kaizen') kaizen(@CurrentUser() u:User) {return this.service.kaizen(u);}
   @Get('catalog') catalog(@CurrentUser() u:User) {return this.service.catalog(u);}
   @Get('board') board(@CurrentUser() u:User) {return this.service.board(u);}
   @Get('summary') @Roles(...participants,UserRole.ACCOUNTANT) summary(@CurrentUser() u:User) {return this.service.summary(u);}
@@ -28,3 +35,4 @@ export class WorkflowController {
   @Post('tools') @Roles(UserRole.ADMIN) addTool(@Body() dto:ToolDto,@CurrentUser() u:User) {return this.service.addTool(dto,u);}
   @Post('tools/:id/actions') toolAction(@Param('id',ParseIntPipe) id:number,@Body() dto:ToolActionDto,@CurrentUser() u:User) {return this.service.toolAction(id,dto,u);}
 }
+

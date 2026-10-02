@@ -86,6 +86,7 @@ jobs:
             'apps/api/src/database/migrations/1732900000000-AddAttendanceAccuracy.ts',
             'apps/api/src/database/migrations/1733000000000-AddPasswordRecovery.ts',
             'apps/api/src/database/migrations/1733100000000-AddAccessRoles.ts',
+            'apps/api/src/database/migrations/1733400000000-AddImportantPlanning.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -121,6 +122,7 @@ jobs:
             'AddAttendanceAccuracy1732900000000',
             'AddPasswordRecovery1733000000000',
             'AddAccessRoles1733100000000',
+            'AddImportantPlanning1733400000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,
@@ -167,3 +169,4 @@ jobs:
             playwright-report-production/
             test-results-production/
           retention-days: 7
+

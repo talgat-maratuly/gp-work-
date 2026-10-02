@@ -71,7 +71,7 @@ const ACTIONS: Record<string,string> = {
   scanState:'Состояние участка по QR', setVehicleStatus:'Изменить статус техники', startDay:'Начать рабочий день',
   startMy:'Начать свою задачу', submit:'Отправить на проверку', today:'Сегодня в поле',
   updateDecision:'Изменить решение', updateSettings:'Сохранить настройки формы', uploadPhotos:'Загрузить фото',
-  workDayList:'Рабочие дни',
+  kaizen:'Кайдзен: предложения и результаты', workDayList:'Рабочие дни',
 };
 export function roleAllowed(role: UserRole, required?: UserRole[]) {
   return !required?.length || required.includes(role) || (role === UserRole.DIRECTOR && required.includes(UserRole.ADMIN));
@@ -93,3 +93,4 @@ export function nonDelegable(resource: string, handlerName: string): boolean {
   return resource === 'access-roles' || resource === 'seed' ||
     (resource === 'users' && handlerName !== 'findAssignees');
 }
+

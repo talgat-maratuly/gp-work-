@@ -67,6 +67,7 @@ test('contract budget procurement invoice and partial payment persist in working
   const template=await create('templates',{title:'Договор поставки '+suffix,body:'Договор {{number}} с {{counterparty}}. {{subject}}. Цена {{amount}}. Оплата {{paymentTerms}}.',approve:true})
   await page.goto('/office?project='+project.id)
   await page.getByLabel('Логин',{exact:true}).fill(process.env.ADMIN_USERNAME||'e2e-admin');await page.getByLabel('Пароль',{exact:true}).fill(process.env.ADMIN_PASSWORD||'e2e-admin-password');await page.getByRole('button',{name:'Войти',exact:true}).click()
+  await expect(page.getByRole('button',{name:'Выйти',exact:true})).toBeVisible()
   // Legacy administrators retain their home; direct office navigation is explicit.
   await page.goto('/office?project='+project.id)
   const tab=async(label:string)=>{await page.getByRole('button',{name:label,exact:true}).click()}

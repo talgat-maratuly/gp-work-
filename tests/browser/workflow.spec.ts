@@ -97,7 +97,7 @@ test('manager configures a standard; worker prepares, retries a report and sees 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.screenshot({ path: info.outputPath('workflow-board.png'), fullPage: true })
   await page.getByRole('button', { name: 'Кайдзен', exact: true }).click()
-  await page.getByLabel('К какой задаче относится идея', { exact: true }).selectOption(String(task.id))
+  await page.getByRole('combobox', { name: 'К какой задаче относится идея', exact: true }).selectOption(String(task.id))
   await page.getByLabel('Что произошло', { exact: true }).fill('Тратим время на поиск инструмента')
   await page.getByLabel('Что предлагаете изменить', { exact: true }).fill('Собирать комплект заранее')
   await page.getByRole('button', { name: 'Отправить предложение', exact: true }).click()

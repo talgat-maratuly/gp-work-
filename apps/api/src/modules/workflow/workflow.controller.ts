@@ -18,6 +18,7 @@ export class WorkflowController {
   @Get('focus/my') myFocus(@CurrentUser() u:User) {return this.focus.list(u,true);}
   @Get('tasks/:id/focus') focusDetail(@Param('id',ParseIntPipe) id:number,@CurrentUser() u:User) {return this.focus.detail(id,u);}
   @Post('tasks/:id/focus') @Roles(UserRole.ADMIN,UserRole.BRIGADIER,UserRole.AGRONOMIST) saveFocus(@Param('id',ParseIntPipe) id:number,@Body() dto:FocusDto,@CurrentUser() u:User) {return this.focus.save(id,dto,u);}
+  @Get('kaizen') kaizen(@CurrentUser() u:User) {return this.service.kaizen(u);}
   @Get('catalog') catalog(@CurrentUser() u:User) {return this.service.catalog(u);}
   @Get('board') board(@CurrentUser() u:User) {return this.service.board(u);}
   @Get('summary') @Roles(...participants,UserRole.ACCOUNTANT) summary(@CurrentUser() u:User) {return this.service.summary(u);}

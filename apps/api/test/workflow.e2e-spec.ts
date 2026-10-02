@@ -105,6 +105,9 @@ describe('Integrated work improvement flow (real API/database)',()=>{
   it('measures an improvement, prevents self approval and versions the standard without changing history',async()=>{
     const proposal={problem:'Долго ищем инструмент',proposal:'Собирать комплект до выезда',clientOperationId:operation()};const i=await post(`/workflow/tasks/${task.id}/improvements`,proposal,worker);
     expect((await post(`/workflow/tasks/${task.id}/improvements`,proposal,worker)).id).toBe(i.id);
+    expect((await get('/workflow/kaizen',worker)).some((row:any)=>row.id===i.id)).toBe(true);
+    expect(await get('/workflow/kaizen',outsider)).toEqual([]);
+    await get('/workflow/kaizen',accountant,403);
     await post(`/workflow/improvements/${i.id}/actions`,{action:'adopt',adoptionRule:'Собрать комплект',note:'Принять'},director,400);
     await post(`/workflow/improvements/${i.id}/actions`,{action:'plan',ownerId:admin.id,dueAt:'2026-09-16T12:00:00Z',hypothesis:'Инструмент хранится без комплекта',metric:'Затраты на поиск за смену',unit:'тг',direction:'LOWER',baseline:1000,note:'Сравнить пять сопоставимых смен'});
     await post(`/workflow/improvements/${i.id}/actions`,{action:'measure',observed:400,note:'Табель и расчёт: пять смен по одному виду работы'});

@@ -322,6 +322,15 @@ export class WorkflowService {
       await this.event(q,(dto.action==='issue'?dto.taskId:tool.task_id)??null,user,`TOOL_${dto.action.toUpperCase()}`,{id,...dto});return (await q.query('SELECT * FROM work_tools WHERE id=$1',[id]))[0];
     });
   }
+  async kaizen(user:User) {
+    const board = await this.board(user);
+    const ids = board.map((t:{id:number}) => t.id);
+    if (!ids.length) return [];
+    return this.db.query(`SELECT i.*, p.full_name proposer_name, o.full_name owner_name, t.description task_description
+      FROM work_improvements i JOIN tasks t ON t.id=i.task_id
+      JOIN users p ON p.id=i.proposer_id LEFT JOIN users o ON o.id=i.owner_id
+      WHERE i.task_id=ANY($1::int[]) ORDER BY i.created_at DESC,i.id DESC`, [ids]);
+  }
   async board(user:User) {
     const tasks=await this.db.query(`${this.taskSelect} WHERE $3=true OR t.assignee_user_id=$1 OR t.brigade_id=$2 OR (t.created_by_id=$1 AND $4=true) ORDER BY t.due_date NULLS LAST,t.id DESC`,[user.id,user.brigadeId??-1,this.global(user),user.role==='AGRONOMIST']);
     const ids=tasks.map((t:TaskRow)=>t.id);if(!ids.length)return [];
@@ -351,3 +360,4 @@ export class WorkflowService {
       improvements,interpretation:'Минуты препятствий по задачам за 30 дней. Пересечения одной причины в одной задаче объединены; причины могут пересекаться. Это не табель и не доказательство ограничения производительности.'};
   }
 }
+

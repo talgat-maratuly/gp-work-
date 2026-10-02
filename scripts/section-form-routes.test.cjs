@@ -30,3 +30,26 @@ test('cabinet and invalid links cannot become shared section return paths', () =
   }
   assert.equal(resolvePostLoginPath('DIRECTOR', '/field/today'), '/admin/director')
 })
+
+const accessCode = ts.transpileModule(readFileSync(join(__dirname, '../apps/web/src/lib/accessPolicy.ts'), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText
+const accessExports = {}
+new Function('exports', 'require', accessCode)(accessExports, () => exportsObject)
+test('office profiles retain personal landing and exclude legacy menus even on shared/direct URLs', () => {
+  const office = { id: 1, role: 'WORKER', accessRoleId: null, officeAccess: { profile: 'EMPLOYEE', enabled: true } }
+  for (const path of ['/admin/users', '/admin/attendance', '/field/tasks', '/access-home']) {
+    assert.equal(accessExports.canOpenPage(office, path), false, path)
+    assert.equal(accessExports.loginTarget(office, path), '/office')
+  }
+  assert.equal(accessExports.loginTarget(office, '/field/scan/SHARED'), '/office')
+  assert.equal(accessExports.canOpenPage(office, '/office'), true)
+  assert.equal(accessExports.canOpenPage(office, '/my-work-day'), true)
+  assert.equal(accessExports.canPerform(office, 'users.create'), false)
+  assert.equal(accessExports.canPerform(office, 'attendance.findAll'), false)
+  assert.equal(accessExports.canPerform(office, 'attendance.mine'), true)
+  const restricted = { ...office, accessRoleId: 9, pages: ['/office'], permissions: ['office.me', 'office.workspace'] }
+  assert.equal(accessExports.canOpenPage(restricted, '/my-work-day'), false)
+  assert.equal(accessExports.canPerform(restricted, 'office.recordCreate'), false)
+  assert.equal(accessExports.userHome({ ...office, officeAccess: { profile: 'EMPLOYEE', enabled: false } }, '/field/today'), '/office')
+})

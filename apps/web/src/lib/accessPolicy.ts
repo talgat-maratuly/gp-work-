@@ -18,6 +18,7 @@ export function canOpenPage(user:AuthUser|null, path:string) {
 }
 export function userHome(user:AuthUser, legacy:string) {return user.officeAccess&&user.officeAccess.profile!=='EXECUTIVE'?'/office':user.accessRoleId!=null?'/access-home':legacy}
 export function canPerform(user:AuthUser|null,key:string) {
+  if (user?.officeAccess && user.officeAccess.profile !== 'EXECUTIVE' && !key.startsWith('office.') && !key.startsWith('auth.') && !['attendance.mine','attendance.start','attendance.finish','attendance.explanation'].includes(key)) return false
   return !!user&&(user.accessRoleId==null||!!user.permissions?.includes(key))
 }
 export function loginTarget(user:AuthUser,from?:string) {

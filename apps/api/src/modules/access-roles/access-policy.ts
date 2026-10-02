@@ -96,4 +96,3 @@ export function nonDelegable(resource: string, handlerName: string): boolean {
     (resource === 'users' && handlerName !== 'findAssignees');
 }
 
-

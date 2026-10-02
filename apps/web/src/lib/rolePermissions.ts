@@ -45,4 +45,3 @@ export const ADMIN_ROUTE_ROLES = {
 export function canAccessRoles(role: UserRole, allowed: readonly UserRole[]): boolean {
   return allowed.includes(role) || (role === 'DIRECTOR' && allowed.includes('ADMIN'))
 }
-

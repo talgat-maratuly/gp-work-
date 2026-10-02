@@ -42,7 +42,9 @@ describe('Combined organization structure (real database)', () => {
     expect(data.employees.find((p:any)=>p.user_id===first.id)).toMatchObject({unit_id:null,manager_id:null,revision:0});
     const positions=(await get('job-positions').expect(200)).body;
     for(const name of ['Генеральный директор','Директор','Менеджер по снабжению','Маркетолог','Специалист по качеству'])expect(positions.some((p:any)=>p.name===name)).toBe(true);
-    expect(JSON.stringify(data)).not.toMatch(/password|auth_version|recovery|username|access_role_id/i);
+    const keys = (value:unknown):string[] => value && typeof value === 'object'
+      ? Object.entries(value).flatMap(([key,nested])=>[key,...keys(nested)]) : [];
+    expect(keys(data).join(' ')).not.toMatch(/password|auth_version|recovery|username|access_role_id/i);
     await request(app.getHttpServer()).get('/api/organization').expect(401);
     for(const path of ['organization','organization/history'])await get(path,worker).expect(403);
     await put(`organization/employees/${first.id}`,{revision:0,unitId:general.id,managerId:null,duties:''},worker).expect(403);

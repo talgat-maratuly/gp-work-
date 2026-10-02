@@ -93,3 +93,4 @@ export function nonDelegable(resource: string, handlerName: string): boolean {
   return resource === 'access-roles' || resource === 'seed' ||
     (resource === 'users' && handlerName !== 'findAssignees');
 }
+

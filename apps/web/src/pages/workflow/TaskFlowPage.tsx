@@ -1,3 +1,4 @@
+import { FocusPlan } from '@/components/workflow/FocusPlanning'
 import { useCallback,useEffect,useRef,useState } from 'react'
 import { Link,useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
@@ -25,6 +26,7 @@ export function TaskFlowPage() {
     {error&&<div role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}<button type="button" className="ml-3 underline" onClick={()=>void load().catch(()=>undefined)}>Обновить данные</button></div>}
     {loading?<p role="status">Загрузка задачи…</p>:data&&catalog&&<><section className={panelClass}><p className="text-sm text-slate-500">Задача #{taskId}</p><h1 className="text-2xl font-bold">{data.task.description}</h1><p>{data.task.object_name} · {data.task.section_name}</p><p>Исполнитель: {data.task.assignee_name}</p>{data.plan&&<p>За результат: <b>{data.plan.accountable_name}</b> · Принимает: <b>{data.plan.reviewer_name}</b> · Лимит незавершённых задач: {data.plan.wip_limit}</p>}
     <div className="flex flex-wrap gap-3">{data.canExecute&&<Link className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white" to={data.execution?`/field/executions/${data.execution.id}`:`/field/qr?taskId=${taskId}`}>{data.execution?'Открыть выполнение':'QR и прибытие'}</Link>}{data.canManage&&data.execution&&<Link to={`/admin/executions?execution=${data.execution.id}`} className="rounded-lg border px-4 py-2 font-semibold text-blue-700">Открыть приёмку</Link>}</div></section>
+    <FocusPlan key={taskId} taskId={taskId} canManage={data.canManage} status={data.task.status} improvements={data.improvements}/>
     <BusinessProcessPanel key={taskId} taskId={taskId} canManage={data.canManage} taskStatus={data.task.status}/>
     <TaskBoardGuide />
     <div className="grid items-start gap-5 lg:grid-cols-2"><div className="space-y-5">
@@ -55,3 +57,4 @@ function PlanForm({data,catalog,tools,onChanged}:{data:TaskFlow;catalog:Catalog;
     <div className="space-y-3"><b className="block">Необходимые материалы</b>{materials.map((m,i)=><div key={i} className="space-y-2 rounded-lg border p-3"><Label name={`Материал ${i+1}`}><select className={inputClass} value={m.productId||''} required onChange={e=>setMaterials(old=>old.map((v,n)=>n===i?{...v,productId:Number(e.target.value)}:v))}><option value="">Выберите материал</option>{catalog.products.map(p=><option key={p.id} value={p.id}>{p.name} · {p.unit}</option>)}</select></Label><Label name={`Количество материала ${i+1}`}><input className={inputClass} type="number" min="0.001" step="0.001" value={m.quantity||''} required onChange={e=>setMaterials(old=>old.map((v,n)=>n===i?{...v,quantity:Number(e.target.value)}:v))}/></Label><button type="button" onClick={()=>setMaterials(old=>old.filter((_,n)=>n!==i))} className="text-red-700 underline">Убрать материал</button></div>)}<button type="button" disabled={materials.length>=30} className="font-semibold text-blue-700 underline" onClick={()=>setMaterials(old=>[...old,{productId:0,quantity:0}])}>Добавить материал</button></div>
     <button type="submit" className={buttonClass}>Сохранить порядок работы</button></fieldset>{error&&<p role="alert" className="text-red-700">{error}</p>}</form>}</details>
 }
+

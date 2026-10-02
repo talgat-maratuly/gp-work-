@@ -9,7 +9,7 @@ export class FocusService {
   constructor(private readonly db: DataSource, private readonly workflow: WorkflowService) {}
   async list(user: User, mine = false) {
     const board = await this.workflow.board(user);
-    const ids = board.map(t => t.id);
+    const ids = board.map((t: {id:number}) => t.id);
     if (!ids.length) return [];
     return this.db.query(`SELECT f.*, t.description, t.status, t.assignee_user_id, t.due_date,
       u.full_name assignee_name,

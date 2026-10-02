@@ -160,7 +160,7 @@ jobs:
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-office
       - name: Browser worker-day regression (real API and PostgreSQL)
-        run: npm run test:browser -- --grep-invert 'personal code, first password|contract budget procurement' 
+        run: npm run test:browser -- --grep-invert 'personal code, first password|contract budget procurement'
       - name: Section navigation in production build with real service worker
         run: npm run test:browser -- tests/browser/production-section-form.spec.ts --output=test-results-production
         env:

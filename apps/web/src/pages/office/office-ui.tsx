@@ -1,8 +1,11 @@
-import type { ReactNode } from 'react'
+import { cloneElement, useId, type ReactElement, type ReactNode } from 'react'
 export const inputClass='w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900'
 export const buttonClass='rounded-lg bg-emerald-700 px-4 py-2.5 font-semibold text-white disabled:opacity-50'
 export const secondaryClass='rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 disabled:opacity-50'
-export function Field({label,children}:{label:string;children:ReactNode}){return <label className="block min-w-0 space-y-1 text-sm font-medium text-slate-700"><span>{label}</span>{children}</label>}
+export function Field({label,children}:{label:string;children:ReactElement<{id?:string}>}){
+  const generatedId=useId(),id=children.props.id??generatedId
+  return <div className="min-w-0 space-y-1 text-sm font-medium text-slate-700"><label htmlFor={id} className="block">{label}</label>{cloneElement(children,{id})}</div>
+}
 export function Panel({title,children}:{title:string;children:ReactNode}){return <section className="rounded-2xl border border-slate-200 bg-white p-4 md:p-6"><h2 className="mb-4 text-xl font-bold">{title}</h2>{children}</section>}
 export const moneyLabel=(v:number|string)=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'KZT',maximumFractionDigits:2}).format(Number(v)/100)
 export const scopeNames:Record<string,string>={SELF:'Только назначенные проекты',DEPARTMENT:'Проекты своего подразделения и назначенные',COMPANY:'Проекты всей компании'}

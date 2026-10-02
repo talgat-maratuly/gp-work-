@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { format, parseISO, startOfDay } from 'date-fns';
 import { EntityManager, In, Repository } from 'typeorm';
 import { businessDateString } from '../../common/business-date';
+import { calcWorkedHours } from '../../common/attendance-hours';
 import { isLateCheckIn, lateThresholdTime } from '../../common/shift-lateness';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { UserRole } from '../../common/enums/user-role.enum';
@@ -18,11 +19,6 @@ function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ');
 }
 
-function calcWorkedHours(checkIn: Date, checkOut: Date): number {
-  const hours = (checkOut.getTime() - checkIn.getTime()) / 3_600_000;
-  return Math.max(0, Math.round(hours * 100) / 100);
-}
-
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -32,8 +28,9 @@ export class AttendanceService {
   ) {}
 
   private mapRecord(row: AttendanceRecord) {
-    const workedHours =
-      row.workedHours != null ? Number(row.workedHours) : null;
+    // Recalculate from immutable marks so historical gross hours receive the
+    // same lunch rule without rewriting history or subtracting lunch twice.
+    const workedHours = row.checkOutTime ? calcWorkedHours(row.checkInTime, row.checkOutTime) : null;
     return {
       id: row.id,
       workDate: row.workDate,

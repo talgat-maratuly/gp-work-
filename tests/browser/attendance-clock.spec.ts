@@ -1,4 +1,7 @@
 import { test, expect } from 'playwright/test'
+import { readFile } from 'node:fs/promises'
+import ExcelJS from 'exceljs'
+import JSZip from 'jszip'
 
 const api = 'http://localhost:3002/api'
 const password = 'attendance-browser-password'
@@ -75,6 +78,44 @@ for (const [role, ip] of [['WORKER', '10.30.0.48'], ['ACCOUNTANT', '10.30.0.49']
         await expect(summary.getByText('Завершённых дней', { exact: true }).locator('..')).toHaveText('1Завершённых дней')
         await expect(summary.getByText('Открытых дней', { exact: true }).locator('..')).toHaveText('0Открытых дней')
         await expect(row.getByRole('link', { name: /Карта/ })).toHaveCount(2)
+        const excel = report.getByRole('button', { name: 'Скачать Excel', exact: true })
+        const word = report.getByRole('button', { name: 'Скачать Word', exact: true })
+        await expect(excel).toBeEnabled()
+        await expect(word).toBeEnabled()
+        await report.route('**/api/attendance/export.xlsx?*', route => route.abort('failed'))
+        await excel.click()
+        await expect(report.getByRole('alert')).toContainText('Не удалось скачать табель')
+        await expect(row).toHaveCount(1)
+        await expect(excel).toBeEnabled()
+        await report.unroute('**/api/attendance/export.xlsx?*')
+        for (const [button, extension] of [[excel, 'xlsx'], [word, 'docx']] as const) {
+          const requestPromise = report.waitForRequest(req => req.url().includes(`/attendance/export.${extension}?`))
+          const downloadPromise = report.waitForEvent('download')
+          await button.click()
+          const req = await requestPromise
+          const params = new URL(req.url()).searchParams
+          expect(params.get('workerFullName')).toBe(username)
+          expect(params.get('dateFrom')).toBe(await report.getByLabel('С', { exact: true }).inputValue())
+          expect(params.get('dateTo')).toBe(await report.getByLabel('По', { exact: true }).inputValue())
+          const download = await downloadPromise
+          expect(download.suggestedFilename()).toMatch(new RegExp(`^tabel_gp-work_.*\\.${extension}$`))
+          const file = info.outputPath(`attendance-export.${extension}`)
+          await download.saveAs(file)
+          const contents = await readFile(file)
+          if (extension === 'xlsx') {
+            const workbook = new ExcelJS.Workbook()
+            await workbook.xlsx.load(contents as unknown as ExcelJS.Buffer)
+            const sheet = workbook.getWorksheet('Табель')!
+            expect(sheet.getCell('C9').value).toBe(username)
+            expect(sheet.getCell('G9').value).toBe('Завершено')
+            expect(sheet.getCell('A5').value).toContain('Сотрудников: 1. Завершённых дней: 1. Открытых дней: 0.')
+          } else {
+            const zip = await JSZip.loadAsync(contents)
+            const xml = await zip.file('word/document.xml')!.async('string')
+            expect(xml).toContain(username)
+            expect(xml).toContain('Завершено')
+          }
+        }
         expect(await report.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
         await report.screenshot({ path: info.outputPath(`timesheet-${role.toLowerCase()}.png`), fullPage: true })
         await report.route('**/api/attendance?*', route => route.abort('failed'))
@@ -82,6 +123,8 @@ for (const [role, ip] of [['WORKER', '10.30.0.48'], ['ACCOUNTANT', '10.30.0.49']
         await expect(report.getByRole('alert')).toBeVisible()
         await expect(summary).toHaveCount(0)
         await expect(row).toHaveCount(0)
+        await expect(excel).toBeDisabled()
+        await expect(word).toBeDisabled()
       } finally { await manager.close() }
       expect(errors).toEqual([])
     })

@@ -1,4 +1,5 @@
-import { apiRequest } from './client'
+import { apiDownload, apiRequest } from './client'
+import { getToken } from '@/lib/auth'
 
 export type AttendanceStatus = 'ON_DUTY' | 'COMPLETED'
 
@@ -51,6 +52,26 @@ export const saveLateExplanation = (id: number, explanation: string) =>
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   ON_DUTY: 'На работе',
   COMPLETED: 'Завершено',
+}
+
+export async function downloadAttendance(
+  format: 'xlsx' | 'docx',
+  query: { dateFrom: string; dateTo: string; workerFullName?: string },
+): Promise<void> {
+  const params = new URLSearchParams({ dateFrom: query.dateFrom, dateTo: query.dateTo })
+  if (query.workerFullName?.trim()) params.set('workerFullName', query.workerFullName.trim())
+  const token = getToken()
+  const blob = await apiDownload(`/attendance/export.${format}?${params}`)
+  if (getToken() !== token) throw new Error('Аккаунт изменился. Повторите скачивание.')
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `tabel_gp-work_${query.dateFrom}_${query.dateTo}.${format}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  // Keep the URL alive until mobile browsers have started reading the download.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 export async function fetchAttendance(query?: {

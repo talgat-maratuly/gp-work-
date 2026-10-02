@@ -155,6 +155,7 @@ export function MyWorkDayPage() {
           </div>
           {current && <>
             <p className="text-3xl font-bold tabular-nums">{durationLabel(elapsed)}</p>
+            <p className="text-xs text-slate-500">{current.status === 'ON_DUTY' ? 'Время с начала дня, включая обед' : 'Отработано без обеда 13:00–14:00'}</p>
             <p className="text-sm text-slate-600">Начало: {timeLabel(current.checkInTime)}{current.checkOutTime ? ` · Завершение: ${timeLabel(current.checkOutTime)}` : ''}</p>
             {current.status === 'ON_DUTY' && current.workDate !== data.today && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Остался открытым день за {dayLabel(current.workDate)}. Завершите его перед новой отметкой.</p>}
             <div className="flex flex-wrap gap-3">
@@ -185,7 +186,7 @@ export function MyWorkDayPage() {
         {error && <p role="alert" className="text-red-700">{error}</p>}
         {success && <p role="status" aria-label="Результат отметки" className="text-emerald-800">{success}</p>}
         <button type="button" onClick={() => { setError(null); void load() }} disabled={loading || busy} className="text-sm text-blue-700 underline disabled:opacity-50">Обновить состояние</button>
-        <p className="text-xs text-slate-500">Часы считаются между отметками. Перерывы отдельно не вычитаются. Отметка подтверждается после сохранения на сервере.</p>
+        <p className="text-xs text-slate-500">В итоговых часах вычитается обед 13:00–14:00 по рабочему времени — только пересечение со сменой. Отметка подтверждается после сохранения на сервере.</p>
       </section>
       {hasRole(...ADMIN_ROUTE_ROLES.attendance) && <Link to="/admin/attendance" className="block rounded-xl border bg-white px-4 py-3 font-semibold text-blue-800">Табель сотрудников →</Link>}
       {data && !loadError && <section aria-label="Мои отметки" className="space-y-3">
@@ -200,4 +201,3 @@ export function MyWorkDayPage() {
     </main>
   </div>
 }
-

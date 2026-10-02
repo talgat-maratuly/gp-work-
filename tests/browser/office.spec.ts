@@ -1,4 +1,12 @@
-import { test, expect } from 'playwright/test'
+import { test, expect, type Page, type TestInfo } from 'playwright/test'
+
+async function readableMobileControls(page:Page,info:TestInfo){
+  if(!info.project.name.startsWith('mobile'))return
+  for(const label of ['Проект','Поиск по доступным записям','Показать']){
+    const box=await page.getByLabel(label,{exact:true}).boundingBox()
+    expect(box?.width,`${label}: readable mobile field width`).toBeGreaterThanOrEqual(280)
+  }
+}
 
 test('personal code, first password, own checklist and protected department data',async({page,context,request},info)=>{
   const api='http://localhost:3002/api',suffix=`${Date.now()}-${info.project.name}`,ip=`10.92.${info.project.name.startsWith('mobile')?2:1}.1`
@@ -50,6 +58,7 @@ test('personal code, first password, own checklist and protected department data
   await expect(page.getByText('На приёмке',{exact:true})).toBeVisible();await page.reload();await expect(page.getByText('На приёмке',{exact:true})).toBeVisible()
   await page.goto('/admin/users');await expect(page).toHaveURL(/\/office$/)
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+  await readableMobileControls(page,info)
   await page.screenshot({path:info.outputPath('office-personal.png'),fullPage:true})
   await page.getByRole('link',{name:'Мой рабочий день',exact:true}).click();await expect(page.getByRole('heading',{name:'Мой рабочий день',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Табель сотрудников →',exact:true})).toHaveCount(0)
   expect(errors).toEqual([])
@@ -89,5 +98,6 @@ test('contract budget procurement invoice and partial payment persist in working
   const invoice=(await (await request.get(api+'/office/workspace?projectId='+project.id,{headers})).json()).records.find((r:any)=>r.kind==='INVOICE')
   await tab('Учёт оплат');await add('Оплата '+suffix);await page.getByLabel('Согласованный счёт',{exact:true}).selectOption(String(invoice.id));await page.getByLabel('Сумма подтверждённой оплаты, KZT',{exact:true}).fill('30.00');await page.getByLabel('Номер платёжного документа',{exact:true}).fill('P-'+suffix);await save('Оплата '+suffix)
   await tab('Счета и календарь');await page.reload();await expect(card('Счёт '+suffix)).toContainText('Остаток 40');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true)
+  await readableMobileControls(page,info)
   await page.screenshot({path:info.outputPath('office-finance.png'),fullPage:true})
 })

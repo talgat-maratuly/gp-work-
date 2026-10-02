@@ -1,3 +1,4 @@
+import { userHome } from '@/lib/accessPolicy'
 import { FocusBoard } from '@/components/workflow/FocusPlanning'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -134,7 +135,7 @@ export function MyWorkDayPage() {
   return <div className="min-h-dvh bg-slate-100">
     <header className="border-b bg-white px-4 py-3">
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-        <Link to={homePathForRole(user!.role)} className="rounded-lg border px-3 py-2 text-sm font-semibold">← В кабинет</Link>
+        <Link to={userHome(user!, homePathForRole(user!.role))} className="rounded-lg border px-3 py-2 text-sm font-semibold">← В кабинет</Link>
         <AccountControls />
       </div>
     </header>
@@ -142,7 +143,7 @@ export function MyWorkDayPage() {
       <div><h1 className="text-2xl font-bold">Мой рабочий день</h1>
         <p className="mt-1 text-sm text-slate-600">Нажмите кнопку в начале и в конце работы. Геолокация сохраняется при каждой отметке.</p>
       </div>
-      {['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'].includes(user!.role) && <FocusBoard key={user!.id} mine/>}
+      {['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'].includes(user!.role) && (!user?.officeAccess || user.officeAccess.profile==='EXECUTIVE') && <FocusBoard key={user!.id} mine/>}
       <section aria-label="Отметка рабочего дня" className="space-y-4 rounded-2xl border bg-white p-5">
         {loading && <p role="status">Загрузка рабочего дня…</p>}
         {loadError && <p role="alert" className="text-red-700">{loadError}</p>}
@@ -187,7 +188,7 @@ export function MyWorkDayPage() {
         <button type="button" onClick={() => { setError(null); void load() }} disabled={loading || busy} className="text-sm text-blue-700 underline disabled:opacity-50">Обновить состояние</button>
         <p className="text-xs text-slate-500">Часы считаются между отметками. Перерывы отдельно не вычитаются. Отметка подтверждается после сохранения на сервере.</p>
       </section>
-      {hasRole(...ADMIN_ROUTE_ROLES.attendance) && <Link to="/admin/attendance" className="block rounded-xl border bg-white px-4 py-3 font-semibold text-blue-800">Табель сотрудников →</Link>}
+      {(!user?.officeAccess || user.officeAccess.profile==='EXECUTIVE') && hasRole(...ADMIN_ROUTE_ROLES.attendance) && <Link to="/admin/attendance" className="block rounded-xl border bg-white px-4 py-3 font-semibold text-blue-800">Табель сотрудников →</Link>}
       {data && !loadError && <section aria-label="Мои отметки" className="space-y-3">
         <h2 className="text-lg font-bold">Мои отметки</h2>
         <p className="text-sm text-slate-500">Последние 31 рабочий день</p>

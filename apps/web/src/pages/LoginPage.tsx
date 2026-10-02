@@ -77,6 +77,7 @@ export function LoginPage() {
           <span className="font-semibold text-blue-700">P</span> Work — управление работами
         </p>
 
+        <p className="mt-3 text-sm text-slate-600">Для личного входа укажите свой логин или код сотрудника.</p>
         <div className="mt-5 space-y-4">
           <div>
             <label htmlFor="username" className="mb-1 block text-sm font-medium">Логин</label>

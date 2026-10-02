@@ -18,6 +18,7 @@ export const EMPLOYEE_ROLES: readonly UserRole[] = ['ADMIN', 'DIRECTOR', 'ACCOUN
 
 export interface AuthUser {
   id: number
+  officeAccess?: { profile: string; scope: string; enabled: boolean; revision: number; unitId: number | null; unitName: string | null } | null
   fullName: string
   username: string
   role: UserRole

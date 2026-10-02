@@ -1,3 +1,4 @@
+import { loadOfficeAccess, PROFILES } from '../office/office-policy';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -107,6 +108,7 @@ export class AuthService {
     const policy = await resolveAccessRole(this.userRepo.manager, user);
     if (!policy || !policy.isActive || policy.baseRole !== user.role) throw new UnauthorizedException('Роль недоступна. Обратитесь к администратору.');
     user.accessPolicy = policy;
+    user.officeAccess = await loadOfficeAccess(this.userRepo.manager, user);
     return user;
   }
 
@@ -169,11 +171,12 @@ export class AuthService {
   toPublicUser(user: User) {
     return {
       id: user.id,
+      officeAccess: user.officeAccess ?? null,
       fullName: user.fullName,
       username: user.username,
       role: user.role,
       accessRoleId: user.accessRoleId ?? null,
-      roleName: user.accessPolicy?.name ?? null,
+      roleName: user.officeAccess && user.officeAccess.profile !== 'EXECUTIVE' ? PROFILES[user.officeAccess.profile] : user.accessPolicy?.name ?? null,
       permissions: user.accessRoleId != null ? user.accessPolicy?.permissions ?? [] : null,
       pages: user.accessRoleId != null ? user.accessPolicy?.pages ?? [] : null,
       pageNames: user.accessRoleId != null ? Object.fromEntries((user.accessPolicy?.pages??[]).map(path=>[path,PAGE_NAMES[path]])) : null,

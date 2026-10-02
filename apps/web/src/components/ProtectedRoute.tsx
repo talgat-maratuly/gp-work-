@@ -36,7 +36,7 @@ export function ProtectedRoute({
   if (roles?.length && !hasRole(...roles)) {
     return <Navigate to={userHome(user,homePathForRole(user.role))} replace />
   }
-  if (!canOpenPage(user,location.pathname)) return <Navigate to="/access-home" replace />
+  if (!canOpenPage(user,location.pathname)) return <Navigate to={userHome(user,'/access-home')} replace />
 
   return <>{children}</>
 }

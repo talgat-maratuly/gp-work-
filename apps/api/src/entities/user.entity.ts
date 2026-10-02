@@ -1,3 +1,4 @@
+import type { OfficeAccess } from '../modules/office/office-policy';
 import {
   Column,
   CreateDateColumn,
@@ -53,6 +54,7 @@ export class User {
 
   // Fresh policy attached by authentication, never trusted from the JWT/client.
   accessPolicy?: AccessRole;
+  officeAccess?: OfficeAccess | null;
 
   @Column({ name: 'position_id', type: 'int', nullable: true })
   positionId!: number | null;

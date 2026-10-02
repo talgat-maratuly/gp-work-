@@ -5,8 +5,8 @@ import { User } from '../../entities/user.entity';
 import { AttendanceService } from './attendance.service';
 import { AttendanceExportQueryDto } from './dto/attendance-export-query.dto';
 
-const HEADERS = ['№', 'Дата дня', 'ФИО', 'Приход', 'Уход', 'Часов', 'Статус', 'Опоздание / объяснительная'];
-const NOTE = 'Период — по дате начала дня. Часы — между отметками, без отдельного вычета перерывов. Незавершённые дни в итог часов не включены.';
+const HEADERS = ['№', 'Дата дня', 'ФИО', 'Приход', 'Уход', 'Часов без обеда', 'Статус', 'Опоздание / объяснительная'];
+const NOTE = 'Период — по дате начала дня. Из часов вычтен обед 13:00–14:00 по рабочему времени: только пересечение со сменой. Незавершённые дни в итог часов не включены.';
 const dateLabel = (day: string) => day.split('-').reverse().join('.');
 
 @Injectable()

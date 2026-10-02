@@ -5,6 +5,7 @@ import { User } from '../../entities/user.entity';
 describe('Accountant attendance projection', () => {
   it('keeps hours and worker identity while withholding GPS and custom personal values', async () => {
     const row = { id: 1, workerFullName: 'Worker', userId: 7, workedHours: '8', checkInLatitude: 51, checkInLongitude: 51,
+      checkInTime: new Date('2026-10-02T09:00:00+05:00'), checkOutTime: new Date('2026-10-02T18:00:00+05:00'),
       checkOutLatitude: 52, checkOutLongitude: 52, extraValues: '{"private":"value"}', completionPercent: 100 };
     const query = { orderBy: jest.fn().mockReturnThis(), addOrderBy: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([row]) };
     const service = new AttendanceService({ createQueryBuilder: () => query } as never, {} as never);

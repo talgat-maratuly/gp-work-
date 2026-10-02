@@ -170,7 +170,7 @@ export function AttendancePage() {
             <p className="text-2xl font-bold tabular-nums">{value}</p><p className="mt-1 text-xs text-slate-600">{label}</p>
           </div>)}
         </div>
-        <p className="text-xs text-slate-500">За выбранный период и по выбранному ФИО. Один сотрудник считается один раз. Часы — между отметками, без отдельного вычета перерывов.</p>
+        <p className="text-xs text-slate-500">За выбранный период и по выбранному ФИО. Один сотрудник считается один раз. Из часов вычтен обед 13:00–14:00 по рабочему времени — только пересечение со сменой.</p>
       </section>}
 
       <div className="overflow-x-auto rounded-xl border bg-white">
@@ -182,7 +182,7 @@ export function AttendancePage() {
               <th className="px-3 py-2 text-left">Приход</th>
               <th className="px-3 py-2 text-left">Последняя активность</th>
               <th className="px-3 py-2 text-left">Уход</th>
-              <th className="px-3 py-2 text-left">Часов</th>
+              <th className="px-3 py-2 text-left">Часов без обеда</th>
               <th className="px-3 py-2 text-left">% выполнения</th>
               <th className="px-3 py-2 text-left">Отчётов</th>
               <th className="px-3 py-2 text-left">Статус</th>

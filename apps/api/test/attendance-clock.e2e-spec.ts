@@ -3,7 +3,9 @@ import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { businessDateString } from '../src/common/business-date';
+import { calcWorkedHours } from '../src/common/attendance-hours';
 import * as ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 
 describe('Employee day clock (real API/database)', () => {
   let app: INestApplication, db: DataSource;
@@ -94,6 +96,42 @@ describe('Employee day clock (real API/database)', () => {
     }
   });
 
+  it('shows historical 09:00–18:00 as 8 hours in timesheet, personal history and both exports without rewriting marks', async () => {
+    const employee = await create('WORKER');
+    const fullName = `Обед ${suffix}`;
+    const [fixture] = await db.query(`INSERT INTO attendance_records
+      (user_id, worker_full_name, work_date, check_in_time, check_out_time, last_activity_time, status, worked_hours)
+      VALUES ($1, $2, '2026-09-21', '2026-09-21T09:00:00+05:00', '2026-09-21T18:00:00+05:00',
+        '2026-09-21T18:00:00+05:00', 'COMPLETED', 9) RETURNING id`, [employee.id, fullName]);
+    const query = { dateFrom: '2026-09-21', dateTo: '2026-09-21', workerFullName: fullName };
+    for (const token of [admin, office.token]) {
+      const result = await request(app.getHttpServer()).get('/api/attendance').set(headers(token)).query(query).expect(200);
+      expect(result.body).toHaveLength(1);
+      expect(result.body[0]).toMatchObject({ id: fixture.id, workedHours: 8 });
+    }
+    expect((await mine(employee.token)).recent[0].workedHours).toBe(8);
+    for (const extension of ['xlsx', 'docx']) {
+      const result = await request(app.getHttpServer()).get(`/api/attendance/export.${extension}`).query(query).set(headers(admin))
+        .buffer(true).parse((res, callback) => {
+          const chunks: Buffer[] = [];
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('end', () => callback(null, Buffer.concat(chunks)));
+        }).expect(200);
+      if (extension === 'xlsx') {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(result.body);
+        expect(workbook.getWorksheet('Табель')!.getCell('F9').value).toBe(8);
+      } else {
+        const zip = await JSZip.loadAsync(result.body);
+        expect(await zip.file('word/document.xml')!.async('string')).toContain('Итого часов: 8.00');
+      }
+    }
+    const [stored] = await db.query('SELECT worked_hours, check_in_time, check_out_time FROM attendance_records WHERE id = $1', [fixture.id]);
+    expect(Number(stored.worked_hours)).toBe(9);
+    expect(stored.check_in_time.toISOString()).toBe('2026-09-21T04:00:00.000Z');
+    expect(stored.check_out_time.toISOString()).toBe('2026-09-21T13:00:00.000Z');
+  });
+
   it('requires valid GPS and ignores neither forged identities nor client timestamps; concurrent retries keep one mark', async () => {
     for (const body of [
       {}, { ...point, latitude: 91 }, { ...point, longitude: -181 }, { ...point, accuracy: -1 },
@@ -140,7 +178,7 @@ describe('Employee day clock (real API/database)', () => {
     await finish(worker.token, record.id, { ...point, accuracy: null }).expect(400);
     const closed = (await finish(worker.token, record.id, { ...point, longitude: 52 }).expect(201)).body;
     expect(closed).toMatchObject({ status: 'COMPLETED', checkOutLongitude: 52, checkOutAccuracy: 5 });
-    expect(closed.workedHours).toBeCloseTo(2, 1);
+    expect(closed.workedHours).toBe(calcWorkedHours(started, new Date(closed.checkOutTime)));
     const repeated = (await finish(worker.token, record.id, { ...point, longitude: 53 }).expect(201)).body;
     expect(repeated).toMatchObject({ checkOutTime: closed.checkOutTime, workedHours: closed.workedHours, checkOutLongitude: 52 });
     const next = (await start(worker.token).expect(201)).body;

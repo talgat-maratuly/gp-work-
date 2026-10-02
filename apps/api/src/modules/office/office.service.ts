@@ -80,7 +80,7 @@ export class OfficeService {
     await this.event(m,a,projectId,kind,'Создано',null,r,r.id);return r;
   }
   private async save(m:EntityManager,a:Actor,row:RecordRow,status:string,data=row.data) {
-    const [r]=await m.query('UPDATE office_records SET status=$2,data=$3,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *,due_date::text',[row.id,status,JSON.stringify(data)]);
+    const [[r]]=await m.query('UPDATE office_records SET status=$2,data=$3,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING *,due_date::text',[row.id,status,JSON.stringify(data)]);
     await this.event(m,a,row.project_id,row.kind,status,row,r,row.id);return r;
   }
   async me(user:User) {const a=await this.actor(this.db.manager,user,true);return {...a.access,label:PROFILES[a.access.profile],rights:a.access.enabled?RIGHTS[a.access.profile]:[],views:a.access.enabled?VIEWS[a.access.profile]:[]};}
@@ -122,7 +122,7 @@ export class OfficeService {
         if(open.n)invalid('Сначала завершите задачи, закупки и расчёты проекта');
       }
       let p:any;
-      if(id)[p]=await m.query('UPDATE office_projects SET title=$2,unit_id=$3,owner_id=$4,start_date=$5,due_date=$6,description=$7,status=$8,revision=revision+1 WHERE id=$1 RETURNING *,start_date::text,due_date::text',[id,titleValue,unitId,ownerId,start,due,text(d.description,'Описание',4000,true),status]);
+      if(id)[[p]]=await m.query('UPDATE office_projects SET title=$2,unit_id=$3,owner_id=$4,start_date=$5,due_date=$6,description=$7,status=$8,revision=revision+1 WHERE id=$1 RETURNING *,start_date::text,due_date::text',[id,titleValue,unitId,ownerId,start,due,text(d.description,'Описание',4000,true),status]);
       else {if(status!=='ACTIVE')invalid('Новый проект должен быть активным');[p]=await m.query('INSERT INTO office_projects(code,title,unit_id,owner_id,start_date,due_date,description) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *,start_date::text,due_date::text',[await this.code(m,'PROJECT'),titleValue,unitId,ownerId,start,due,text(d.description,'Описание',4000,true)]);}
       await m.query('DELETE FROM office_project_members WHERE project_id=$1',[p.id]);
       await m.query('DELETE FROM office_project_units WHERE project_id=$1',[p.id]);
@@ -143,7 +143,7 @@ export class OfficeService {
       if(placeholders.some(p=>!allowed.includes(p))||body.replace(/\{\{[^{}]+\}\}/g,'').includes('{{'))invalid('Неизвестный маркер шаблона');
       for(const required of ['number','counterparty','subject','amount','paymentTerms'])if(!placeholders.includes(required))invalid(`В шаблоне нужен маркер {{${required}}}`);
       let result:any;
-      if(old)[result]=await m.query('UPDATE office_templates SET title=$2,body=$3,approved=$4,revision=revision+1,updated_by=$5,updated_at=now() WHERE id=$1 RETURNING id,title,body,approved,revision',[id,titleValue,body,approve,user.id]);
+      if(old)[[result]]=await m.query('UPDATE office_templates SET title=$2,body=$3,approved=$4,revision=revision+1,updated_by=$5,updated_at=now() WHERE id=$1 RETURNING id,title,body,approved,revision',[id,titleValue,body,approve,user.id]);
       else [result]=await m.query('INSERT INTO office_templates(title,body,approved,updated_by) VALUES($1,$2,$3,$4) RETURNING id,title,body,approved,revision',[titleValue,body,approve,user.id]);
       await this.event(m,a,null,'TEMPLATE',approve?'Шаблон утверждён':'Шаблон сохранён',old,result);return result;
     });

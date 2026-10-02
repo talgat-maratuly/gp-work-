@@ -1,5 +1,18 @@
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { UserRole } from '../../common/enums/user-role.enum';
+import type { AccessRole } from '../../entities/access-role.entity';
+
+// Opening the personal clock includes its complete self-service cycle. These
+// handlers use CurrentUser and enforce ownership; company reports stay explicit.
+export const PAGE_PERMISSIONS: Record<string, string[]> = {
+  '/my-work-day': ['attendance.mine', 'attendance.start', 'attendance.finish', 'attendance.explanation'],
+};
+export function effectivePermissions(policy?: Pick<AccessRole, 'baseRole' | 'isActive' | 'pages' | 'permissions'>) {
+  if (!policy?.isActive) return [];
+  const included = (policy.pages ?? []).filter(page => pageAllowed(policy.baseRole, page))
+    .flatMap(page => PAGE_PERMISSIONS[page] ?? []);
+  return [...new Set([...(policy.permissions ?? []), ...included])];
+}
 
 export const SECTION_NAMES: Record<string, string> = {
   objects:'Объекты', sections:'Участки', 'work-types':'Виды работ', 'vehicle-types':'Виды техники', 'work-logs':'Журнал работ',
@@ -43,6 +56,7 @@ export function pageAllowed(role:UserRole,path:string):boolean {
   return true;
 }
 const ACTIONS: Record<string,string> = {
+  explanation:'Сохранить свою объяснительную',
   exportExcel:'Скачать табель Excel', exportWord:'Скачать табель Word',
   history:'История структуры', createUnit:'Создать подразделение', updateUnit:'Изменить подразделение',
   assignEmployee:'Назначить подразделение и руководителя', assignProcess:'Назначить владельца процесса',

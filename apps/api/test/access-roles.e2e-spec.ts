@@ -65,6 +65,43 @@ describe('Configurable access roles',()=>{
     await app.get(DataSource).getRepository(AccessRole).update(r.id,{isActive:false});
     await request(app.getHttpServer()).get('/api/auth/me').set(e.auth).expect(401);
   });
+  it('completes an existing shift after assignment to a personal-only custom role without exposing other employees',async()=>{
+    const point={latitude:51.2301,longitude:51.3701,accuracy:5};
+    const r=await saveRole(role({pages:['/my-work-day'],permissions:[]}));
+    // The day was opened before the employee received the restricted role.
+    const e=await employee(r,{accessRoleId:null}), other=await employee(r);
+    const started=(await request(app.getHttpServer()).post('/api/attendance/me/start').set(e.auth).send(point).expect(201)).body;
+    await request(app.getHttpServer()).patch(`/api/users/${e.u.id}`).set(headers()).send({accessRoleId:r.id}).expect(200);
+    const me=(await request(app.getHttpServer()).get('/api/auth/me').set(e.auth).expect(200)).body;
+    expect(me.permissions.sort()).toEqual(['attendance.explanation','attendance.finish','attendance.mine','attendance.start']);
+    const state=(await request(app.getHttpServer()).get('/api/attendance/me').set(e.auth).expect(200)).body;
+    expect(state.current).toMatchObject({id:started.id,userId:e.u.id,status:'ON_DUTY'});
+    expect(state.recent.every((row:any)=>row.userId===e.u.id)).toBe(true);
+    const otherDay=(await request(app.getHttpServer()).post('/api/attendance/me/start').set(other.auth).send(point).expect(201)).body;
+    await request(app.getHttpServer()).post(`/api/attendance/me/${otherDay.id}/finish`).set(e.auth).send(point).expect(404);
+    await request(app.getHttpServer()).post(`/api/attendance/me/${otherDay.id}/explanation`).set(e.auth).send({explanation:'Чужая запись'}).expect(404);
+    // A real late mark fixture makes the explanation test independent of CI time.
+    await app.get(DataSource).query("UPDATE attendance_records SET check_in_time = work_date + time '09:30' AT TIME ZONE 'Asia/Oral' WHERE id = $1",[started.id]);
+    await request(app.getHttpServer()).post(`/api/attendance/me/${started.id}/explanation`).set(e.auth).send({explanation:'Задержка транспорта'}).expect(201);
+    for(const path of ['/api/attendance','/api/attendance/export.xlsx','/api/attendance/export.docx','/api/users','/api/workflow/focus/my','/api/workflow/focus']) {
+      await request(app.getHttpServer()).get(path).set(e.auth).expect(403);
+    }
+    const closed=(await request(app.getHttpServer()).post(`/api/attendance/me/${started.id}/finish`).set(e.auth).send(point).expect(201)).body;
+    expect(closed).toMatchObject({id:started.id,status:'COMPLETED',checkOutAccuracy:5,lateExplanation:'Задержка транспорта'});
+    const repeated=(await request(app.getHttpServer()).post(`/api/attendance/me/${started.id}/finish`).set(e.auth).send(point).expect(201)).body;
+    expect(repeated.checkOutTime).toBe(closed.checkOutTime);
+    const report=(await request(app.getHttpServer()).get('/api/attendance').set(headers()).expect(200)).body;
+    expect(report.filter((row:any)=>row.id===started.id)).toHaveLength(1);
+    expect(report.find((row:any)=>row.id===started.id).status).toBe('COMPLETED');
+    // Existing policies work without a migration, and removing the page revokes
+    // its included actions immediately, including for already-issued tokens.
+    const changed=(await update(r,{pages:[]}).expect(200)).body;
+    expect((await request(app.getHttpServer()).get('/api/auth/me').set(e.auth).expect(200)).body.permissions).toEqual([]);
+    await request(app.getHttpServer()).get('/api/attendance/me').set(e.auth).expect(403);
+    await request(app.getHttpServer()).post(`/api/attendance/me/${otherDay.id}/finish`).set(other.auth).send(point).expect(403);
+    await update(changed,{pages:['/my-work-day']}).expect(200);
+    await request(app.getHttpServer()).post(`/api/attendance/me/${otherDay.id}/finish`).set(other.auth).send(point).expect(201);
+  });
   it('validates names, capability keys, template ceilings, identifiers and archived assignments',async()=>{
     const r=await saveRole(role());
     for(const payload of [role({name:'  '}),role({permissions:['users.create']}),role({permissions:['objects.create'],baseRole:'WORKER'}),role({pages:['/admin/users']}),role({baseRole:'WORKER',pages:['/admin/objects']})]) {

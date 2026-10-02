@@ -7,7 +7,7 @@ import { ROLES_KEY } from '../../common/decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { lockBrigadeMembership } from '../../common/brigade-membership';
-import { nonDelegable, operationInfo, PAGE_NAMES, pageAllowed, roleAllowed } from './access-policy';
+import { nonDelegable, operationInfo, PAGE_NAMES, PAGE_PERMISSIONS, pageAllowed, roleAllowed } from './access-policy';
 import { SaveAccessRoleDto } from './access-roles.dto';
 
 @Injectable()
@@ -30,7 +30,7 @@ export class AccessRolesService {
         operations.push({...info, roles:Object.values(UserRole).filter(role=>roleAllowed(role,required))});
       }
     }
-    return { operations, pages:PAGE_NAMES, pageRoles:Object.fromEntries(Object.keys(PAGE_NAMES).map(path=>[path,Object.values(UserRole).filter(role=>pageAllowed(role,path))])) };
+    return { operations, pages:PAGE_NAMES, pagePermissions:PAGE_PERMISSIONS, pageRoles:Object.fromEntries(Object.keys(PAGE_NAMES).map(path=>[path,Object.values(UserRole).filter(role=>pageAllowed(role,path))])) };
   }
   async save(dto: SaveAccessRoleDto, id?: number) {
     const catalog = this.catalog();

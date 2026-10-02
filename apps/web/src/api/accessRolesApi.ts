@@ -4,7 +4,7 @@ export type AccessRole = {
   id:number; name:string; baseRole:UserRole; systemKey:UserRole|null;
   permissions:string[]|null; pages:string[]; canJoinBrigade:boolean; isActive:boolean; revision:number
 }
-export type AccessCatalog = {pages:Record<string,string>; pageRoles:Record<string,UserRole[]>; operations:Array<{
+export type AccessCatalog = {pages:Record<string,string>; pageRoles:Record<string,UserRole[]>; pagePermissions?:Record<string,string[]>; operations:Array<{
   key:string; resource:string; section:string; label:string; method:number; path:string; roles:UserRole[]
 }>}
 export const fetchAccessRoles = () => apiRequest<AccessRole[]>('/access-roles')

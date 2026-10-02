@@ -10,7 +10,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { assertNewPassword } from './password-policy';
 import { resolveAccessRole } from '../access-roles/access-roles.service';
-import { PAGE_NAMES } from '../access-roles/access-policy';
+import { effectivePermissions, PAGE_NAMES } from '../access-roles/access-policy';
 
 export type JwtPayload = { sub: number; role: string; ver?: number };
 
@@ -174,7 +174,7 @@ export class AuthService {
       role: user.role,
       accessRoleId: user.accessRoleId ?? null,
       roleName: user.accessPolicy?.name ?? null,
-      permissions: user.accessRoleId != null ? user.accessPolicy?.permissions ?? [] : null,
+      permissions: user.accessRoleId != null ? effectivePermissions(user.accessPolicy) : null,
       pages: user.accessRoleId != null ? user.accessPolicy?.pages ?? [] : null,
       pageNames: user.accessRoleId != null ? Object.fromEntries((user.accessPolicy?.pages??[]).map(path=>[path,PAGE_NAMES[path]])) : null,
       canJoinBrigade: user.accessPolicy?.canJoinBrigade,

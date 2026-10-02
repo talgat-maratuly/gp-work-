@@ -4,7 +4,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../enums/user-role.enum';
 import { User } from '../../entities/user.entity';
-import { nonDelegable, operationInfo } from '../../modules/access-roles/access-policy';
+import { effectivePermissions, nonDelegable, operationInfo } from '../../modules/access-roles/access-policy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -30,7 +30,7 @@ export class RolesGuard implements CanActivate {
       const operation = operationInfo(context.getClass(), context.getHandler());
       // Authentication endpoints remain usable (logout, /me, own password).
       if (operation.resource !== 'auth' && (!policy?.isActive || policy.baseRole !== user.role ||
-        nonDelegable(operation.resource, context.getHandler().name) || !policy.permissions?.includes(operation.key))) {
+        nonDelegable(operation.resource, context.getHandler().name) || !effectivePermissions(policy).includes(operation.key))) {
         throw new ForbiddenException('Это действие не разрешено вашей ролью доступа');
       }
     }

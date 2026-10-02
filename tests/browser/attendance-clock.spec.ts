@@ -6,6 +6,48 @@ import JSZip from 'jszip'
 const api = 'http://localhost:3002/api'
 const password = 'attendance-browser-password'
 
+test('custom procurement role finishes its day without forbidden plans or company timesheet', async ({ page, request }, info) => {
+  const username = `procurement-${Date.now()}-${info.project.name}`
+  const client = { 'X-Forwarded-For': info.project.name === 'mobile-chromium' ? '10.30.0.59' : '10.30.0.58' }
+  await page.setExtraHTTPHeaders(client)
+  const login = await request.post(`${api}/auth/login`, { headers: client, data: {
+    username: process.env.ADMIN_USERNAME || 'e2e-admin', password: process.env.ADMIN_PASSWORD || 'e2e-admin-password',
+  } })
+  expect(login.ok()).toBeTruthy()
+  const admin = { Authorization: `Bearer ${(await login.json()).accessToken}` }
+  const roleResponse = await request.post(`${api}/access-roles`, { headers: admin, data: {
+    name: username, baseRole: 'ADMIN', pages: ['/my-work-day'], permissions: [], isActive: true, canJoinBrigade: false,
+  } })
+  expect(roleResponse.ok()).toBeTruthy()
+  const role = await roleResponse.json()
+  expect((await request.post(`${api}/users`, { headers: admin, data: {
+    username, password, fullName: 'Менеджер по закупу', role: 'ADMIN', accessRoleId: role.id,
+  } })).ok()).toBeTruthy()
+  const forbidden: string[] = [], planRequests: string[] = []
+  page.on('response', res => { if (res.status() === 403) forbidden.push(res.url()) })
+  page.on('request', req => { if (req.url().includes('/workflow/focus')) planRequests.push(req.url()) })
+  await page.goto('/my-work-day')
+  await page.getByLabel('Логин', { exact: true }).fill(username)
+  await page.getByLabel('Пароль', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Войти', exact: true }).click()
+  const panel = page.getByRole('region', { name: 'Отметка рабочего дня' })
+  await panel.getByRole('button', { name: 'Начать рабочий день', exact: true }).click()
+  await expect(panel.getByRole('button', { name: 'Завершить рабочий день', exact: true })).toBeEnabled()
+  await page.reload()
+  await panel.getByRole('button', { name: 'Завершить рабочий день', exact: true }).click()
+  await expect(panel.getByRole('status', { name: 'Результат отметки', exact: true })).toContainText('Время сохранено в табеле')
+  await expect(panel.getByText('Рабочий день завершён', { exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Важное заранее сегодня' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Табель сотрудников →' })).toHaveCount(0)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  expect(forbidden).toEqual([])
+  expect(planRequests).toEqual([])
+  await page.getByRole('link', { name: '← В кабинет' }).click()
+  await expect(page).toHaveURL(/\/access-home$/)
+  await page.getByRole('link', { name: 'Мой рабочий день', exact: true }).click()
+  await expect(panel.getByText('Рабочий день завершён', { exact: true })).toBeVisible()
+})
+
 for (const [role, ip] of [['WORKER', '10.30.0.48'], ['ACCOUNTANT', '10.30.0.49']]) {
   test.describe(`${role} attendance`, () => {
     test.use({ extraHTTPHeaders: { 'X-Forwarded-For': ip } })

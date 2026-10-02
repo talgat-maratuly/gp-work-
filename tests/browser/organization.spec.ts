@@ -13,7 +13,7 @@ test('director maintains combined structure, employee reporting and process owne
   const director=await create('/users',{username:`org-director-${suffix}`,fullName:`Руководитель ${suffix}`,password,role:'DIRECTOR'})
   const object=await create('/objects',{name:`Орг объект ${suffix}`})
   const brigade=await create('/brigades',{name:`Орг бригада ${suffix}`})
-  const process=await create('/business-processes/definitions',{title:`Снабжение ${suffix}`,description:'Заявка и приёмка',initialStageId:'request',fields:[],stages:[
+  const projectProcess=await create('/business-processes/definitions',{title:`Снабжение ${suffix}`,description:'Заявка и приёмка',initialStageId:'request',fields:[],stages:[
     {id:'request',label:'Заявка',roles:['ADMIN'],requiredFields:[],nextStages:['done']},
     {id:'done',label:'Принято',roles:['ADMIN'],requiredFields:[],nextStages:[]},
   ]})
@@ -27,6 +27,8 @@ test('director maintains combined structure, employee reporting and process owne
   const general=page.getByRole('article',{name:'Подразделение Генеральный директор',exact:true})
   await expect(general).toContainText('Руководитель: Не назначен')
   await expect(page.getByRole('article',{name:'Подразделение Качество и стандартизация',exact:true})).toBeVisible()
+  await expect(page.getByRole('article',{name:'Подразделение Отдел проектов',exact:true})).toBeVisible()
+  await expect(page.getByRole('article',{name:'Подразделение Бухгалтерия',exact:true})).toBeVisible()
   await page.getByRole('button',{name:'Добавить подразделение',exact:true}).click()
   const form=page.getByRole('form',{name:'Редактор подразделения',exact:true}),name=`Объект ${suffix}`
   await form.getByRole('textbox',{name:'Название подразделения',exact:true}).fill(name)
@@ -77,7 +79,7 @@ test('director maintains combined structure, employee reporting and process owne
   await expect(personCard).toContainText('Изменено в другой вкладке')
   await page.screenshot({path:info.outputPath('organization-members.png'),fullPage:true})
   await page.getByRole('button',{name:'Ответственность за процессы',exact:true}).click()
-  const processCard=page.getByRole('listitem',{name:`Процесс ${process.schema.title}`,exact:true})
+  const processCard=page.getByRole('listitem',{name:`Процесс ${projectProcess.schema.title}`,exact:true})
   await processCard.getByRole('button',{name:'Назначить ответственных',exact:true}).click()
   const processForm=page.getByRole('form',{name:'Ответственность за процесс',exact:true})
   await processForm.getByRole('combobox',{name:'Подразделение процесса',exact:true}).selectOption(String(created.id))
@@ -85,7 +87,7 @@ test('director maintains combined structure, employee reporting and process owne
   await processForm.getByRole('button',{name:'Сохранить ответственность',exact:true}).click()
   await expect(processCard).toContainText(director.fullName)
   await page.getByRole('button',{name:'История назначений',exact:true}).click()
-  await expect(page.getByText(`Ответственность за процесс: ${process.schema.title}`,{exact:true})).toBeVisible()
+  await expect(page.getByText(`Ответственность за процесс: ${projectProcess.schema.title}`,{exact:true})).toBeVisible()
   await expect(page.getByText(`Создание подразделения: ${name}`,{exact:true})).toBeVisible()
   const user=await (await request.get(`${api}/users/${employee.id}`,{headers})).json()
   expect(user.role).toBe('WORKER');expect(user.brigadeId).toBeNull()

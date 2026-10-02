@@ -34,14 +34,16 @@ describe('Combined organization structure (real database)', () => {
     const data=(await get('organization',director).expect(200)).body;
     const general=data.units.find((n:any)=>n.seed_key==='general');
     const executive=data.units.find((n:any)=>n.seed_key==='director');
-    expect(data.units.filter((n:any)=>n.seed_key)).toHaveLength(15);
+    expect(data.units.filter((n:any)=>n.seed_key)).toHaveLength(17);
     expect(executive).toMatchObject({parent_id:general.id,head_user_id:null});
     expect(data.units.find((n:any)=>n.seed_key==='quality').parent_id).toBe(general.id);
     expect(data.units.find((n:any)=>n.seed_key==='strategy').parent_id).toBe(general.id);
     expect(data.units.find((n:any)=>n.seed_key==='supply').parent_id).toBe(executive.id);
+    expect(data.units.find((n:any)=>n.seed_key==='projects').parent_id).toBe(executive.id);
+    expect(data.units.find((n:any)=>n.seed_key==='accounting').parent_id).toBe(data.units.find((n:any)=>n.seed_key==='finance').id);
     expect(data.employees.find((p:any)=>p.user_id===first.id)).toMatchObject({unit_id:null,manager_id:null,revision:0});
     const positions=(await get('job-positions').expect(200)).body;
-    for(const name of ['Генеральный директор','Директор','Менеджер по снабжению','Маркетолог','Специалист по качеству'])expect(positions.some((p:any)=>p.name===name)).toBe(true);
+    for(const name of ['Генеральный директор','Директор','Менеджер по снабжению','Маркетолог','Специалист по качеству','Менеджер проекта','Бухгалтер','Специалист по договорам'])expect(positions.some((p:any)=>p.name===name)).toBe(true);
     const keys = (value:unknown):string[] => value && typeof value === 'object'
       ? Object.entries(value).flatMap(([key,nested])=>[key,...keys(nested)]) : [];
     expect(keys(data).join(' ')).not.toMatch(/password|auth_version|recovery|username|access_role_id/i);

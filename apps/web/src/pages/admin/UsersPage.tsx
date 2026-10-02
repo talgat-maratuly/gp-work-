@@ -275,6 +275,7 @@ export function UsersPage() {
       {resetUser && <PasswordResetDialog key={resetUser.id} user={resetUser} onClose={() => setResetUser(null)} onReset={() => setUsers(rows => rows.map(row => row.id === resetUser.id ? { ...row, mustChangePassword: true } : row))} />}
       <div>
         <h1 className="text-2xl font-bold">Пользователи</h1>
+        <Link className="text-sm font-semibold text-blue-700 underline" to="/admin/organization">Структура и ответственность →</Link>
         <Link to="/admin/access-roles" className="text-sm text-blue-700 underline">Роли и права доступа</Link>
         <p className="mt-1 text-sm text-slate-500">
           Регистрация закрыта. Создавайте сотрудников вручную и выдавайте им логин и пароль.
@@ -458,3 +459,4 @@ export function UsersPage() {
     </div>
   )
 }
+

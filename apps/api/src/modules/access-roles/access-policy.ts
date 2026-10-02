@@ -10,10 +10,10 @@ export const SECTION_NAMES: Record<string, string> = {
   operations:'Диспетчерская, KPI и отчёты по работам', dashboard:'Сводка компании',
   'admin-ai':'ИИ-помощники', 'ai-agronom':'ИИ-агроном', 'form-settings':'Настройки формы',
   export:'Экспорт', uploads:'Загрузка фото', 'uploads/photos':'Просмотр фото', qr:'QR-паспорта',
-  users:'Сотрудники', 'job-positions':'Должности',
+  organization:'Структура и ответственность', users:'Сотрудники', 'job-positions':'Должности',
 };
 export const PAGE_NAMES: Record<string, string> = {
-  '/admin/overview':'Сводка компании', '/admin/director':'Кабинет директора',
+  '/admin/organization':'Структура и ответственность', '/admin/overview':'Сводка компании', '/admin/director':'Кабинет директора',
   '/admin/dispatcher':'Диспетчерская', '/admin/executions':'Приёмка работ', '/admin/workflow':'Работа и улучшения',
   '/admin/tasks':'Задачи', '/admin/routes':'Маршруты', '/admin/map':'Карта', '/admin/work-logs':'Журнал работ',
   '/admin/schedule':'График', '/admin/watering':'Полив и водовозы', '/my-work-day':'Мой рабочий день',
@@ -36,13 +36,15 @@ export function pageAllowed(role:UserRole,path:string):boolean {
   if(role===UserRole.WATER_CARRIER)return ['/admin/watering','/admin/assistant'].includes(path);
   if(path==='/admin/director')return role===UserRole.DIRECTOR;
   if(role===UserRole.ADMIN||role===UserRole.DIRECTOR)return path!=='/admin/my-tasks';
-  if(['/admin/qr','/admin/form-settings','/admin/business-processes','/admin/export','/admin/products/import','/admin/vehicle-types','/admin/ai-director'].includes(path))return false;
+  if(['/admin/organization','/admin/qr','/admin/form-settings','/admin/business-processes','/admin/export','/admin/products/import','/admin/vehicle-types','/admin/ai-director'].includes(path))return false;
   if(['/admin/brigades','/admin/warehouse'].includes(path))return role===UserRole.BRIGADIER;
   if(path==='/admin/daily-reports')return [UserRole.AKIMAT,UserRole.ANTICOR].includes(role);
   if(['/admin/tasks','/admin/routes','/admin/executions','/admin/workflow','/admin/attendance','/admin/work-days','/admin/vehicles','/admin/assistant','/admin/my-tasks'].includes(path))return [UserRole.BRIGADIER,UserRole.AGRONOMIST].includes(role);
   return true;
 }
 const ACTIONS: Record<string,string> = {
+  history:'История структуры', createUnit:'Создать подразделение', updateUnit:'Изменить подразделение',
+  assignEmployee:'Назначить подразделение и руководителя', assignProcess:'Назначить владельца процесса',
   findAll:'Список', findOne:'Карточка', findMyToday:'Мой маршрут', findByCode:'Поиск по QR',
   create:'Создание', update:'Редактирование', remove:'Удаление / архив', review:'Приёмка',
   start:'Начать', finish:'Завершить', complete:'Завершить', mine:'Мои записи',
@@ -93,4 +95,5 @@ export function nonDelegable(resource: string, handlerName: string): boolean {
   return resource === 'access-roles' || resource === 'seed' ||
     (resource === 'users' && handlerName !== 'findAssignees');
 }
+
 

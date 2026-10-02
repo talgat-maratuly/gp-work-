@@ -22,6 +22,7 @@ export const ADMIN_ROUTE_ROLES = {
   vehicleTypes: ['ADMIN'],
   businessProcesses: ['ADMIN'],
   export: ['ADMIN'],
+  organization: ['ADMIN'],
   users: ['ADMIN'],
   seed: ['ADMIN'],
   brigades: ['ADMIN', 'BRIGADIER'],
@@ -44,3 +45,4 @@ export const ADMIN_ROUTE_ROLES = {
 export function canAccessRoles(role: UserRole, allowed: readonly UserRole[]): boolean {
   return allowed.includes(role) || (role === 'DIRECTOR' && allowed.includes('ADMIN'))
 }
+

@@ -2,7 +2,7 @@ import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 export const SECTION_NAMES: Record<string, string> = {
-  objects:'Объекты', sections:'Участки', 'work-types':'Виды работ', 'vehicle-types':'Виды техники', 'work-logs':'Журнал работ',
+  office:'Рабочий кабинет, проекты и финансы', 'office-access':'Личные рабочие доступы', objects:'Объекты', sections:'Участки', 'work-types':'Виды работ', 'vehicle-types':'Виды техники', 'work-logs':'Журнал работ',
   brigades:'Бригады', tasks:'Задачи', routes:'Маршруты', attendance:'Табель и личный рабочий день',
   field:'Полевые работы и приёмка', products:'Склад', 'stock-movements':'Движение материалов',
   resources:'Техника и ресурсы', workflow:'Работа и улучшения', 'business-processes':'Бизнес-процессы',
@@ -12,7 +12,7 @@ export const SECTION_NAMES: Record<string, string> = {
   export:'Экспорт', uploads:'Загрузка фото', 'uploads/photos':'Просмотр фото', qr:'QR-паспорта',
   organization:'Структура и ответственность', users:'Сотрудники', 'job-positions':'Должности',
 };
-export const PAGE_NAMES: Record<string, string> = {
+export const PAGE_NAMES: Record<string, string> = {'/office':'Рабочий кабинет',
   '/admin/organization':'Структура и ответственность', '/admin/overview':'Сводка компании', '/admin/director':'Кабинет директора',
   '/admin/dispatcher':'Диспетчерская', '/admin/executions':'Приёмка работ', '/admin/workflow':'Работа и улучшения',
   '/admin/tasks':'Задачи', '/admin/routes':'Маршруты', '/admin/map':'Карта', '/admin/work-logs':'Журнал работ',
@@ -28,6 +28,7 @@ export const PAGE_NAMES: Record<string, string> = {
   '/field/qr':'Сканировать QR', '/field/assistant':'Полевой ИИ-ассистент', '/field/workflow':'Полевые улучшения',
 };
 export function pageAllowed(role:UserRole,path:string):boolean {
+  if(path==='/office')return ![UserRole.AKIMAT,UserRole.ANTICOR].includes(role);
   const field=['/field/today','/field/tasks','/field/route','/field/qr','/field/assistant','/field/workflow'];
   if(path==='/my-work-day') return ![UserRole.AKIMAT,UserRole.ANTICOR].includes(role);
   if(field.includes(path)) return [UserRole.WORKER,UserRole.BRIGADIER,UserRole.AGRONOMIST,UserRole.WATER_CARRIER].includes(role);
@@ -92,7 +93,7 @@ export function operationInfo(controller: Function, handler: Function) {
 // Managing credentials/roles is deliberately non-delegable: otherwise a custom
 // user could grant themselves the unrestricted ADMIN role through /users.
 export function nonDelegable(resource: string, handlerName: string): boolean {
-  return resource === 'access-roles' || resource === 'seed' ||
+  return resource === 'office-access' || resource === 'access-roles' || resource === 'seed' ||
     (resource === 'users' && handlerName !== 'findAssignees');
 }
 

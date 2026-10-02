@@ -1,3 +1,4 @@
+import { legacyOfficeAllowed } from '../../modules/office/office-policy';
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -25,6 +26,10 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
     if (!user) throw new ForbiddenException('Требуется авторизация');
 
+    const officeOperation = operationInfo(context.getClass(), context.getHandler());
+    if (user.officeAccess && user.officeAccess.profile !== 'EXECUTIVE' && !legacyOfficeAllowed(officeOperation.resource, context.getHandler().name)) {
+      throw new ForbiddenException('Этот раздел недоступен вашему рабочему профилю');
+    }
     if (user.accessRoleId != null) {
       const policy = user.accessPolicy;
       const operation = operationInfo(context.getClass(), context.getHandler());

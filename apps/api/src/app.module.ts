@@ -1,3 +1,4 @@
+import { OfficeModule } from './modules/office/office.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { AccessRolesModule } from './modules/access-roles/access-roles.module';
@@ -79,7 +80,7 @@ import {
 } from './entities';
 
 @Module({
-  imports: [OrganizationModule, WorkflowModule, BusinessProcessModule, AccessRolesModule,
+  imports: [OfficeModule, OrganizationModule, WorkflowModule, BusinessProcessModule, AccessRolesModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [

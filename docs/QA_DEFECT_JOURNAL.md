@@ -34,3 +34,13 @@ CI f9fcd704: сборка, миграции, unit и 62 из 63 API E2E прош
 Уточнение владельца 2026-10-02: добавлены Отдел проектов под директором и отдельная Бухгалтерия под финансами; финансовый отдел отвечает за бюджетирование и платёжный план. Начальная структура теперь содержит 17 звеньев, справочник — 34 предлагаемые должности. Нумерация и шаблоны договоров, проектные бюджеты, счета и интеграция ChatGPT описываются как следующий прикладной цикл; появление подразделений не означает реализацию этих модулей.
 
 CI eb93e88: 63 API E2E и 84 существующих браузерных теста прошли; два новых браузерных сценария не дошли до интерфейса из-за локальной переменной process, затенившей Node.js process.env. Исправлено имя фикстуры на projectProcess. Проверки не отключены; требуется полный повторный CI вместе с уточнённым составом подразделений.
+
+## 2026-10-02 — Personal office and financial execution (verification in progress)
+
+- Request: organizational units must determine real work and visibility; each employee needs a personal login; implement contracts, invoices and financial operations in GP Work.
+- Code finding: organization assignments and titles did not constrain legacy resource lists. Unique usernames/password recovery existed, but no project/department financial workspace.
+- Change: additive Office module; explicit access presets and SELF/DEPARTMENT/COMPANY scope resolved from current database state. Scoped project membership, tasks/checklists/quality acceptance, quadrant 2 and improvement target, template snapshots and contract numbering, budgets, procurement/receipts, invoices and confirmed partial payment accounting. Existing field roles remain unchanged until an administrator explicitly assigns an office profile.
+- Credentials: personal random login code + one-time 24-hour password; existing forced password change and token revocation reused. No plaintext secret in directories/audit; no broad legacy API access for office profiles, even when disabled.
+- Money: integer minor units, serial transaction lock, idempotent creation/actions, optimistic revisions, budget/contract/receipt/payment ceilings; cancellation and reversals retain history. Private PDF/image files are authenticated database-backed downloads.
+- Local evidence so far: API/web build passes; pre-existing 101 API unit tests passed. Added real-database E2E and desktop/mobile browser scenarios; their result is pending CI.
+- Boundaries: accounting records are not bank transfers, electronic invoices, digital signatures or a 1C integration. No production appointments, migration or deployment performed for this change. Main/production require separate owner approval after review.

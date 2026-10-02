@@ -29,6 +29,8 @@ const BusinessProcessesPage = lazy(() => import('@/pages/admin/BusinessProcesses
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ChangePasswordPage = lazy(() => import('@/pages/ChangePasswordPage').then(m => ({ default: m.ChangePasswordPage })))
+const OfficePage = lazy(() => import('@/pages/office/OfficePage').then(m => ({ default: m.OfficePage })))
+const OfficeAccessPage = lazy(() => import('@/pages/office/OfficeAccessPage').then(m => ({ default: m.OfficeAccessPage })))
 const OrganizationPage = lazy(() => import('@/pages/admin/OrganizationPage').then(m => ({ default: m.OrganizationPage })))
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })))
 const MyWorkDayPage = lazy(() => import('@/pages/MyWorkDayPage').then(m => ({ default: m.MyWorkDayPage })))
@@ -93,6 +95,7 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
+            <Route path="/office" element={forRoles(<OfficePage />, EMPLOYEE_ROLES)} />
             <Route path="/access-home" element={<ProtectedRoute><AccessHomePage /></ProtectedRoute>} />
             <Route path="/my-work-day" element={forRoles(<MyWorkDayPage />, EMPLOYEE_ROLES)} />
             <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
@@ -142,6 +145,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
+              <Route path="office-access" element={forRoles(<OfficeAccessPage />, ['ADMIN','DIRECTOR'])} />
               <Route index element={forRoles(<AdminHome />, ADMIN_ROUTE_ROLES.dashboard)} />
               <Route path="workflow" element={forRoles(<WorkflowPage />, ADMIN_ROUTE_ROLES.workflow)} />
               <Route path="overview" element={forRoles(<DashboardPage />, ADMIN_ROUTE_ROLES.dashboard)} />

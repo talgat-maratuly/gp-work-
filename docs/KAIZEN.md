@@ -185,3 +185,7 @@ WORKFLOW_FORMS_QR_GUIDE.md; факты/проверки: QA_DEFECT_JOURNAL.md, U
 - Do: комбинированная структура, назначение состава/руководителей, фактические связи с объектами и бригадами, история, редактируемые общие функции.
 - Check: права и циклы в API E2E, реальные формы на desktop/mobile, перезагрузка, сохранение после сетевых сбоев; полный CI на SHA в PR.
 - Act после внедрения: назначить реальных руководителей; смотреть фактическое число сотрудников без подразделения и звеньев без руководителя; разобрать дубли функций. Не считать создание отделов или число назначений доказательством производительности.
+
+### 2026-10-02 — Real departmental work and financial cycle
+
+PDCA scope: turn organizational appointments into scoped personal workspaces and trace one project through contract, approved budget, purchase, receipt, invoice and recorded payment. Maintain field operation access until explicit office onboarding. Verify denial of foreign record IDs, changing departments, disabled access, concurrent budget/payment limits, retries and UI persistence. Current status: implemented on development branch; CI and UI evidence pending, not deployed or user-accepted. Bank/1C/ESF integration and external reminder delivery are separate integrations, not simulated by this change.

@@ -30,6 +30,7 @@ const groups: NavGroup[] = [
   { label: 'Объекты и люди', items: [
     { to: '/my-work-day', label: 'Мой рабочий день', icon: '◷', roles: EMPLOYEE_ROLES },
     { to: '/admin/objects', label: 'Объекты', icon: '▤', roles: ADMIN_ROUTE_ROLES.objects },
+    { to: '/admin/organization', label: 'Структура и ответственность', icon: '♧', roles: ADMIN_ROUTE_ROLES.organization },
     { to: '/admin/users', label: 'Сотрудники', icon: '♙', roles: ADMIN_ROUTE_ROLES.users },
     { to: '/admin/access-roles', label: 'Роли и права доступа', icon: '⚿', roles: ADMIN_ROUTE_ROLES.users },
     { to: '/admin/brigades', label: 'Бригады', icon: '♟', roles: ADMIN_ROUTE_ROLES.brigades },

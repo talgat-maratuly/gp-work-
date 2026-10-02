@@ -87,6 +87,7 @@ jobs:
             'apps/api/src/database/migrations/1733000000000-AddPasswordRecovery.ts',
             'apps/api/src/database/migrations/1733100000000-AddAccessRoles.ts',
             'apps/api/src/database/migrations/1733400000000-AddImportantPlanning.ts',
+            'apps/api/src/database/migrations/1733500000000-AddOrganization.ts',
           ];
           const forbidden = /\b(?:DROP\s+(?:TABLE|COLUMN)|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE[^;]*\bRENAME)\b/i;
           for (const file of files) {
@@ -123,6 +124,7 @@ jobs:
             'AddPasswordRecovery1733000000000',
             'AddAccessRoles1733100000000',
             'AddImportantPlanning1733400000000',
+            'AddOrganization1733500000000',
           ];
           const client = new Client({
             host: process.env.DATABASE_HOST,

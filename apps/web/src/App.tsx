@@ -29,6 +29,7 @@ const BusinessProcessesPage = lazy(() => import('@/pages/admin/BusinessProcesses
 const SeedPage = lazy(() => import('@/pages/admin/SeedPage').then((m) => ({ default: m.SeedPage })))
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ChangePasswordPage = lazy(() => import('@/pages/ChangePasswordPage').then(m => ({ default: m.ChangePasswordPage })))
+const OrganizationPage = lazy(() => import('@/pages/admin/OrganizationPage').then(m => ({ default: m.OrganizationPage })))
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })))
 const MyWorkDayPage = lazy(() => import('@/pages/MyWorkDayPage').then(m => ({ default: m.MyWorkDayPage })))
 const BrigadesPage = lazy(() => import('@/pages/admin/BrigadesPage').then((m) => ({ default: m.BrigadesPage })))
@@ -157,6 +158,7 @@ export default function App() {
               <Route path="business-processes" element={forRoles(<BusinessProcessesPage />, ADMIN_ROUTE_ROLES.businessProcesses)} />
               <Route path="export" element={forRoles(<ExportPage />, ADMIN_ROUTE_ROLES.export)} />
               <Route path="photos" element={forRoles(<PhotosPage />, ADMIN_ROUTE_ROLES.photos)} />
+              <Route path="organization" element={forRoles(<OrganizationPage />, ADMIN_ROUTE_ROLES.organization)} />
               <Route path="users" element={forRoles(<UsersPage />, ADMIN_ROUTE_ROLES.users)} />
               <Route path="access-roles" element={forRoles(<AccessRolesPage />, ADMIN_ROUTE_ROLES.users)} />
               <Route path="brigades" element={forRoles(<BrigadesPage />, ADMIN_ROUTE_ROLES.brigades)} />

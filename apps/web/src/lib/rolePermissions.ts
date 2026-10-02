@@ -22,6 +22,7 @@ export const ADMIN_ROUTE_ROLES = {
   vehicleTypes: ['ADMIN'],
   businessProcesses: ['ADMIN'],
   export: ['ADMIN'],
+  organization: ['ADMIN'],
   users: ['ADMIN'],
   seed: ['ADMIN'],
   brigades: ['ADMIN', 'BRIGADIER'],

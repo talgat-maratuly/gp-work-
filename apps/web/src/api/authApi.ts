@@ -1,3 +1,4 @@
+import { authenticatePasskey } from './passkeysApi'
 import { apiRequest } from './client'
 import type { AuthUser } from '@/lib/auth'
 import { clearAuth, getToken, setAuth, setStoredUser } from '@/lib/auth'
@@ -41,4 +42,14 @@ export function logout() {
       .then(() => undefined, () => undefined).finally(() => { loggingOut = false })
   }
   clearAuth()
+}
+
+export type LoginResult = { accessToken: string; user: AuthUser; role: AuthUser['role'] }
+export async function loginWithPasskey() {
+  await pendingLogout
+  const before = getToken()
+  const data = await authenticatePasskey()
+  if (getToken() !== before || loggingOut) throw new Error('Состояние входа изменилось. Повторите вход.')
+  setAuth(data.accessToken, data.user)
+  return data.user
 }

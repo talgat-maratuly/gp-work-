@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "13.3.0",
     "@zxing/browser": "^0.2.1",
     "date-fns": "^4.1.0",
     "html2canvas": "^1.4.1",

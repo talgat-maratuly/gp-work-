@@ -49,6 +49,10 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.validateUser(dto.username, dto.password);
+    return this.sessionFor(user);
+  }
+
+  sessionFor(user: User) {
     const payload: JwtPayload = { sub: user.id, role: user.role, ver: user.authVersion };
     return {
       accessToken: this.jwtService.sign(payload, user.mustChangePassword ? { expiresIn: '15m' } : {}),

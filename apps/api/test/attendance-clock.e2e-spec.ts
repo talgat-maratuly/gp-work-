@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { businessDateString } from '../src/common/business-date';
+import * as ExcelJS from 'exceljs';
 
 describe('Employee day clock (real API/database)', () => {
   let app: INestApplication, db: DataSource;
@@ -47,6 +48,33 @@ describe('Employee day clock (real API/database)', () => {
     office = await create('ACCOUNTANT');
   });
   afterAll(async () => { if (app) await app.close(); });
+
+  it('downloads filtered timesheets through authenticated routes and rejects invalid requests', async () => {
+    const query = { dateFrom: '2000-01-01', dateTo: '2000-01-02', workerFullName: `Absent ${suffix}` };
+    for (const extension of ['xlsx', 'docx']) {
+      const path = `/api/attendance/export.${extension}`;
+      await request(app.getHttpServer()).get(path).query(query).expect(401);
+      for (const token of [worker.token, office.token]) await request(app.getHttpServer())
+        .get(path).query(query).set(headers(token)).expect(403);
+      for (const invalid of [{}, { ...query, dateFrom: '2000-02-30' }, { ...query, dateFrom: '2000-01-03' }]) {
+        await request(app.getHttpServer()).get(path).query(invalid).set(headers(admin)).expect(400);
+      }
+      const result = await request(app.getHttpServer()).get(path).query(query).set(headers(admin))
+        .buffer(true).parse((res, callback) => {
+          const chunks: Buffer[] = [];
+          res.on('data', chunk => chunks.push(chunk));
+          res.on('end', () => callback(null, Buffer.concat(chunks)));
+        }).expect(200);
+      expect(result.headers['content-disposition']).toBe(`attachment; filename="tabel_gp-work_2000-01-01_2000-01-02.${extension}"`);
+      expect(result.headers['content-type']).toContain(extension === 'xlsx' ? 'spreadsheetml.sheet' : 'wordprocessingml.document');
+      expect(result.body.subarray(0, 2).toString()).toBe('PK');
+      if (extension === 'xlsx') {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(result.body);
+        expect(workbook.getWorksheet('Табель')!.getCell('A9').value).toBe('Записей за выбранный период нет');
+      }
+    }
+  });
 
   it('allows every employee role to mark itself and excludes anonymous and external observers', async () => {
     await request(app.getHttpServer()).get('/api/attendance/me').expect(401);

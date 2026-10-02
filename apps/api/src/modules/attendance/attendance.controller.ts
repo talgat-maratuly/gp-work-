@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, StreamableFile } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -8,6 +8,8 @@ import { AttendanceService } from './attendance.service';
 import { AttendanceQueryDto } from './dto/attendance-query.dto';
 import { ClockAttendanceDto } from './dto/clock-attendance.dto';
 import { LateExplanationDto } from './dto/late-explanation.dto';
+import { AttendanceExportService } from './attendance-export.service';
+import { AttendanceExportQueryDto } from './dto/attendance-export-query.dto';
 
 const EMPLOYEE_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.ACCOUNTANT, UserRole.BRIGADIER,
   UserRole.AGRONOMIST, UserRole.WORKER, UserRole.WATER_CARRIER];
@@ -15,7 +17,28 @@ const EMPLOYEE_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.ACCOUNTANT, 
 @ApiTags('attendance')
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly attendanceExport: AttendanceExportService,
+  ) {}
+
+  @Get('export.xlsx')
+  @Roles(UserRole.ADMIN)
+  async exportExcel(@Query() query: AttendanceExportQueryDto, @CurrentUser() user: User) {
+    return new StreamableFile(await this.attendanceExport.excel(query, user), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="tabel_gp-work_${query.dateFrom}_${query.dateTo}.xlsx"`,
+    });
+  }
+
+  @Get('export.docx')
+  @Roles(UserRole.ADMIN)
+  async exportWord(@Query() query: AttendanceExportQueryDto, @CurrentUser() user: User) {
+    return new StreamableFile(await this.attendanceExport.word(query, user), {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      disposition: `attachment; filename="tabel_gp-work_${query.dateFrom}_${query.dateTo}.docx"`,
+    });
+  }
 
   @Get('me')
   @Roles(...EMPLOYEE_ROLES)

@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns'
 import {
   ATTENDANCE_STATUS_LABELS,
   fetchAttendance,
+  downloadAttendance,
   type AttendanceRecord,
 } from '@/api/attendanceApi'
 import { toUserMessage } from '@/api/client'
@@ -11,6 +12,8 @@ import { buildMapLink } from '@/lib/appConfig'
 import { businessDateString } from '@/lib/businessDate'
 import { Link } from 'react-router-dom'
 import { attendanceSummary } from '@/lib/attendanceSummary'
+import { useAuth } from '@/context/AuthContext'
+import { canPerform } from '@/lib/accessPolicy'
 
 function GeoLink({ lat, lng, accuracy, label }: { lat: number | null; lng: number | null; accuracy: number | null; label: string }) {
   if (lat == null || lng == null) return <span className="text-slate-400">—</span>
@@ -27,6 +30,7 @@ function GeoLink({ lat, lng, accuracy, label }: { lat: number | null; lng: numbe
 }
 
 export function AttendancePage() {
+  const { user, hasRole } = useAuth()
   const today = businessDateString()
   const [dateFrom, setDateFrom] = useState(today)
   const [dateTo, setDateTo] = useState(today)
@@ -34,6 +38,9 @@ export function AttendancePage() {
   const [rows, setRows] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<'xlsx' | 'docx' | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const validPeriod = Boolean(dateFrom && dateTo && dateFrom <= dateTo)
   const revision = useRef(0)
   const summary = useMemo(() => attendanceSummary(rows), [rows])
 
@@ -62,6 +69,19 @@ export function AttendancePage() {
     void load()
     return () => { ++revision.current }
   }, [load])
+
+  const download = async (format: 'xlsx' | 'docx') => {
+    if (exporting || loading || error || !validPeriod) return
+    setExporting(format)
+    setExportError(null)
+    try {
+      await downloadAttendance(format, { dateFrom, dateTo, workerFullName: workerName })
+    } catch (err) {
+      setExportError(toUserMessage(err))
+    } finally {
+      setExporting(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -114,6 +134,30 @@ export function AttendancePage() {
           </button>
         </div>
       </div>
+
+      {hasRole('ADMIN') && (canPerform(user, 'attendance.exportExcel') || canPerform(user, 'attendance.exportWord')) && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-3" aria-label="Скачать табель">
+            {([
+              ['xlsx', 'Excel', 'attendance.exportExcel'],
+              ['docx', 'Word', 'attendance.exportWord'],
+            ] as const).map(([format, label, permission]) => canPerform(user, permission) && (
+              <button
+                key={format}
+                type="button"
+                disabled={loading || Boolean(error) || !validPeriod || exporting !== null}
+                onClick={() => void download(format)}
+                className="rounded-lg border border-emerald-700 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {exporting === format ? `Готовим ${label}…` : `Скачать ${label}`}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500">Выгрузка за выбранный период и по фильтру ФИО: приход, уход, часы, статус и объяснительные.</p>
+          {!validPeriod && <p className="text-sm text-amber-800">Для скачивания укажите период: дата «С» должна быть не позже даты «По».</p>}
+          {exportError && <p role="alert" className="text-red-600">Не удалось скачать табель: {exportError}</p>}
+        </div>
+      )}
 
       {error && <p role="alert" className="text-red-600">{error}</p>}
 

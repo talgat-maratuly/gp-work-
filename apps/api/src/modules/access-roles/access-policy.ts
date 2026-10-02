@@ -43,6 +43,7 @@ export function pageAllowed(role:UserRole,path:string):boolean {
   return true;
 }
 const ACTIONS: Record<string,string> = {
+  exportExcel:'Скачать табель Excel', exportWord:'Скачать табель Word',
   history:'История структуры', createUnit:'Создать подразделение', updateUnit:'Изменить подразделение',
   assignEmployee:'Назначить подразделение и руководителя', assignProcess:'Назначить владельца процесса',
   findAll:'Список', findOne:'Карточка', findMyToday:'Мой маршрут', findByCode:'Поиск по QR',
@@ -95,4 +96,3 @@ export function nonDelegable(resource: string, handlerName: string): boolean {
   return resource === 'access-roles' || resource === 'seed' ||
     (resource === 'users' && handlerName !== 'findAssignees');
 }
-

@@ -7,6 +7,7 @@ import { User } from '../src/entities/user.entity';
 
 describe('Configurable access roles',()=>{
   let app:INestApplication, token:string;
+  let loginSequence=10;
   const password='access-role-test-password';
   const headers=()=>({Authorization:`Bearer ${token}`,'X-Forwarded-For':'10.75.0.1'});
   const role=(extra={})=>({name:`Инженер ${crypto.randomUUID()}`,baseRole:'ADMIN',permissions:['objects.findAll'],pages:['/admin/objects'],canJoinBrigade:true,isActive:true,...extra});
@@ -14,7 +15,7 @@ describe('Configurable access roles',()=>{
   const employee=async (r:any,extra={})=>{
     const dto={fullName:'Инженер',username:`role-${crypto.randomUUID()}`,password,role:r.baseRole,accessRoleId:r.id,...extra};
     const u=(await request(app.getHttpServer()).post('/api/users').set(headers()).send(dto).expect(201)).body;
-    const login=(await request(app.getHttpServer()).post('/api/auth/login').set('X-Forwarded-For','10.75.0.2').send({username:dto.username,password}).expect(201)).body;
+    const login=(await request(app.getHttpServer()).post('/api/auth/login').set('X-Forwarded-For',`10.75.0.${++loginSequence}`).send({username:dto.username,password}).expect(201)).body;
     return {u,login,auth:{Authorization:`Bearer ${login.accessToken}`,'X-Forwarded-For':'10.75.0.3'}};
   };
   const update=(r:any,changes:object)=>request(app.getHttpServer()).put(`/api/access-roles/${r.id}`).set(headers()).send({name:r.name,baseRole:r.baseRole,permissions:r.permissions??[],pages:r.pages,canJoinBrigade:r.canJoinBrigade,isActive:r.isActive,revision:r.revision,...changes});

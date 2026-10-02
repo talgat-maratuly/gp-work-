@@ -8,7 +8,9 @@ const password = 'attendance-browser-password'
 
 test('custom procurement role finishes its day without forbidden plans or company timesheet', async ({ page, request }, info) => {
   const username = `procurement-${Date.now()}-${info.project.name}`
-  const login = await request.post(`${api}/auth/login`, { data: {
+  const client = { 'X-Forwarded-For': info.project.name === 'mobile-chromium' ? '10.30.0.59' : '10.30.0.58' }
+  await page.setExtraHTTPHeaders(client)
+  const login = await request.post(`${api}/auth/login`, { headers: client, data: {
     username: process.env.ADMIN_USERNAME || 'e2e-admin', password: process.env.ADMIN_PASSWORD || 'e2e-admin-password',
   } })
   expect(login.ok()).toBeTruthy()

@@ -155,8 +155,12 @@ jobs:
       - run: npm run test:e2e -w @gp-work/api
       - name: Install browser for real UI regression tests
         run: npx playwright install --with-deps chromium
+      - name: Personal office and finance browser cycle (real API and PostgreSQL)
+        run: npm run test:browser -- tests/browser/office.spec.ts --max-failures=1 --output=test-results-office
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-office
       - name: Browser worker-day regression (real API and PostgreSQL)
-        run: npm run test:browser
+        run: npm run test:browser -- --grep-invert 'personal code, first password|contract budget procurement' 
       - name: Section navigation in production build with real service worker
         run: npm run test:browser -- tests/browser/production-section-form.spec.ts --output=test-results-production
         env:
@@ -168,9 +172,10 @@ jobs:
         with:
           name: browser-regression-${{ github.sha }}
           path: |
+            playwright-report-office/
+            test-results-office/
             playwright-report/
             test-results/
             playwright-report-production/
             test-results-production/
           retention-days: 7
-

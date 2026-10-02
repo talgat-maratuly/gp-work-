@@ -35,7 +35,7 @@ CI f9fcd704: сборка, миграции, unit и 62 из 63 API E2E прош
 
 CI eb93e88: 63 API E2E и 84 существующих браузерных теста прошли; два новых браузерных сценария не дошли до интерфейса из-за локальной переменной process, затенившей Node.js process.env. Исправлено имя фикстуры на projectProcess. Проверки не отключены; требуется полный повторный CI вместе с уточнённым составом подразделений.
 
-## 2026-10-02 — Personal office and financial execution (verification in progress)
+## 2026-10-02 — Personal office and financial execution
 
 - Request: organizational units must determine real work and visibility; each employee needs a personal login; implement contracts, invoices and financial operations in GP Work.
 - Code finding: organization assignments and titles did not constrain legacy resource lists. Unique usernames/password recovery existed, but no project/department financial workspace.
@@ -49,3 +49,5 @@ CI eb93e88: 63 API E2E и 84 существующих браузерных те�
 - Financial summaries and paid balances are computed over all project records on the server, independent of the UI list limit. Office role labels now identify the actual work profile. Action notes are disabled while a request is pending to preserve input across revision refreshes.
 
 - Browser runs `36968571941` / `36969475983` reproduced exact-label failures on Office select controls. The nested label included option text for label lookup. Fields now use unique explicit label/control IDs; project and filter selects have explicit accessible names. Login navigation is awaited before opening the administrator financial workspace. Existing 86 browser scenarios passed on `2078b95563e3223129576c97ce4e1589ec594361` (4 existing skips); new Office scenarios require the corrected UI run. CI runs Office scenarios first to expose failures promptly while retaining the full existing suite.
+
+- Corrected UI verification: all four Office desktop/mobile scenarios passed on `6f42a262ce37e7fffb36235126bda8e8b2758001`, CI run `36970309475` (personal code, forced password change, own checklist and hidden administrative sections; contract → budget → purchase → receipt → invoice → partial payment, persisted after reload). API/web builds, 104 API unit and 70 real-database E2E tests also passed. The remaining full regression is an independent required gate; final run and conclusion are recorded in PR #25. No deployment or real-user acceptance is claimed.

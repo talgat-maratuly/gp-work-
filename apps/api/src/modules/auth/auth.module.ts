@@ -1,3 +1,5 @@
+import { PasskeysController } from './passkeys.controller';
+import { PasskeysService } from './passkeys.service';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -23,8 +25,8 @@ import { getJwtSecret } from './auth.config';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthBootstrapService],
+  controllers: [AuthController, PasskeysController],
+  providers: [PasskeysService, AuthService, JwtStrategy, AuthBootstrapService],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

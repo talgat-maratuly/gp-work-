@@ -5,6 +5,7 @@ export function canOpenPage(user:AuthUser|null, path:string) {
   if (!user) return false
   if (user.accessRoleId == null) return true
   const clean=path.split(/[?#]/)[0].replace(/\/$/,'')
+  if (clean === '/passkeys') return user.role === 'DIRECTOR'
   if (['/access-home','/change-password'].includes(clean)) return true
   if (clean==='/field/more') return user.pages?.some(p=>p.startsWith('/field/'))??false
   if (clean.startsWith('/workflow/tasks/')) return !!user.pages?.some(p=>p.endsWith('/workflow'))

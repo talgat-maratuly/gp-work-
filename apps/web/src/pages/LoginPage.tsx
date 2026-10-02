@@ -1,6 +1,7 @@
+import { browserSupportsWebAuthn, passkeyMessage } from '@/api/passkeysApi'
 import { FormEvent, useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { login } from '@/api/authApi'
+import { login, loginWithPasskey } from '@/api/authApi'
 import { toUserMessage } from '@/api/client'
 import { useAuth } from '@/context/AuthContext'
 import { returnPathAfterLogout } from '@/lib/roleRoutes'
@@ -64,6 +65,16 @@ export function LoginPage() {
     }
   }
 
+  async function handlePasskey() {
+    setError(null); setSubmitting(true)
+    try {
+      await loginWithPasskey()
+      const verified = await refresh()
+      if (verified) navigate(loginTarget(verified, from), { replace: true })
+    } catch (err) { setError(passkeyMessage(err)) }
+    finally { setSubmitting(false) }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
       <form
@@ -122,6 +133,11 @@ export function LoginPage() {
         >
           {submitting ? 'Вход…' : 'Войти'}
         </button>
+        {browserSupportsWebAuthn() && <>
+          <button type="button" onClick={() => void handlePasskey()} disabled={submitting}
+            className="mt-3 w-full rounded-lg border border-blue-700 py-2.5 text-sm font-semibold text-blue-800 disabled:opacity-50">Войти с Face ID / ключом</button>
+          <p className="mt-2 text-xs text-slate-500">Для директора, который уже подключил ключ в своём кабинете.</p>
+        </>}
         <p className="mt-4 text-sm text-slate-600">Забыли пароль? Обратитесь к администратору за временным паролем.</p>
       </form>
     </div>

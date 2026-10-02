@@ -1,3 +1,4 @@
+import { PasskeysPage } from '@/pages/PasskeysPage'
 import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/context/AuthContext'
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/my-work-day" element={forRoles(<MyWorkDayPage />, EMPLOYEE_ROLES)} />
             <Route path="/workflow/tasks/:taskId" element={forRoles(<TaskFlowPage />, ['ADMIN','DIRECTOR','BRIGADIER','AGRONOMIST','WORKER','WATER_CARRIER'])} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/passkeys" element={forRoles(<PasskeysPage />, ['DIRECTOR'])} />
             <Route path="/change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/work-form/:sectionCode" element={<LegacyWorkFormRedirect />} />
